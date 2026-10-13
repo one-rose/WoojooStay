@@ -2,7 +2,7 @@ import React, { useId } from 'react'
 import { BRAND_LOGO, ORB_MARK, DUO_MARK } from '../logoPaths.js'
 import { useTheme } from '../ThemeContext.jsx'
 
-function Mark({ data, className, title, bodyFill = 'currentColor', starFill = 'currentColor', gradient }) {
+function Mark({ data, className, title, bodyFill = 'currentColor', starFill = 'currentColor', starOpacity = 'var(--mark-star-opacity, 1)', gradient }) {
   const gid = useId().replace(/:/g, '')
   const fill = gradient ? `url(#${gid})` : bodyFill
   return (
@@ -14,13 +14,13 @@ function Mark({ data, className, title, bodyFill = 'currentColor', starFill = 'c
           </linearGradient>
         </defs>
       )}
-      {data.body.map((d, i) => <path key={i} d={d} fill={fill} />)}
-      {data.star.map((d, i) => <path key={`s${i}`} d={d} fill={gradient ? fill : starFill} />)}
+      {data.body.map((d, i) => <path key={i} d={d} style={{ fill }} />)}
+      {data.star.map((d, i) => <path key={`s${i}`} d={d} style={{ fill: gradient ? fill : starFill, fillOpacity: starOpacity }} />)}
     </svg>
   )
 }
 
-/** 워드마크 — 브랜드 칼라시스템(2026.10.04)의 새 로고. 색만 시안별 토큰을 따른다. */
+/** 워드마크 — 브랜드 칼라시스템 2차(2026.10.13) 로고. 원형 O 안의 별은 따로 색·투명도를 받는다. */
 export function Logo({ footer = false, className = '' }) {
   const theme = useTheme()
   return (
@@ -30,6 +30,7 @@ export function Logo({ footer = false, className = '' }) {
       className={`logo ${className}`}
       bodyFill={footer ? 'var(--logo-footer)' : 'var(--logo)'}
       starFill={footer ? 'var(--logo-footer-star)' : 'var(--logo-star)'}
+      starOpacity={footer ? 'var(--logo-footer-star-opacity)' : 'var(--logo-star-opacity)'}
       gradient={!footer && theme.logoGradient}
     />
   )

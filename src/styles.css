@@ -21,7 +21,8 @@
   --expense-bg: #dca1ff; --expense-ink: #411085; --expense-panel: #7816d3; --expense-track: #d9a8ff;
   --expense-fill: linear-gradient(90deg, #8243ea, #a65cf8);
   --footer: #17131f; --footer-text: #b8acbe; --footer-muted: #9e91a7; --footer-line: rgba(255, 255, 255, .1);
-  --logo: #b55bff; --logo-star: #b55bff; --logo-footer: #b55bff; --logo-footer-star: #b55bff;
+  --logo: #b55bff; --logo-star: #b55bff; --logo-star-opacity: .5; --logo-footer: #b55bff; --logo-footer-star: #b55bff; --logo-footer-star-opacity: .5;
+  --mark-star-opacity: .5;
   --shadow-deep: rgba(65, 16, 133, .45); --switch-accent: #7037e4;
 
   --font: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
