@@ -11,9 +11,7 @@ function SectionHead({ no, title, children, illust, tight }) {
     <div className={`sec-head${tight ? " sec-head--tight" : ""}`}>
       <div className="sec-head__copy">
         <span className="pill pill--lg">SERVICE {no}</span>
-        <h2 className={`sec-title${tight ? " sec-title--tight" : ""}`}>
-          {title}
-        </h2>
+        <h2 className={`sec-title${tight ? " sec-title--tight" : ""}`}>{title}</h2>
         <p className="sec-desc">{children}</p>
       </div>
       {illust && <Illust name={illust} className="sec-head__illust" />}
@@ -25,10 +23,7 @@ function SectionHead({ no, title, children, illust, tight }) {
 const FEATURES = [
   ["4대 플랫폼 통합", "여러 채널의 리뷰를 한 화면에 모아 확인"],
   ["호텔 톤앤매너 학습", "숙박업소별 응대 문체를 설정해 일관되게 답변"],
-  [
-    "구독형 진입 서비스",
-    "부담 없이 시작해 자연스럽게 매출 데이터 서비스로 연결",
-  ],
+  ["구독형 진입 서비스", "부담 없이 시작해 자연스럽게 매출 데이터 서비스로 연결"],
 ];
 const REVIEWS = [
   {
@@ -71,13 +66,10 @@ export function Service01() {
       <div className="container s1">
         <div className="s1__copy">
           <span className="pill pill--lg">SERVICE 01</span>
-          <h2 className="sec-title sec-title--tight">
-            우주스테이 AI 자동리뷰댓글
-          </h2>
+          <h2 className="sec-title sec-title--tight">우주스테이 AI 자동리뷰댓글</h2>
           <p className="sec-desc">
             가장 자주 반복되는 운영업무부터 AI가 대신합니다. <br />
-            야놀자를 중심으로 4대 플랫폼 리뷰를 모아 빠르게 답글을 생성하고
-            관리합니다.
+            야놀자를 중심으로 4대 플랫폼 리뷰를 모아 빠르게 답글을 생성하고 관리합니다.
           </p>
           <ul className="features">
             {FEATURES.map(([t, d]) => (
@@ -126,16 +118,11 @@ export function Service01() {
             </ul>
           </div>
           <div className="rv-cta">
-            <Illust
-              name="robot"
-              className="rv-cta__robot"
-              alt="AI가 알아서 리뷰에 답변해요"
-            />
+            <Illust name="robot" className="rv-cta__robot" alt="AI가 알아서 리뷰에 답변해요" />
             <div>
               <span>고객 획득 포인트</span>
               <strong>
-                “리뷰 업무를 줄여드립니다”로 가입 <Arrow /> 이후 매출 데이터
-                서비스 확장
+                “리뷰 업무를 줄여드립니다”로 가입 <Arrow /> 이후 매출 데이터 서비스 확장
               </strong>
             </div>
             <Duo />
@@ -188,38 +175,15 @@ function TrendChart() {
     <div className="trend">
       <span className="trend__title">예약매출 추이</span>
       <div className="trend__plot">
-        <svg
-          viewBox="0 0 740 246"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
+        <svg viewBox="0 0 740 246" preserveAspectRatio="none" aria-hidden="true">
           {[60, 110, 160, 210].map((y) => (
-            <line
-              key={y}
-              x1="6"
-              x2="738"
-              y1={y}
-              y2={y}
-              className="trend__grid"
-              vectorEffect="non-scaling-stroke"
-            />
+            <line key={y} x1="6" x2="738" y1={y} y2={y} className="trend__grid" vectorEffect="non-scaling-stroke" />
           ))}
-          <path
-            d={`${line} L${last[0]},242 L${LINE[0][0]},242 Z`}
-            className="trend__area"
-          />
-          <path
-            d={line}
-            className="trend__line"
-            vectorEffect="non-scaling-stroke"
-          />
+          <path d={`${line} L${last[0]},242 L${LINE[0][0]},242 Z`} className="trend__area" />
+          <path d={line} className="trend__line" vectorEffect="non-scaling-stroke" />
         </svg>
         {LINE.slice(1, -1).map(([x, y]) => (
-          <span
-            key={x}
-            className="trend__dot"
-            style={{ left: `${(x / 740) * 100}%`, top: `${(y / 246) * 100}%` }}
-          >
+          <span key={x} className="trend__dot" style={{ left: `${(x / 740) * 100}%`, top: `${(y / 246) * 100}%` }}>
             <Orb />
           </span>
         ))}
@@ -232,15 +196,9 @@ export function Service02() {
   return (
     <section className="section section--alt">
       <div className="container">
-        <SectionHead
-          no="02"
-          title="우주스테이 디지털매출장부"
-          illust="mock-ledger"
-          tight
-        >
+        <SectionHead no="02" title="우주스테이 디지털매출장부" illust="mock-ledger" tight>
           예약·매출·광고비·정산 예정액을 한 화면에서 연결합니다. <br />
-          리뷰로 들어온 고객이 실제 매출 흐름까지 관리할 수 있도록 두 번째 구독
-          서비스를 제공합니다.
+          리뷰로 들어온 고객이 실제 매출 흐름까지 관리할 수 있도록 두 번째 구독 서비스를 제공합니다.
         </SectionHead>
 
         <div className="ledger">
@@ -285,9 +243,7 @@ export function Service02() {
         </div>
 
         <div className="bridge">
-          <strong>
-            모든 데이터가 쌓이면, 우주스테이의 금융을 연결할 수 있습니다.
-          </strong>
+          <strong>모든 데이터가 쌓이면, 우주스테이의 금융을 연결할 수 있습니다.</strong>
           <span className="bridge__line" aria-hidden="true" />
           <Orb className="bridge__orb" />
         </div>
@@ -338,10 +294,8 @@ export function Service03() {
           }
           illust="mock-finance"
         >
-          정산을 기다리는 매출과 앞으로 발생할 매출을 자금 흐름으로 연결합니다.{" "}
-          <br />
-          금융은 첫 서비스가 아니라, 운영 데이터가 충분히 쌓인 뒤 확장되는 세
-          번째 축입니다.
+          정산을 기다리는 매출과 앞으로 발생할 매출을 자금 흐름으로 연결합니다. <br />
+          금융은 첫 서비스가 아니라, 운영 데이터가 충분히 쌓인 뒤 확장되는 세 번째 축입니다.
         </SectionHead>
 
         <div className="fin-grid block-narrow">
@@ -399,21 +353,16 @@ export function Service04() {
   return (
     <section className="section section--alt section--s4">
       <div className="container">
-        <SectionHead
-          no="04"
-          title="매출을 넘어, 사람과 비용까지."
-          illust="mock-ops"
-        >
+        <SectionHead no="04" title="매출을 넘어, 사람과 비용까지." illust="mock-ops">
           숙박업소의 실제 운영을 구성하는 직원과 지출까지 연결합니다. <br />
-          우주스테이는 결국 “매출관리 앱”이 아니라 숙박업 경영 전체를 보는 운영
-          OS로 확장됩니다.
+          우주스테이는 결국 “매출관리 앱”이 아니라 숙박업 경영 전체를 보는 운영 OS로 확장됩니다.
         </SectionHead>
 
         <div className="ops-grid block-narrow">
           <article className="ops-card ops-card--hr">
             <Orb className="ops-card__orb" />
             <h3>
-              <span>우주스테이</span> 인력관리
+              <span>우주스테이</span> 알바관리
             </h3>
             <p>
               근로계약 · 근태관리 · 급여내역을 한 곳에서 연결 <br />

@@ -1,0 +1,19 @@
+/*
+ * 디자인 토큰 (색 이외)
+ * 색 토큰은 시안별로 달라서 src/infrastructure/brand/color-schemes.ts 에 있고,
+ * 레이아웃이 <style> 로 주입한다. (ui/scheme/scheme-stylesheet.ts)
+ */
+:root {
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
+    "Noto Sans KR", sans-serif;
+
+  /* 레이아웃: 1440 시안 기준, 본문 폭 1288px */
+  --container-max: 1288px;
+  --container-narrow: 1268px;
+  --gutter: clamp(20px, 5.28vw, 76px);
+
+  --radius-pill: 999px;
+
+  color-scheme: light;
+}

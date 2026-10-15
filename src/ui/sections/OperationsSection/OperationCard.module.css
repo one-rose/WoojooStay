@@ -1,0 +1,107 @@
+.card {
+  position: relative;
+  min-width: 0;
+  padding: 68px 36px 84px;
+  border-radius: 32px;
+}
+
+.card .mark {
+  position: absolute;
+  right: 30px;
+  top: 25px;
+  width: 34px;
+}
+
+.name {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+}
+
+.name span {
+  font-weight: 400;
+}
+
+.description {
+  margin-top: 10px;
+  font-size: 16px;
+  line-height: 28px;
+}
+
+.panel {
+  min-height: 220px;
+  margin-top: 90px;
+  padding: 20px 38px 26px;
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.panelTitle {
+  font-size: 15.3px;
+  font-weight: 800;
+}
+
+/* 알바관리: 회색 카드 + 흰 패널 */
+.neutral {
+  background: var(--panel);
+}
+
+.neutral .description {
+  color: var(--muted);
+}
+
+.neutral .mark {
+  color: var(--soft);
+}
+
+/* 지출관리: 강조 카드 + 진한 패널 */
+.highlight {
+  background: var(--expense-bg);
+  color: var(--expense-ink);
+}
+
+.highlight .mark {
+  color: var(--on-soft);
+}
+
+.highlight .panel {
+  padding-inline: 24px 34px;
+  background: var(--expense-panel);
+  color: var(--on-deep);
+}
+
+@media (max-width: 1100px) {
+  .card {
+    padding: 48px 28px 40px;
+  }
+
+  .panel {
+    margin-top: 40px;
+  }
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: 44px 18px 22px;
+    border-radius: 24px;
+  }
+
+  .name {
+    font-size: 26px;
+    line-height: 1.3;
+  }
+
+  .description {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .panel,
+  .highlight .panel {
+    min-height: 0;
+    margin-top: 28px;
+    padding: 18px 16px 20px;
+  }
+}

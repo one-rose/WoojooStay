@@ -1,0 +1,111 @@
+/* 왼쪽 글 영역 안에서 높이만 차지하고, 그림은 오른쪽으로 넘쳐 배치된다 */
+.slot {
+  position: relative;
+  width: 100%;
+  height: 295px;
+}
+
+.orbit {
+  position: absolute;
+  left: 363px;
+  top: -91px;
+  width: 430px;
+  height: 430px;
+}
+
+.ringInner,
+.ringOuter {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border: 1px solid var(--ring);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ringInner {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--soft) 26%, transparent) 0%, transparent 68%);
+}
+
+.ringOuter {
+  width: 430px;
+  height: 430px;
+}
+
+.core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 70px;
+  transform: translate(-50%, -50%);
+  color: var(--soft);
+}
+
+.item {
+  position: absolute;
+  left: calc(50% + var(--x));
+  top: calc(50% + var(--y));
+  transform: translate(-50%, -30px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--label);
+}
+
+.icon {
+  margin-bottom: 2px;
+}
+
+.item strong {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 18px;
+}
+
+/* 설명글: 잘 읽히도록 크고 진하게 (2026-10-15 피드백) */
+.item span {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 18px;
+  color: var(--ink);
+  opacity: 0.78;
+}
+
+@media (max-width: 1340px) {
+  .orbit {
+    left: auto;
+    right: -70px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .slot {
+    height: 430px;
+    margin-block: 8px;
+  }
+
+  .orbit {
+    left: 50%;
+    right: auto;
+    top: 0;
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 720px) {
+  .slot {
+    height: 400px;
+  }
+
+  .orbit {
+    transform: translateX(-50%) scale(0.86);
+    transform-origin: top center;
+  }
+}

@@ -1,32 +1,49 @@
-# 우주스테이 브랜드 홈페이지 (React 퍼블리싱)
+# 우주스테이 홈페이지
 
-시안 PDF(1440px)를 React + Vite 로 퍼블리싱한 프로젝트입니다.
-화면 하단의 **시안 바꾸기** 버튼(또는 ← → 방향키)으로 6개 칼라 시안을 전환합니다.
+숙박업 운영 플랫폼 **우주스테이(WOOJOO STAY)** 소개 페이지입니다.
+Next.js 16 (App Router) · React 19 · TypeScript · CSS Modules · pnpm
 
-## 실행
+## 시작하기
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # dist/ 에 정적 파일 생성
+nvm use            # Node 22 (.nvmrc)
+corepack enable    # pnpm 10 활성화
+pnpm install
+cp .env.example .env.local
+pnpm dev           # http://localhost:3000
 ```
 
-## 칼라 시안
+## 명령어
 
-| 코드 | 이름 | 구성 |
-| --- | --- | --- |
-| 원본 | Orbit Purple | 홈페이지 시안 원본 |
-| A | Heritage Blue | 헤리티지 블루 #002D72 + 브레스 블루 #0CA4F9 |
-| B | Flame Gradient | 플레임 블루 · 플레이풀 핑크 · 퓨처리스틱 시안 |
-| C | Morning Deep Blue | 모닝 딥블루 #1B2B45 + 선라이즈 오렌지 |
-| D | Blue Violet | #3617CE + 그레이 · 블랙 & 화이트 |
-| E | Red & Green | 레드 #E02D2D + 그린 #4AE68E |
+| 명령                        | 설명                                                                    |
+| --------------------------- | ----------------------------------------------------------------------- |
+| `pnpm dev`                  | 개발 서버                                                               |
+| `pnpm build` / `pnpm start` | 프로덕션 빌드 / 실행 (페이지는 정적으로 생성됨)                         |
+| `pnpm check`                | 타입 검사 + ESLint(레이어 규칙 포함) + Prettier — **PR 올리기 전 필수** |
+| `pnpm format`               | 코드 정렬                                                               |
+| `pnpm gen:illustrations`    | 일러스트 추가·교체 후 목록 파일 재생성                                  |
 
-## 구조
+## 환경 변수
 
-- `src/themes.js` — 시안별 색상 토큰(CSS 변수). 색을 고치려면 이 파일만 수정하면 됩니다.
-- `src/styles.css` — 전체 스타일. 모든 색은 토큰(`var(--…)`)만 참조합니다.
-- `src/sections/` — Hero, Services(01~04), Closing(로드맵·마무리·푸터)
-- `src/components/` — 로고/아이콘(Brand), 시안 전환 버튼(ThemeSwitcher)
-- `src/assets/illust/<시안>/` — 시안 색조에 맞춰 변환한 3D 일러스트
-- `src/logoPaths.js` — 시안 PDF에서 추출한 로고 벡터
+| 이름                          | 값                                          | 설명                                           |
+| ----------------------------- | ------------------------------------------- | ---------------------------------------------- |
+| `NEXT_PUBLIC_DEFAULT_SCHEME`  | `purple` \| `a` \| `b` \| `c` \| `d` \| `e` | 처음 보여줄 컬러 시안 (기본 `purple`)          |
+| `NEXT_PUBLIC_SCHEME_SWITCHER` | `on` \| `off`                               | 오른쪽 아래 시안 전환 버튼. 시안 확정 후 `off` |
+
+## 자주 하는 작업
+
+| 하고 싶은 일                   | 고칠 곳                                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| 문구·숫자 수정                 | `src/infrastructure/home/home-content.ko.ts` (이 파일 하나에 모든 카피가 있음)                          |
+| 컬러 시안 색 수정 / 시안 추가  | `src/infrastructure/brand/color-schemes.ts` (+ 추가 시 `src/core/brand/color-scheme.ts`의 `SCHEME_IDS`) |
+| 섹션 레이아웃 수정             | `src/ui/sections/<섹션>/` 의 `.tsx` + `.module.css`                                                     |
+| 공통 부품(버튼·필·KPI 카드 등) | `src/ui/components/`                                                                                    |
+| 일러스트 교체                  | `src/assets/illustrations/<시안>/` 에 같은 이름으로 덮어쓰기                                            |
+| 로고 교체                      | `src/ui/brand/logo-paths.ts`                                                                            |
+
+구조와 규칙은 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** 를 먼저 읽어주세요.
+
+## 배포
+
+Vercel 에 연결되어 있습니다. (Project Settings → Framework Preset: **Next.js**)
+`main` 에 push 하면 자동 배포됩니다.

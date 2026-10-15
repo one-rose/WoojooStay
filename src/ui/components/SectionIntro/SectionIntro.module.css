@@ -1,0 +1,64 @@
+.intro {
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.copy {
+  min-width: 0;
+}
+
+.title {
+  margin-top: 23px;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 48px;
+  letter-spacing: -0.015em;
+  color: var(--title);
+  text-wrap: balance;
+}
+
+.compact .title {
+  margin-top: 2px;
+}
+
+.description {
+  margin-top: 23px;
+  font-size: 16px;
+  line-height: 28px;
+  color: var(--muted);
+}
+
+.illustration {
+  width: 310px;
+  align-self: flex-start;
+  margin: 30px 0 -60px;
+  flex: none;
+}
+
+.compact .illustration {
+  margin-top: -14px;
+}
+
+@media (max-width: 1100px) {
+  .illustration {
+    width: 240px;
+  }
+}
+
+@media (max-width: 720px) {
+  .intro {
+    flex-direction: column;
+  }
+
+  .title {
+    font-size: 30px;
+    line-height: 1.25;
+  }
+
+  .illustration,
+  .compact .illustration {
+    margin: 0 auto;
+    width: min(300px, 80%);
+  }
+}

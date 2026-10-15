@@ -1,20 +1,35 @@
 {
-  "name": "woojoostay-home",
-  "private": true,
+  "name": "uzustay",
   "version": "0.1.0",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check",
+    "gen:illustrations": "node scripts/generate-illustration-manifest.mjs"
   },
   "dependencies": {
+    "next": "16.4.1",
     "pretendard": "^1.3.9",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.0.0"
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.1",
+    "prettier": "^3.9.10",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20.9"
   }
 }

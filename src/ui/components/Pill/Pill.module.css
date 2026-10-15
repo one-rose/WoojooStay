@@ -1,0 +1,70 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  background: var(--tint);
+  color: var(--label);
+  font-weight: 800;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.section {
+  height: 33px;
+  padding: 0 29px;
+  font-size: 16.7px;
+  letter-spacing: 0.005em;
+}
+
+.small {
+  height: 30px;
+  padding: 0 44px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.soft {
+  height: 26px;
+  padding: 0 28px;
+  font-size: 12px;
+  background: var(--soft-bg);
+  color: var(--soft-ink);
+}
+
+.tint {
+  height: 26px;
+  padding: 0 30px;
+  font-size: 14.7px;
+  background: var(--tint-2);
+}
+
+.date {
+  height: 30px;
+  padding: 0 36px;
+  font-size: 16px;
+  background: var(--tint-2);
+}
+
+.number {
+  height: 24px;
+  padding: 0 16px;
+  font-size: 14px;
+  background: var(--tint-2);
+}
+
+.inverse {
+  height: 30px;
+  padding: 0 22px;
+  font-size: 16.7px;
+  background: var(--road-pill);
+  color: var(--road-pill-ink);
+}
+
+@media (max-width: 720px) {
+  .section {
+    height: 30px;
+    padding: 0 16px;
+    font-size: 13.5px;
+  }
+}
