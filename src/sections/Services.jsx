@@ -4,6 +4,7 @@ import { Illust } from "../ThemeContext.jsx";
 import naverMark from "../assets/partners/naver-mark.webp";
 import yanoljaSm from "../assets/partners/yanolja-sm.webp";
 import agodaSm from "../assets/partners/agoda-sm.webp";
+import yeogiSm from "../assets/partners/yeogi.webp";
 
 function SectionHead({ no, title, children, illust, tight }) {
   return (
@@ -31,15 +32,7 @@ const FEATURES = [
 ];
 const REVIEWS = [
   {
-    tag: "NAVER",
-    stars: "★★★★★",
-    text: "방이 깔끔하고 침구가 편안했어요.",
-    note: "“깨끗함·편안함” 중심으로 감사 답글을 작성했습니다.",
-    logo: naverMark,
-    h: 26,
-  },
-  {
-    tag: "YANOLJA",
+    tag: "야놀자",
     stars: "★★★★☆",
     text: "체크인이 빨랐고 직원분이 친절했습니다.",
     note: "“빠른 체크인·친절 응대” 키워드를 반영했습니다.",
@@ -47,7 +40,23 @@ const REVIEWS = [
     h: 20,
   },
   {
-    tag: "AGODA",
+    tag: "여기어때",
+    stars: "★★★★★",
+    text: "조식이 맛있고 수영장 관리가 잘 되어 있었어요.",
+    note: "“조식·부대시설” 만족 포인트를 짚어 감사 답글을 작성했습니다.",
+    logo: yeogiSm,
+    h: 15,
+  },
+  {
+    tag: "네이버",
+    stars: "★★★★★",
+    text: "방이 깔끔하고 침구가 편안했어요.",
+    note: "“깨끗함·편안함” 중심으로 감사 답글을 작성했습니다.",
+    logo: naverMark,
+    h: 26,
+  },
+  {
+    tag: "아고다",
     stars: "★★★★★",
     text: "출장으로 이용했는데 위치가 정말 좋습니다.",
     note: "비즈니스 고객 관점의 재방문 유도 문장을 제안했습니다.",

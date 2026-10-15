@@ -1,6 +1,6 @@
 // 칼라 시안 정의
 // - purple : 홈페이지 시안 원본
-// - a ~ e  : 「우주스테이 브랜드 칼라시스템」 PDF 의 A ~ E 안 (로고 색은 2차·2026.10.13 기준)
+// - a ~ e  : 「우주스테이 브랜드 칼라시스템」 PDF 의 A ~ E 안 (로고 색은 5차·2026.10.14 기준)
 // 각 시안은 CSS 변수(토큰) 묶음이며, 화면의 모든 색은 이 토큰만 참조합니다.
 
 const base = {
@@ -101,7 +101,7 @@ export const THEMES = [
       '--expense-bg': 'linear-gradient(135deg, #FE38A9 0%, #8B95B8 50%, #09DFD5 100%)', '--expense-ink': '#0A0A0A', '--expense-panel': '#0A0A0A', '--expense-track': 'rgba(255,255,255,.2)',
       '--expense-fill': 'linear-gradient(90deg, #FE38A9, #09DFD5)',
       '--footer': '#0A0A0A', '--footer-text': '#C2C5CC', '--footer-muted': '#8E929B', '--footer-line': 'rgba(255,255,255,.12)',
-      '--logo': '#136CE0', '--logo-star': '#136CE0', '--logo-star-opacity': '0.5', '--logo-footer': '#F3F3F3', '--logo-footer-star': '#F3F3F3', '--logo-footer-star-opacity': '0.5',
+      '--logo': '#136CE0', '--logo-star': '#136CE0', '--logo-star-opacity': '1', '--logo-footer': '#F3F3F3', '--logo-footer-star': '#F3F3F3', '--logo-footer-star-opacity': '1',
       '--shadow-deep': 'rgba(6, 88, 224, .35)', '--switch-accent': '#0658E0',
     },
   },
@@ -132,7 +132,7 @@ export const THEMES = [
       '--expense-bg': '#DDDDDD', '--expense-ink': '#1C2B46', '--expense-panel': '#1C2B46', '--expense-track': 'rgba(255,255,255,.18)',
       '--expense-fill': 'linear-gradient(90deg, #FF5800, #FF8A4D)',
       '--footer': '#141F33', '--footer-text': '#BCC4D1', '--footer-muted': '#8C96A8', '--footer-line': 'rgba(255,255,255,.1)',
-      '--logo': '#1C2B46', '--logo-star': '#FF5800', '--logo-star-opacity': '0.5', '--logo-footer': '#E6E6E6', '--logo-footer-star': '#E6E6E6', '--logo-footer-star-opacity': '0.5',
+      '--logo': '#1C2B46', '--logo-star': '#FF5800', '--logo-star-opacity': '0.5', '--logo-footer': '#E6E6E6', '--logo-footer-star': '#FF5800', '--logo-footer-star-opacity': '1',
       '--shadow-deep': 'rgba(28, 43, 70, .4)', '--switch-accent': '#FF5800',
     },
   },
@@ -163,7 +163,7 @@ export const THEMES = [
       '--expense-bg': '#3617CE', '--expense-ink': '#FFFFFF', '--expense-panel': '#000000', '--expense-track': 'rgba(255,255,255,.2)',
       '--expense-fill': 'linear-gradient(90deg, #6F56F0, #A99BFF)',
       '--footer': '#000000', '--footer-text': '#CBCBCB', '--footer-muted': '#A0A0A0', '--footer-line': 'rgba(255,255,255,.14)',
-      '--logo': '#3617CE', '--logo-star': '#3617CE', '--logo-star-opacity': '0.5', '--logo-footer': '#F5F5F5', '--logo-footer-star': '#F5F5F5', '--logo-footer-star-opacity': '0.5',
+      '--logo': '#3617CE', '--logo-star': '#3617CE', '--logo-star-opacity': '0.5', '--logo-footer': '#F5F5F5', '--logo-footer-star': '#9586E1', '--logo-footer-star-opacity': '1',
       '--shadow-deep': 'rgba(0, 0, 0, .35)', '--switch-accent': '#3617CE',
     },
   },
@@ -194,7 +194,7 @@ export const THEMES = [
       '--expense-bg': '#4AE68E', '--expense-ink': '#012D1C', '--expense-panel': '#012D1C', '--expense-track': 'rgba(255,255,255,.18)',
       '--expense-fill': 'linear-gradient(90deg, #35AE6B, #4AE68E)',
       '--footer': '#290600', '--footer-text': '#D9C4BF', '--footer-muted': '#A88F8A', '--footer-line': 'rgba(255,255,255,.12)',
-      '--logo': '#E02D2D', '--logo-star': '#E02D2D', '--logo-star-opacity': '0.5', '--logo-footer': '#F5F5F5', '--logo-footer-star': '#F5F5F5', '--logo-footer-star-opacity': '0.5',
+      '--logo': '#E02D2D', '--logo-star': '#FF5800', '--logo-star-opacity': '1', '--logo-footer': '#F5F5F5', '--logo-footer-star': '#EA9191', '--logo-footer-star-opacity': '1',
       '--shadow-deep': 'rgba(41, 6, 0, .4)', '--switch-accent': '#E02D2D',
     },
   },

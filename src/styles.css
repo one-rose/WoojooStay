@@ -117,8 +117,8 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
   color: var(--label);
 }
 .orbit__item img { height: 54px; width: auto; margin-bottom: 2px; }
-.orbit__item strong { font-size: 12px; font-weight: 800; letter-spacing: .09em; line-height: 16px; }
-.orbit__item span { font-size: 12px; font-weight: 300; letter-spacing: .1em; line-height: 15px; }
+.orbit__item strong { font-size: 13.5px; font-weight: 800; letter-spacing: .06em; line-height: 18px; }
+.orbit__item span { margin-top: 2px; font-size: 14px; font-weight: 600; letter-spacing: .01em; line-height: 18px; color: var(--ink); opacity: .78; }
 
 .hero-dash { position: relative; align-self: start; margin-top: 0; z-index: 2; }
 .hero-dash__card {
