@@ -45,5 +45,5 @@ pnpm dev           # http://localhost:3000
 
 ## 배포
 
-Vercel 에 연결되어 있습니다. (Project Settings → Framework Preset: **Next.js**)
+Vercel 에 연결되어 있습니다. 프레임워크는 `vercel.json` 에 Next.js 로 고정되어 있습니다.
 `main` 에 push 하면 자동 배포됩니다.

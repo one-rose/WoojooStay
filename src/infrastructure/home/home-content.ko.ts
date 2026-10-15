@@ -9,7 +9,7 @@ export const homeContentKo: HomeContent = {
   meta: {
     title: "우주스테이 | 우주 핀테크 플랫폼",
     description:
-      "AI 리뷰 자동댓글로 쉽게 시작하고, 예약·매출 데이터를 쌓아 선정산·미래매출·인력·지출까지 연결하는 숙박업 운영 플랫폼",
+      "AI 리뷰 자동댓글로 쉽게 시작하고, 예약·매출 데이터를 쌓아 선정산·미래매출·알바·지출까지 연결하는 숙박업 운영 플랫폼",
   },
 
   header: {
@@ -26,7 +26,7 @@ export const homeContentKo: HomeContent = {
     title: ["리뷰에서 시작해,", "숙박업의 모든 경영을", "한 궤도에."],
     lead: [
       "AI 리뷰 자동댓글로 쉽게 시작하고, 예약·매출 데이터를 쌓아",
-      "선정산·미래매출·인력·지출까지 연결하는 숙박업 운영 플랫폼",
+      "선정산·미래매출·알바·지출까지 연결하는 숙박업 운영 플랫폼",
     ],
     primaryCta: { label: "무료로 시작하기", href: "#service" },
     secondaryCta: { label: "서비스 보기", href: "#service" },
@@ -277,11 +277,11 @@ export const homeContentKo: HomeContent = {
         title: "데이터가 쌓임",
         description: ["예약·매출·광고비·정산 데이터를 연결", "경영 판단에 필요한 기준을 만듭니다."],
       },
-      { title: "운영 전체로 확장", description: ["현금흐름·인력·지출까지 연결", "숙박업 운영 OS로 성장합니다."] },
+      { title: "운영 전체로 확장", description: ["현금흐름·알바·지출까지 연결", "숙박업 운영 OS로 성장합니다."] },
     ],
     band: {
       eyebrow: "WOOJOO STAY",
-      message: "리뷰부터 매출·정산·인력·지출까지, 숙박업의 모든 흐름을 한 궤도에.",
+      message: "리뷰부터 매출·정산·알바·지출까지, 숙박업의 모든 흐름을 한 궤도에.",
     },
   },
 
