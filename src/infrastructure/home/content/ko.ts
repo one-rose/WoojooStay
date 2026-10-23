@@ -333,7 +333,7 @@ export const homeContentKo: HomeContent = {
     ],
   },
   roadmap: {
-    eyebrow: "WOOJOOSTAY ROADMAP",
+    eyebrow: "WOOJOOSTAY\u00a0 ROADMAP",
     title: "서비스는 순서대로 커집니다",
     description: [
       "한 번에 모든 기능을 파는 것이 아니라, “자주 쓰는 업무”에서 시작해",

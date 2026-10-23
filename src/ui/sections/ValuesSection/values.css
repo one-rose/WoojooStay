@@ -138,8 +138,9 @@
   }
 }
 @media (max-width: 720px) {
+  /* 모바일 여백은 공통 .section 과 같게 */
   .closing {
-    padding-block: 56px 48px;
+    padding-block: 44px 52px;
   }
   .closing__title {
     font-size: 26px;

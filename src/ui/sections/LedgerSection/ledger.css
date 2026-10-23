@@ -272,3 +272,11 @@
     visibility: hidden;
   }
 }
+@media (max-width: 420px) {
+  /* 칸을 똑같이 나눠 가운데 정렬 — 마지막 날짜가 카드 밖으로 잘리지 않게 */
+  .trend__axis span {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+  }
+}

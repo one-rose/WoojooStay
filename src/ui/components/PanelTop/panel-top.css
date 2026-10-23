@@ -1,5 +1,7 @@
 .panel-top {
   display: flex;
+  /* 좁은 화면·긴 제목(외국어)이면 오른쪽 표시가 아래 줄로 내려간다 */
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;

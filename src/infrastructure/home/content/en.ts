@@ -360,7 +360,7 @@ export const homeContentEn: HomeContent = {
     ],
   },
   roadmap: {
-    eyebrow: "WOOJOOSTAY ROADMAP",
+    eyebrow: "WOOJOOSTAY\u00a0 ROADMAP",
     title: "Our services grow step by step",
     description: [
       "Rather than selling every feature at once, we start with “the tasks you do most”",

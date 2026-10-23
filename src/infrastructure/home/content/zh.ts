@@ -300,7 +300,7 @@ export const homeContentZh: HomeContent = {
     ],
   },
   roadmap: {
-    eyebrow: "WOOJOOSTAY ROADMAP",
+    eyebrow: "WOOJOOSTAY\u00a0 ROADMAP",
     title: "服务按顺序逐步扩展",
     description: [
       "我们不是一次性推销所有功能，而是从“最常用的工作”开始，",

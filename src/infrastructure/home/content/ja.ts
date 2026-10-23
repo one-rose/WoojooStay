@@ -338,7 +338,7 @@ export const homeContentJa: HomeContent = {
     ],
   },
   roadmap: {
-    eyebrow: "WOOJOOSTAY ROADMAP",
+    eyebrow: "WOOJOOSTAY\u00a0 ROADMAP",
     title: "サービスは順番に広がります",
     description: [
       "すべての機能を一度に売るのではなく、「よく使う業務」から始め、",

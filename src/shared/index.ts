@@ -5,3 +5,4 @@
 export { cx } from "./lib/cx";
 export { formatNumber, formatMillions } from "./lib/format";
 export { smoothPath, type Point } from "./lib/smooth-path";
+export { needsSpaceBetween } from "./lib/text";
