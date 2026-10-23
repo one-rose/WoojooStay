@@ -37,10 +37,11 @@ pnpm dev           # http://localhost:3000
 | 공통 부품(버튼·필·KPI 카드 등) | `src/ui/components/`                                                                                |
 | 이미지 교체                    | `src/assets/` 에 같은 이름으로 덮어쓰기                                                             |
 | 로고 교체                      | `src/ui/brand/logo-paths.ts`                                                                        |
+| 링크 공유 미리보기 이미지      | `public/og/<언어>.jpg` (1200×630) 같은 이름으로 덮어쓰기                                            |
 
 구조와 규칙은 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** 를 먼저 읽어주세요.
 
 ## 배포
 
 Vercel 에 연결되어 있습니다. 프레임워크는 `vercel.json` 에 Next.js 로 고정되어 있습니다.
-`main` 에 push 하면 자동 배포됩니다.
+`main` 에 push 하면 자동 배포됩니다. 도메인을 바꾸면 Vercel 환경 변수 `NEXT_PUBLIC_SITE_URL` 을 새 주소로 지정하세요 (공유 이미지 주소의 기준).

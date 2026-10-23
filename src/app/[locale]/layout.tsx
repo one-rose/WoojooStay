@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
-import { getHomeContent, isLocale, LOCALES, localePath } from "@/core";
+import { getHomeContent, isLocale, LOCALES, localePath, type Locale } from "@/core";
 import { homeContentRepository } from "@/infrastructure";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/ui/styles/tokens.css";
@@ -17,11 +17,19 @@ export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }
 
+/** 공유 미리보기 이미지 등 절대 주소의 기준. 도메인이 바뀌면 NEXT_PUBLIC_SITE_URL 로 지정 */
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://uzustay.vercel.app";
+
+const OG_LOCALE: Record<Locale, string> = { ko: "ko_KR", en: "en_US", ja: "ja_JP", zh: "zh_CN" };
+
 export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Promise<Metadata> {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const { meta } = await getHomeContent(homeContentRepository, locale);
+  // 카카오톡·슬랙·페이스북 등 링크 공유 시 보이는 이미지 (public/og/<언어>.jpg, 1200×630)
+  const image = { url: `/og/${locale}.jpg`, width: 1200, height: 630, alt: meta.ogTitle };
   return {
+    metadataBase: new URL(SITE_URL),
     title: meta.title,
     description: meta.description,
     icons: { icon: "/favicon.svg" },
@@ -29,7 +37,16 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
       canonical: localePath(locale),
       languages: Object.fromEntries(LOCALES.map((l) => [l, localePath(l)])),
     },
-    openGraph: { title: meta.ogTitle, description: meta.ogDescription, type: "website" },
+    openGraph: {
+      type: "website",
+      siteName: "WOOJOO STAY",
+      url: localePath(locale),
+      locale: OG_LOCALE[locale],
+      title: meta.ogTitle,
+      description: meta.ogDescription,
+      images: [image],
+    },
+    twitter: { card: "summary_large_image", title: meta.ogTitle, description: meta.ogDescription, images: [image] },
   };
 }
 
