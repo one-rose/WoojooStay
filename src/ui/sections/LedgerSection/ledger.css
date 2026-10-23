@@ -7,7 +7,8 @@
 }
 .ledger__body {
   display: grid;
-  grid-template-columns: minmax(0, 778px) minmax(0, 1fr);
+  /* 778 : 420 비율 유지 (1440 시안과 동일). 고정 778px 이면 1100~1340px 에서 오른쪽 카드가 밖으로 밀려남 */
+  grid-template-columns: minmax(0, 778fr) minmax(0, 420fr);
   gap: 29px;
   margin-top: 27px;
 }

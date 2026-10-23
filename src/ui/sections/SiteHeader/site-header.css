@@ -105,6 +105,7 @@
     display: none;
   }
 }
+
 @media (max-width: 720px) {
   .header__inner {
     height: 68px;
@@ -156,5 +157,33 @@
   .lang__btn img {
     width: 18px;
     height: 12px;
+  }
+}
+/* ── 화면 폭이 좁아질 때 헤더 항목이 서로 겹치거나 줄바뀌지 않게 ── */
+.header__nav,
+.lang,
+.lang__btn,
+.header__inner .btn {
+  flex: none;
+  white-space: nowrap;
+}
+@media (max-width: 1240px) {
+  .header__inner {
+    gap: 16px;
+  }
+  .header__nav {
+    gap: 24px;
+    margin-right: 8px;
+  }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  /* 태블릿: 언어 버튼은 국기만 */
+  .lang__btn {
+    padding: 0 6px;
+    min-width: 32px;
+    justify-content: center;
+  }
+  .lang__btn span {
+    display: none;
   }
 }

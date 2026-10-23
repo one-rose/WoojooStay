@@ -93,7 +93,9 @@
   font-weight: 800;
   line-height: 24px;
   letter-spacing: -0.02em;
-  white-space: nowrap;
+  /* 서비스 이름이 길면 카드 안에서 줄바꿈 (한 줄 고정이면 카드 밖으로 나감) */
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .step__meta {
   margin-top: 9px;
@@ -437,5 +439,23 @@ html:not([lang="ko"]) .step__card strong {
   }
   .step__icon {
     margin-top: 14px;
+  }
+}
+@media (max-width: 720px) {
+  /* 외국어 라벨(Operations 등)이 원 밖으로 나가지 않게 */
+  html:not([lang="ko"]) .growth__node em {
+    font-size: 12px;
+    letter-spacing: -0.02em;
+  }
+}
+/* 브랜드명(WOOJOO STAY)은 한 줄로 */
+.step__brand {
+  white-space: nowrap;
+}
+/* 외국어는 서비스 이름이 길어 카드 제목을 조금 작게 (모바일은 이미 작음) */
+@media (min-width: 721px) {
+  html:not([lang="ko"]) .step__card strong {
+    font-size: 17px;
+    line-height: 22px;
   }
 }

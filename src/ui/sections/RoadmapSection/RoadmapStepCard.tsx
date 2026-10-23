@@ -20,7 +20,7 @@ export function RoadmapStepCard({ step, order, brandPrefix, current, lit }: Road
       <div className="step__card">
         <span className={cx("step__badge", !step.badge && "is-empty")}>{step.badge}</span>
         <strong>
-          {brandPrefix}
+          <span className="step__brand">{brandPrefix}</span>
           <br />
           {step.name}
         </strong>

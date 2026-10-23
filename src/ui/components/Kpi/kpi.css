@@ -3,7 +3,8 @@
   gap: 14px;
 }
 .kpi-row--3 {
-  grid-template-columns: repeat(3, minmax(0, 160px));
+  /* 대시보드 폭을 꽉 채운다 (고정 160px 이면 넓은 화면에서 오른쪽이 비고 금액이 카드에 꽉 낌) */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-top: 26px;
 }
 .kpi {
