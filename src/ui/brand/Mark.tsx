@@ -1,60 +1,54 @@
-import { useId, type CSSProperties } from "react";
+import { useId } from "react";
 import type { MarkPaths } from "./logo-paths";
-
-interface Paint {
-  /** 단색이면 하나, 그라데이션이면 왼쪽→오른쪽 순서의 색 (CSS 값·변수 모두 가능) */
-  stops: readonly string[];
-  opacity?: string;
-}
 
 interface MarkProps {
   paths: MarkPaths;
-  body: Paint;
-  star: Paint;
-  title?: string;
   className?: string;
+  /** 있으면 스크린리더에 읽히는 그림, 없으면 장식 */
+  title?: string;
+  bodyFill?: string;
+  starFill?: string;
+  starOpacity?: string;
+  /** 왼쪽 → 오른쪽 그라데이션 색 (주면 본체·별 모두 이 색) */
+  gradient?: readonly string[];
 }
 
-/** 로고 계열 벡터를 그리는 기본 컴포넌트. 색은 모두 CSS 값으로 받는다. */
-export function Mark({ paths, body, star, title, className }: MarkProps) {
-  const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const fillOf = (paint: Paint, key: string) => (paint.stops.length > 1 ? `url(#${id}-${key})` : paint.stops[0]);
+/** 로고·마크 공통 SVG: 본체(body) + 별(star) 두 겹 */
+export function Mark({
+  paths,
+  className,
+  title,
+  bodyFill = "currentColor",
+  starFill = "currentColor",
+  starOpacity = "var(--mark-star-opacity, 1)",
+  gradient,
+}: MarkProps) {
+  const gradientId = useId().replace(/:/g, "");
+  const gradientFill = gradient ? `url(#${gradientId})` : undefined;
 
   return (
     <svg
       className={className}
       viewBox={`0 0 ${paths.w} ${paths.h}`}
+      shapeRendering="geometricPrecision"
       role={title ? "img" : undefined}
       aria-label={title}
       aria-hidden={title ? undefined : true}
     >
-      <defs>
-        {[
-          ["body", body],
-          ["star", star],
-        ].map(([key, paint]) =>
-          (paint as Paint).stops.length > 1 ? (
-            <linearGradient
-              key={key as string}
-              id={`${id}-${key}`}
-              x1="0"
-              y1="0"
-              x2={paths.w}
-              y2="0"
-              gradientUnits="userSpaceOnUse"
-            >
-              {(paint as Paint).stops.map((color, i, all) => (
-                <stop key={i} offset={i / (all.length - 1)} style={{ stopColor: color } as CSSProperties} />
-              ))}
-            </linearGradient>
-          ) : null,
-        )}
-      </defs>
+      {gradient && (
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2={paths.w} y2="0" gradientUnits="userSpaceOnUse">
+            {gradient.map((color, i) => (
+              <stop key={color} offset={i / (gradient.length - 1)} stopColor={color} />
+            ))}
+          </linearGradient>
+        </defs>
+      )}
       {paths.body.map((d, i) => (
-        <path key={i} d={d} style={{ fill: fillOf(body, "body"), fillOpacity: body.opacity }} />
+        <path key={i} d={d} style={{ fill: gradientFill ?? bodyFill }} />
       ))}
       {paths.star.map((d, i) => (
-        <path key={`s${i}`} d={d} style={{ fill: fillOf(star, "star"), fillOpacity: star.opacity }} />
+        <path key={`s${i}`} d={d} style={{ fill: gradientFill ?? starFill, fillOpacity: starOpacity }} />
       ))}
     </svg>
   );

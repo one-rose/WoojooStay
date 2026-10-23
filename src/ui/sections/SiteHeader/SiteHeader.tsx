@@ -1,22 +1,24 @@
-import type { SiteHeaderContent } from "@/core";
+import type { Locale, SiteHeaderContent } from "@/core";
 import { Logo } from "../../brand";
 import { Button, Container } from "../../components";
-import styles from "./SiteHeader.module.css";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import "./site-header.css";
 
-export function SiteHeader({ content }: { content: SiteHeaderContent }) {
+export function SiteHeader({ content, locale }: { content: SiteHeaderContent; locale: Locale }) {
   return (
-    <header className={styles.header}>
-      <Container className={styles.inner}>
-        <a href="#top" className={styles.logo} aria-label="우주스테이 홈">
+    <header className="header">
+      <Container className="header__inner">
+        <a href="#top" className="header__logo">
           <Logo />
         </a>
-        <nav className={styles.nav} aria-label="주요 메뉴">
+        <nav className="header__nav" aria-label={content.navLabel}>
           {content.nav.map((link) => (
-            <a key={link.href + link.label} href={link.href}>
+            <a key={link.href} href={link.href}>
               {link.label}
             </a>
           ))}
         </nav>
+        <LanguageSwitcher current={locale} />
         <Button href={content.cta.href} size="sm">
           {content.cta.label}
         </Button>

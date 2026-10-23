@@ -1,93 +1,96 @@
-import Image, { type StaticImageData } from "next/image";
-import type { ChannelId, PlatformId } from "@/core";
-import chipAgoda from "@/assets/platforms/chip-agoda.webp";
-import chipNaver from "@/assets/platforms/chip-naver.webp";
-import chipYanolja from "@/assets/platforms/chip-yanolja.webp";
-import chipYeogi from "@/assets/platforms/chip-yeogi.webp";
-import cardAgoda from "@/assets/platforms/card-agoda.webp";
-import cardNaver from "@/assets/platforms/card-naver.webp";
-import cardYanolja from "@/assets/platforms/card-yanolja.webp";
-import iconAgoda from "@/assets/platforms/icon-agoda.webp";
-import iconAirbnb from "@/assets/platforms/icon-airbnb.webp";
-import iconBear from "@/assets/platforms/icon-bear.webp";
-import iconKkulstay from "@/assets/platforms/icon-kkulstay.webp";
-import iconNaver from "@/assets/platforms/icon-naver.webp";
-import iconYanolja from "@/assets/platforms/icon-yanolja.webp";
-import iconYeogi from "@/assets/platforms/icon-yeogi.webp";
+import type { StaticImageData } from "next/image";
+import type { PlatformId, ReviewPhotoId } from "@/core";
+import agodaChannel from "@/assets/platforms/channel/agoda.webp";
+import ddnayoChannel from "@/assets/platforms/channel/ddnayo.webp";
+import hotelsChannel from "@/assets/platforms/channel/hotels.webp";
+import kkulChannel from "@/assets/platforms/channel/kkul.webp";
+import naverChannel from "@/assets/platforms/channel/naver.webp";
+import ondaChannel from "@/assets/platforms/channel/onda.webp";
+import tripChannel from "@/assets/platforms/channel/trip.webp";
+import yanoljaChannel from "@/assets/platforms/channel/yanolja.webp";
+import yeogiChannel from "@/assets/platforms/channel/yeogi.webp";
+import agodaLogo from "@/assets/platforms/logo/agoda.webp";
+import ddnayoLogo from "@/assets/platforms/logo/ddnayo.png";
+import hotelsLogo from "@/assets/platforms/logo/hotels.png";
+import kkulLogo from "@/assets/platforms/logo/kkul.png";
+import naverLogo from "@/assets/platforms/logo/naver.webp";
+import ondaLogo from "@/assets/platforms/logo/onda.png";
+import tripLogo from "@/assets/platforms/logo/trip.png";
+import yanoljaLogo from "@/assets/platforms/logo/yanolja.webp";
+import yeogiLogo from "@/assets/platforms/logo/yeogi.webp";
+import agodaReview from "@/assets/platforms/review/agoda.webp";
+import naverReview from "@/assets/platforms/review/naver.webp";
+import yanoljaReview from "@/assets/platforms/review/yanolja.webp";
+import yeogiReview from "@/assets/platforms/review/yeogi.webp";
+import breakfastPhoto from "@/assets/reviews/breakfast.webp";
+import cityroomPhoto from "@/assets/reviews/cityroom.webp";
+import hallPhoto from "@/assets/reviews/hall.webp";
+import lobbyPhoto from "@/assets/reviews/lobby.webp";
+import roomPhoto from "@/assets/reviews/room.webp";
+import { Img } from "./Img";
 
-export const PLATFORM_NAMES: Record<ChannelId, string> = {
-  yanolja: "야놀자",
-  yeogi: "여기어때",
-  naver: "네이버 예약",
-  agoda: "아고다",
-  kkulstay: "꿀스테이",
-  bear: "기타 채널",
-  airbnb: "에어비앤비",
-  other: "기타",
+/** 로고 이미지 + 표시 높이(px). 로고마다 여백이 달라 시안에 맞춰 높이를 따로 정했다. */
+type Sized = readonly [StaticImageData, number];
+
+/** 플랫폼 띠의 큰 로고 */
+const STRIP_LOGOS: Record<PlatformId, Sized> = {
+  yanolja: [yanoljaLogo, 24],
+  yeogi: [yeogiLogo, 16],
+  agoda: [agodaLogo, 32],
+  naver: [naverLogo, 30],
+  trip: [tripLogo, 26],
+  hotels: [hotelsLogo, 22],
+  onda: [ondaLogo, 20],
+  kkul: [kkulLogo, 26],
+  ddnayo: [ddnayoLogo, 24],
 };
 
-interface Asset {
-  src: StaticImageData;
-  /** 화면 표시 높이(px) */
-  height: number;
-}
-
-/** 플랫폼 띠(로고 칩)용 워드마크 */
-const CHIP: Record<PlatformId, Asset> = {
-  yanolja: { src: chipYanolja, height: 24 },
-  yeogi: { src: chipYeogi, height: 16 },
-  agoda: { src: chipAgoda, height: 32 },
-  naver: { src: chipNaver, height: 30 },
+/** 리뷰 카드 오른쪽 위 로고 (리뷰 예시가 있는 채널만) */
+const REVIEW_LOGOS: Partial<Record<PlatformId, Sized>> = {
+  yanolja: [yanoljaReview, 20],
+  yeogi: [yeogiReview, 15],
+  naver: [naverReview, 26],
+  agoda: [agodaReview, 26],
 };
 
-/** 리뷰 카드 오른쪽 위 로고 */
-const CARD: Record<PlatformId, Asset> = {
-  yanolja: { src: cardYanolja, height: 20 },
-  yeogi: { src: chipYeogi, height: 15 },
-  naver: { src: cardNaver, height: 26 },
-  agoda: { src: cardAgoda, height: 26 },
+/** 그래프 아래 둥근 채널 아이콘 */
+const CHANNEL_ICONS: Record<PlatformId, StaticImageData> = {
+  yanolja: yanoljaChannel,
+  yeogi: yeogiChannel,
+  agoda: agodaChannel,
+  naver: naverChannel,
+  trip: tripChannel,
+  hotels: hotelsChannel,
+  onda: ondaChannel,
+  kkul: kkulChannel,
+  ddnayo: ddnayoChannel,
 };
 
-/** 채널 그래프 아래 앱 아이콘 (16px 정사각형) */
-const ICON: Partial<Record<ChannelId, StaticImageData>> = {
-  yanolja: iconYanolja,
-  yeogi: iconYeogi,
-  naver: iconNaver,
-  agoda: iconAgoda,
-  kkulstay: iconKkulstay,
-  bear: iconBear,
-  airbnb: iconAirbnb,
+const REVIEW_PHOTOS: Record<ReviewPhotoId, StaticImageData> = {
+  lobby: lobbyPhoto,
+  hall: hallPhoto,
+  breakfast: breakfastPhoto,
+  room: roomPhoto,
+  cityroom: cityroomPhoto,
 };
 
 interface PlatformLogoProps {
   platform: PlatformId;
-  variant: "chip" | "card";
-  className?: string;
-  /** 주변에 이미 이름이 적혀 있으면 true (스크린리더 중복 방지) */
-  decorative?: boolean;
+  variant: "strip" | "review";
+  alt: string;
 }
 
-export function PlatformLogo({ platform, variant, className, decorative = false }: PlatformLogoProps) {
-  const asset = (variant === "chip" ? CHIP : CARD)[platform];
-  return (
-    <Image
-      src={asset.src}
-      alt={decorative ? "" : PLATFORM_NAMES[platform]}
-      className={className}
-      style={{ height: asset.height, width: "auto" }}
-      sizes={`${Math.ceil((asset.height * asset.src.width) / asset.src.height)}px`}
-    />
-  );
+export function PlatformLogo({ platform, variant, alt }: PlatformLogoProps) {
+  const sized = variant === "strip" ? STRIP_LOGOS[platform] : REVIEW_LOGOS[platform];
+  if (!sized) return null;
+  const [src, height] = sized;
+  return <Img src={src} alt={alt} style={{ height }} />;
 }
 
-interface ChannelIconProps {
-  channel: ChannelId;
-  className?: string;
+export function ChannelIcon({ platform, alt, className }: { platform: PlatformId; alt: string; className?: string }) {
+  return <Img src={CHANNEL_ICONS[platform]} alt={alt} className={className} />;
 }
 
-/** 채널 앱 아이콘. 아이콘이 없는 채널은 빈 자리만 차지한다 */
-export function ChannelIcon({ channel, className }: ChannelIconProps) {
-  const src = ICON[channel];
-  if (!src) return <span className={className} aria-hidden="true" />;
-  return <Image src={src} alt={PLATFORM_NAMES[channel]} className={className} width={16} height={16} />;
+export function ReviewPhoto({ photo, alt }: { photo: ReviewPhotoId; alt: string }) {
+  return <Img src={REVIEW_PHOTOS[photo]} alt={alt} loading="lazy" />;
 }

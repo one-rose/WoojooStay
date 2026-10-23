@@ -1,8 +1,7 @@
 import type { RoadmapStep } from "@/core";
 import { cx } from "@/shared";
 import { OrbMark } from "../../brand";
-import { LineIcon } from "../../components";
-import styles from "./RoadmapStepCard.module.css";
+import { StepIcon } from "../../components";
 
 interface RoadmapStepCardProps {
   step: RoadmapStep;
@@ -16,21 +15,20 @@ interface RoadmapStepCardProps {
 
 export function RoadmapStepCard({ step, order, brandPrefix, current, lit }: RoadmapStepCardProps) {
   return (
-    <li className={cx(styles.step, current && styles.current, lit && styles.lit)}>
-      <span className={styles.dot}>{String(order).padStart(2, "0")}</span>
-      <div className={styles.card}>
-        <span className={cx(styles.badge, !step.badge && styles.empty)}>{step.badge}</span>
-        <strong className={styles.name}>
-          {brandPrefix} <br />
+    <li className={cx("step", current && "step--now", lit && "step--lit")}>
+      <span className="step__dot">{String(order).padStart(2, "0")}</span>
+      <div className="step__card">
+        <span className={cx("step__badge", !step.badge && "is-empty")}>{step.badge}</span>
+        <strong>
+          {brandPrefix}
+          <br />
           {step.name}
         </strong>
-        <span className={styles.tags}>
+        <span className="step__meta">
           {step.tags[0]} <br />
           {step.tags[1]}
         </span>
-        <span className={styles.icon} aria-hidden="true">
-          {step.icon === "brand" ? <OrbMark className={styles.orb} /> : <LineIcon name={step.icon} />}
-        </span>
+        <span className="step__icon">{step.icon === "brand" ? <OrbMark /> : <StepIcon name={step.icon} />}</span>
       </div>
     </li>
   );

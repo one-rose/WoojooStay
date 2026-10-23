@@ -1,0 +1,441 @@
+.roadmap {
+  background: var(--road-bg);
+  color: var(--on-deep);
+  padding-block: 82px 96px;
+  margin-top: 52px;
+}
+.section--alt + .roadmap {
+  box-shadow: 0 -52px 0 var(--bg-alt);
+}
+.roadmap__title {
+  margin-top: 31px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 44px;
+  letter-spacing: -0.01em;
+  color: var(--on-deep);
+}
+.roadmap__desc {
+  margin-top: 15px;
+  font-size: 16px;
+  line-height: 28px;
+}
+.roadmap__track {
+  position: relative;
+  margin-top: 115px;
+}
+.roadmap__track:before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 15px;
+  height: 2px;
+  background: var(--road-line);
+}
+.steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 174px));
+  justify-content: space-between;
+  padding-inline: 9px 0;
+  margin-right: -6px;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+}
+.step__dot {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--road-card);
+  color: var(--on-deep-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.step--lit .step__dot {
+  background: var(--road-dot);
+  color: #fff;
+}
+.step__card {
+  position: relative;
+  width: 100%;
+  min-height: 230px;
+  border-radius: 18px;
+  padding: 18px 16px 24px 21px;
+  background: var(--road-card);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.step__badge {
+  display: inline-grid;
+  place-items: center;
+  height: 21px;
+  padding: 0 17px;
+  border-radius: 99px;
+  font-size: 14px;
+  font-weight: 800;
+  background: var(--road-icon);
+  color: color-mix(in srgb, var(--road-card) 60%, #fff);
+}
+.step__badge.is-empty {
+  visibility: hidden;
+}
+.step__card strong {
+  margin-top: 16px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.step__meta {
+  margin-top: 9px;
+  font-size: 13.3px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--on-deep-muted);
+}
+.step__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--road-icon);
+  color: #fff;
+  margin: auto auto 0;
+  transform: translate(-3px);
+}
+.step__icon svg {
+  width: 24px;
+  height: 24px;
+}
+.step--now .step__card {
+  background: var(--road-now);
+  color: var(--road-now-ink);
+}
+.step--now .step__badge {
+  background: #fff;
+  color: var(--road-pill-ink);
+}
+.step--now .step__meta {
+  color: var(--road-now-muted);
+}
+.step--now .step__icon {
+  background: none;
+}
+.step--now .step__icon .orb {
+  width: 37px;
+  height: auto;
+  color: var(--road-now-ink);
+}
+.growth {
+  margin-top: 82px;
+  max-width: 1270px;
+  margin-left: 3px;
+  border-radius: 24px;
+  padding: 32px 46px 36px;
+  background: var(--road-card);
+  border: 1px solid color-mix(in srgb, #fff 16%, transparent);
+}
+.growth__label {
+  display: block;
+  font-size: 18.7px;
+  font-weight: 800;
+  color: var(--on-deep-label);
+}
+.growth__text {
+  display: block;
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 600;
+}
+.growth__flow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 11px;
+  padding-inline: 70px 62px;
+}
+.growth__flow li {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+.growth__flow li:last-child {
+  flex: 0;
+}
+.growth__flow li:not(:last-child):after {
+  content: "";
+  flex: 1;
+  align-self: center;
+  height: 2px;
+  margin: 12px 14px 0 8px;
+  background: color-mix(in srgb, #fff 55%, transparent);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+}
+.growth__flow li:not(:last-child):before {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: calc(50% + 0px);
+  border: 6px solid transparent;
+  border-left: 11px solid color-mix(in srgb, #fff 55%, transparent);
+  border-right: 0;
+}
+.growth__node {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: end center;
+  width: 92px;
+  height: 92px;
+  margin-top: 12px;
+  border-radius: 50%;
+  background: var(--road-icon);
+}
+.growth__node img {
+  position: absolute;
+  left: 50%;
+  top: -12px;
+  height: 70px;
+  width: auto;
+  max-width: none;
+  transform: translate(-50%);
+}
+.growth__node em {
+  font-style: normal;
+  font-size: 16px;
+  color: var(--on-deep-muted);
+  padding-bottom: 6px;
+  position: relative;
+}
+.roadmap__desc {
+  line-height: 30px;
+}
+.step__card {
+  padding: 22px 16px 16px 21px;
+  min-height: 216px;
+}
+.growth {
+  padding: 36px 46px 28px;
+}
+html:not([lang="ko"]) .step__card strong {
+  white-space: normal;
+}
+.growth__node {
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.growth__node:hover {
+  background: var(--accent);
+}
+.growth__node:hover em {
+  color: #fff;
+}
+.step__card,
+.step__dot,
+.step__icon,
+.step__badge,
+.step__meta {
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.step {
+  cursor: pointer;
+}
+.step:hover .step__card {
+  background: var(--road-now);
+  color: var(--road-now-ink);
+  transform: translateY(-6px);
+  box-shadow: 0 18px 32px -14px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.step:hover .step__meta {
+  color: var(--road-now-muted);
+}
+.step:hover .step__dot {
+  background: var(--road-dot);
+  color: #fff;
+  transform: scale(1.12);
+}
+.step:hover .step__icon {
+  background: color-mix(in srgb, #fff 22%, transparent);
+  color: #fff;
+}
+.step:hover .step__badge:not(.is-empty) {
+  background: #fff;
+  color: var(--road-pill-ink);
+}
+.steps:has(.step:hover) .step--now:not(:hover) .step__card {
+  background: var(--road-card);
+  color: var(--on-deep);
+  box-shadow: none;
+}
+.steps:has(.step:hover) .step--now:not(:hover) .step__meta {
+  color: var(--on-deep-muted);
+}
+.steps:has(.step:hover) .step--now:not(:hover) .step__badge {
+  background: var(--road-icon);
+  color: color-mix(in srgb, var(--road-card) 60%, #fff);
+}
+.steps:has(.step:hover) .step--now:not(:hover) .step__icon {
+  background: var(--road-icon);
+}
+.steps:has(.step:hover) .step--now:not(:hover) .step__icon .orb {
+  width: 24px;
+  color: #fff;
+}
+.roadmap {
+  padding-block: 64px 72px;
+  margin-top: 40px;
+}
+.section--alt + .roadmap {
+  box-shadow: 0 -40px 0 var(--bg-alt);
+}
+@media (max-width: 1340px) {
+  .steps {
+    gap: 14px;
+    margin-right: 0;
+    padding: 0;
+  }
+  .step__card strong {
+    white-space: normal;
+  }
+  .growth__flow {
+    padding-inline: 20px;
+  }
+}
+@media (max-width: 1100px) {
+  .roadmap__desc br {
+    display: none;
+  }
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 28px;
+  }
+  .roadmap__track:before {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .roadmap {
+    padding-block: 56px 40px;
+  }
+  .roadmap__title {
+    font-size: 26px;
+    line-height: 1.3;
+    margin-top: 22px;
+  }
+  .roadmap__track {
+    margin-top: 36px;
+  }
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .step {
+    gap: 12px;
+  }
+  .step__card {
+    min-height: 200px;
+    padding: 16px 14px 18px;
+  }
+  .step__card strong {
+    font-size: 17px;
+    line-height: 1.25;
+  }
+  .growth {
+    margin-top: 40px;
+    padding: 24px 18px 26px;
+  }
+  .growth__text {
+    font-size: 17px;
+  }
+  .growth__flow {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 22px 14px;
+    padding: 0;
+    margin-top: 20px;
+  }
+  .growth__flow li,
+  .growth__flow li:last-child {
+    flex: 0 0 auto;
+  }
+  .growth__flow li:after,
+  .growth__flow li:before {
+    display: none;
+  }
+  .growth__node {
+    width: 84px;
+    height: 84px;
+  }
+  .growth__node img {
+    height: 62px;
+  }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  .growth__flow {
+    padding-inline: 0;
+  }
+  .growth__node {
+    width: 80px;
+    height: 80px;
+  }
+  .growth__node img {
+    height: 60px;
+  }
+}
+@media (min-width: 721px) and (max-width: 1100px) and (max-height: 820px) {
+  .roadmap {
+    padding-block: 52px 56px;
+  }
+}
+@media (max-width: 720px) {
+  .roadmap {
+    margin-top: 28px;
+  }
+}
+@media (max-width: 420px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .step__card {
+    min-height: 180px;
+    padding: 16px 12px 14px;
+  }
+  .step__card strong {
+    font-size: 15.5px;
+  }
+  .growth__node {
+    width: 72px;
+    height: 72px;
+  }
+  .growth__node img {
+    height: 54px;
+  }
+}
+@media (max-width: 360px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .step__card {
+    min-height: 0;
+  }
+  .step__icon {
+    margin-top: 14px;
+  }
+}

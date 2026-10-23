@@ -1,0 +1,349 @@
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 37px;
+  margin-top: 69px;
+}
+.ops-card {
+  position: relative;
+  border-radius: 32px;
+  padding: 68px 36px 84px;
+  min-width: 0;
+}
+.ops-card__orb {
+  position: absolute;
+  right: 30px;
+  top: 25px;
+  width: 34px;
+}
+.ops-card h3 {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+}
+.ops-card h3 span {
+  font-weight: 400;
+}
+.ops-card > p {
+  margin-top: 10px;
+  font-size: 16px;
+  line-height: 28px;
+}
+.ops-card--hr {
+  background: var(--panel);
+}
+.ops-card--hr > p {
+  color: var(--muted);
+}
+.ops-card--hr .ops-card__orb {
+  color: var(--soft);
+}
+.ops-card--exp {
+  background: var(--expense-bg);
+  color: var(--expense-ink);
+}
+.ops-card--exp .ops-card__orb {
+  color: var(--on-soft);
+}
+.ops-panel {
+  margin-top: 90px;
+  border-radius: 20px;
+  padding: 20px 38px 26px;
+  min-height: 220px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.ops-panel > strong {
+  font-size: 15.3px;
+  font-weight: 800;
+}
+.ops-card--exp .ops-panel {
+  background: var(--expense-panel);
+  color: var(--on-deep);
+  padding-inline: 24px 34px;
+}
+.staff {
+  margin-top: 12px;
+  display: grid;
+  gap: 15px;
+}
+.staff li {
+  display: grid;
+  grid-template-columns: 32px 58px minmax(20px, 172px) 1fr auto;
+  align-items: center;
+  column-gap: 24px;
+}
+.staff__avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tint-2);
+  color: var(--label);
+  font-size: 14.7px;
+}
+.staff__name {
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.staff__name b {
+  display: block;
+  font-size: 15.3px;
+  font-weight: 700;
+}
+.staff__name small {
+  font-size: 11.3px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.staff__line {
+  height: 1px;
+  background: var(--label);
+}
+.staff__num {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.staff__num:last-child {
+  text-align: right;
+  min-width: 66px;
+}
+.expense {
+  margin-top: 18px;
+  display: grid;
+  gap: 18px;
+}
+.expense li {
+  display: grid;
+  grid-template-columns: 70px minmax(40px, 270px) 1fr;
+  align-items: center;
+  column-gap: 24px;
+}
+.expense__label {
+  font-size: 13.3px;
+  font-weight: 600;
+  color: var(--on-deep-muted);
+  white-space: nowrap;
+}
+.expense__track {
+  height: 7px;
+  border-radius: 99px;
+  background: var(--expense-track);
+  overflow: hidden;
+}
+.expense__track i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--expense-fill);
+}
+.expense__amt {
+  text-align: right;
+  font-size: 13.3px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.expense__amt .won {
+  font-size: 1em;
+  font-weight: 300;
+  margin: 0;
+}
+.ops-card--hr h3 {
+  color: var(--second, inherit);
+}
+.ops-card--hr h3 span {
+  color: var(--ink);
+}
+.ops-card > p {
+  line-height: 1.75;
+}
+.ops-card {
+  padding: 40px 36px 28px;
+}
+.ops-card > p {
+  margin-top: 8px;
+}
+.ops-panel {
+  padding: 22px 38px 18px;
+  min-height: 0;
+  margin-top: 28px;
+}
+.staff {
+  margin-top: 10px;
+  gap: 12px;
+}
+.expense {
+  margin-top: 12px;
+  gap: 14px;
+}
+.ops-card--exp .ops-panel {
+  padding: 26px 34px 20px 24px;
+}
+.ops-card {
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+.ops-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 30px -16px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.ops-card--hr .ops-panel {
+  background: var(--expense-panel);
+  color: var(--on-deep);
+}
+.ops-card--hr .staff__avatar {
+  background: color-mix(in srgb, var(--on-deep) 14%, transparent);
+  color: var(--on-deep);
+}
+.ops-card--hr .staff__name small {
+  color: var(--on-deep-muted);
+}
+.ops-card--hr .staff__line {
+  position: relative;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--expense-track);
+  overflow: hidden;
+}
+.ops-card--hr .staff__line:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--w, 80%);
+  border-radius: 99px;
+  background: var(--expense-fill);
+}
+.ops-card--hr .staff li:nth-child(1) .staff__line {
+  --w: 88%;
+}
+.ops-card--hr .staff li:nth-child(2) .staff__line {
+  --w: 82%;
+}
+.ops-card--hr .staff li:nth-child(3) .staff__line {
+  --w: 76%;
+}
+.ops-card--hr .staff__num {
+  color: var(--on-deep);
+}
+.ops-card--hr .staff__num:last-child {
+  color: var(--on-deep-muted);
+}
+@media (max-width: 1340px) {
+  .staff li {
+    column-gap: 14px;
+  }
+}
+@media (max-width: 1100px) {
+  .ops-card > p br {
+    display: none;
+  }
+  .ops-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .ops-panel {
+    margin-top: 40px;
+  }
+  .ops-card {
+    padding: 48px 28px 40px;
+  }
+}
+@media (max-width: 720px) {
+  .ops-grid {
+    margin-top: 44px;
+  }
+  .ops-card {
+    padding: 44px 18px 22px;
+    border-radius: 24px;
+  }
+  .ops-card h3 {
+    font-size: 26px;
+    line-height: 1.3;
+  }
+  .ops-card > p {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .ops-panel,
+  .ops-card--exp .ops-panel {
+    padding: 18px 16px 20px;
+    min-height: 0;
+    margin-top: 28px;
+  }
+  .staff li {
+    grid-template-columns: 32px minmax(0, 1fr) auto auto;
+    column-gap: 12px;
+  }
+  .staff__line {
+    display: none;
+  }
+  .staff__num {
+    font-size: 14px;
+  }
+  .staff__num:last-child {
+    min-width: 0;
+  }
+  .expense li {
+    grid-template-columns: 58px minmax(30px, 1fr) auto;
+    column-gap: 12px;
+  }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  .ops-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .ops-card {
+    padding: 44px 20px 24px;
+  }
+  .ops-card h3 {
+    font-size: 24px;
+    line-height: 1.3;
+  }
+  .ops-card > p {
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .ops-panel,
+  .ops-card--exp .ops-panel {
+    padding: 20px 16px 16px;
+    margin-top: 28px;
+  }
+  .staff li {
+    grid-template-columns: 32px minmax(0, 1fr) auto auto;
+    column-gap: 12px;
+  }
+  .staff__line {
+    display: none;
+  }
+  .expense li {
+    grid-template-columns: 62px minmax(30px, 1fr) auto;
+    column-gap: 12px;
+  }
+}
+@media (max-width: 420px) {
+  .ops-card h3 {
+    font-size: 22px;
+  }
+  .staff li {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    column-gap: 10px;
+  }
+  .staff__num:last-child {
+    display: none;
+  }
+  .expense li {
+    grid-template-columns: 54px minmax(24px, 1fr) auto;
+    column-gap: 10px;
+  }
+}

@@ -1,45 +1,48 @@
-import type { CSSProperties } from "react";
+import type { StaticImageData } from "next/image";
 import type { IllustrationId } from "@/core";
 import { cx } from "@/shared";
-import { ILLUSTRATIONS } from "./illustration-manifest";
-import styles from "./Illustration.module.css";
+import chat from "@/assets/illustrations/chat.webp";
+import data from "@/assets/illustrations/data.webp";
+import finance from "@/assets/illustrations/finance.webp";
+import join from "@/assets/illustrations/join.webp";
+import ledger from "@/assets/illustrations/ledger.webp";
+import ops from "@/assets/illustrations/ops.webp";
+import people from "@/assets/illustrations/people.webp";
+import receipt from "@/assets/illustrations/receipt.webp";
+import revisit from "@/assets/illustrations/revisit.webp";
+import wallet from "@/assets/illustrations/wallet.webp";
+import robot from "@/assets/illustrations/robot.webp";
+import mock_ledger from "@/assets/illustrations/mock-ledger.webp";
+import mock_finance from "@/assets/illustrations/mock-finance.webp";
+import mock_ops from "@/assets/illustrations/mock-ops.webp";
+import robot_notext from "@/assets/illustrations/notext/robot.webp";
+import mock_ledger_notext from "@/assets/illustrations/notext/mock-ledger.webp";
+import mock_finance_notext from "@/assets/illustrations/notext/mock-finance.webp";
+import mock_ops_notext from "@/assets/illustrations/notext/mock-ops.webp";
+import { Img } from "./Img";
 
-interface IllustrationProps {
-  id: IllustrationId;
-  /**
-   * 표시 높이(px). 주면 너비는 원본 비율로 계산한다.
-   * 안 주면 className 에서 width 를 지정한다 (높이는 비율로 자동).
-   */
-  height?: number;
-  className?: string;
-  /** 설명이 필요한 그림일 때만. 없으면 장식으로 취급 */
-  alt?: string;
-}
+const ILLUSTRATIONS: Record<IllustrationId, StaticImageData> = {
+  chat: chat,
+  data: data,
+  finance: finance,
+  join: join,
+  ledger: ledger,
+  ops: ops,
+  people: people,
+  receipt: receipt,
+  revisit: revisit,
+  wallet: wallet,
+  robot: robot,
+  "mock-ledger": mock_ledger,
+  "mock-finance": mock_finance,
+  "mock-ops": mock_ops,
+  "robot-notext": robot_notext,
+  "mock-ledger-notext": mock_ledger_notext,
+  "mock-finance-notext": mock_finance_notext,
+  "mock-ops-notext": mock_ops_notext,
+};
 
-/**
- * 시안마다 색조가 다른 3D 일러스트.
- * 이미지 주소는 시안 스타일시트의 CSS 변수(--illust-<id>)에 들어 있어서,
- * 시안을 바꾸면 자바스크립트 없이 CSS 만으로 그림이 바뀐다.
- */
-export function Illustration({ id, height, className, alt }: IllustrationProps) {
-  const natural = ILLUSTRATIONS.purple[id];
-  const style = {
-    aspectRatio: `${natural.width} / ${natural.height}`,
-    backgroundImage: `var(${illustrationToken(id)})`,
-    ...(height ? { height, width: Math.round((height * natural.width) / natural.height) } : null),
-  } as CSSProperties;
-
-  return (
-    <span
-      className={cx(styles.illustration, className)}
-      style={style}
-      role={alt ? "img" : undefined}
-      aria-label={alt}
-      aria-hidden={alt ? undefined : true}
-    />
-  );
-}
-
-export function illustrationToken(id: IllustrationId): `--${string}` {
-  return `--illust-${id}`;
+/** 3D 일러스트 (컬러 시안 C). 크기는 사용하는 곳의 CSS 가 정한다. */
+export function Illustration({ id, className, alt = "" }: { id: IllustrationId; className?: string; alt?: string }) {
+  return <Img src={ILLUSTRATIONS[id]} alt={alt} className={cx("illust", className)} />;
 }

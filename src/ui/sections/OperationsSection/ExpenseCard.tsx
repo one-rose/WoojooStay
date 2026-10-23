@@ -1,39 +1,44 @@
 import type { OperationsContent } from "@/core";
 import { formatMillions } from "@/shared";
-import { OperationCard } from "./OperationCard";
-import styles from "./ExpenseCard.module.css";
+import { OrbMark } from "../../brand";
+import { Lines, Won } from "../../components";
 
-/** 막대 길이 기준: 가장 큰 항목이 약 74% 를 차지하도록 */
-const SCALE_HEADROOM = 1.35;
+/** 가장 큰 지출 막대가 차지하는 길이(%) */
+const LARGEST_BAR_PERCENT = 74;
 
 interface ExpenseCardProps {
   content: OperationsContent["expenses"];
   brandPrefix: string;
 }
 
+/** 지출관리 카드 */
 export function ExpenseCard({ content, brandPrefix }: ExpenseCardProps) {
-  const scale = Math.max(...content.items.map((item) => item.amount)) * SCALE_HEADROOM;
+  const max = Math.max(...content.items.map((item) => item.amount));
   return (
-    <OperationCard
-      tone="highlight"
-      brandPrefix={brandPrefix}
-      name={content.name}
-      description={content.description}
-      panelTitle={content.panelTitle}
-    >
-      <ul className={styles.expenses}>
-        {content.items.map((item) => (
-          <li key={item.label}>
-            <span className={styles.label}>{item.label}</span>
-            <span className={styles.track} aria-hidden="true">
-              <i style={{ width: `${(item.amount / scale) * 100}%` }} />
-            </span>
-            <span className={styles.amount}>
-              <span className={styles.won}>₩</span> {formatMillions(item.amount)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </OperationCard>
+    <article className="ops-card ops-card--exp">
+      <OrbMark className="ops-card__orb" />
+      <h3>
+        <span>{brandPrefix}</span> {content.name}
+      </h3>
+      <p>
+        <Lines lines={content.description} />
+      </p>
+      <div className="ops-panel">
+        <strong>{content.panelTitle}</strong>
+        <ul className="expense">
+          {content.items.map((item) => (
+            <li key={item.label}>
+              <span className="expense__label">{item.label}</span>
+              <span className="expense__track">
+                <i style={{ width: `${Math.round((item.amount / max) * LARGEST_BAR_PERCENT)}%` }} />
+              </span>
+              <span className="expense__amt">
+                <Won /> {formatMillions(item.amount)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
   );
 }

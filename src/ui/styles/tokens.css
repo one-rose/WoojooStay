@@ -1,19 +1,81 @@
 /*
- * 디자인 토큰 (색 이외)
- * 색 토큰은 시안별로 달라서 src/infrastructure/brand/color-schemes.ts 에 있고,
- * 레이아웃이 <style> 로 주입한다. (ui/scheme/scheme-stylesheet.ts)
+ * 디자인 토큰 — 우주스테이 컬러 시안 C (Morning Deep Blue #1C2B46 · Sun Rise Orange #FF5800)
+ * 색은 모든 컴포넌트에서 var(--토큰) 으로만 씁니다. 색을 바꾸려면 이 파일만 고치세요.
  */
 :root {
-  --font-sans:
+  /* 기본 색 */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+  --ink: #1c2b46;
+  --muted: #6b7280;
+  --title: #a9442b;
+  --second: #a9442b;
+  --bg-alt: #f5f5f5;
+  --panel: #ececec;
+  --panel-outer: #f2f2f2;
+  --line: #e2e2e2;
+  --line-strong: #e6e6e6;
+  /* 브랜드 색 */
+  --label: #ff5800;
+  --primary: #1c2b46;
+  --primary-2: #2c4068;
+  --vivid: #ff5800;
+  --deep: #1c2b46;
+  --accent: #ff5800;
+  --soft: #e6e6e6;
+  --soft-bg: #e6e6e6;
+  --soft-ink: #1c2b46;
+  --on-soft: #1c2b46;
+  --on-soft-muted: #4a566b;
+  --tint: #ffede3;
+  --tint-2: #ffe6d6;
+  --grad: linear-gradient(135deg, #ff7a33 0%, #ff5800 100%);
+  --grad-band: #ff5800;
+  --on-grad: #ffffff;
+  --on-deep: #ffffff;
+  --on-deep-muted: #d9dee8;
+  --on-deep-label: #ff8a4d;
+  --ring: rgba(28, 43, 70, 0.14);
+  --shadow-deep: rgba(28, 43, 70, 0.4);
+  /* 섹션별 */
+  --hero-bg:
+    radial-gradient(48% 60% at 44% 74%, rgba(255, 88, 0, 0.2) 0%, rgba(255, 88, 0, 0) 72%),
+    radial-gradient(40% 50% at 98% 6%, rgba(255, 138, 77, 0.18) 0%, rgba(255, 138, 77, 0) 72%),
+    linear-gradient(180deg, #ffffff 0%, #fff6f0 100%);
+  --trend-area: #dce8fb;
+  --rv-outer: linear-gradient(135deg, #ff7a33 0%, #ff5800 100%);
+  --road-bg: radial-gradient(38% 46% at 88% 8%, rgba(255, 88, 0, 0.28) 0%, rgba(255, 88, 0, 0) 72%), #1c2b46;
+  --road-card: #2e4369;
+  --road-line: #3a517b;
+  --road-dot: #ff5800;
+  --road-now: #ff5800;
+  --road-now-ink: #ffffff;
+  --road-now-muted: #ffe3d1;
+  --road-icon: #131e33;
+  --road-pill: #ffffff;
+  --road-pill-ink: #ff5800;
+  --expense-bg: #e6e6e6;
+  --expense-ink: #1c2b46;
+  --expense-panel: #1c2b46;
+  --expense-track: rgba(255, 255, 255, 0.18);
+  --expense-fill: linear-gradient(90deg, #ff5800, #ff8a4d);
+  --footer: #141f33;
+  --footer-text: #bcc4d1;
+  --footer-muted: #8c96a8;
+  --footer-line: rgba(255, 255, 255, 0.1);
+  /* 로고 */
+  --logo: #1c2b46;
+  --logo-star: #ffac80;
+  --logo-star-opacity: 1;
+  --logo-footer: #e6e6e6;
+  --logo-footer-star: #ff5800;
+  --logo-footer-star-opacity: 1;
+  --mark-star-opacity: 0.5;
+  /* 타이포 · 레이아웃 */
+  --font:
     "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
     "Noto Sans KR", sans-serif;
-
-  /* 레이아웃: 1440 시안 기준, 본문 폭 1288px */
-  --container-max: 1288px;
-  --container-narrow: 1268px;
   --gutter: clamp(20px, 5.28vw, 76px);
-
-  --radius-pill: 999px;
-
   color-scheme: light;
 }

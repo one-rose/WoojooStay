@@ -1,0 +1,19 @@
+.orb,
+.duo {
+  flex: none;
+  color: var(--label);
+}
+.logo {
+  height: 32px;
+  width: auto;
+}
+@media (max-width: 720px) {
+  .logo {
+    height: 23px;
+  }
+}
+@media (max-width: 420px) {
+  .logo {
+    height: 20px;
+  }
+}

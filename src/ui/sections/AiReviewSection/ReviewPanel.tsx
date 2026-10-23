@@ -1,47 +1,42 @@
-import type { AiReviewContent, Review } from "@/core";
+import type { AiReviewContent } from "@/core";
 import { DuoMark, OrbMark } from "../../brand";
-import { ArrowFlow, PanelHeader, Pill } from "../../components";
-import { Illustration, PLATFORM_NAMES, PlatformLogo } from "../../media";
-import { cx } from "@/shared";
-import styles from "./ReviewPanel.module.css";
+import { Arrow, PanelTop, Pill, Tabs } from "../../components";
+import { Illustration, PlatformLogo, ReviewPhoto } from "../../media";
 
-function Stars({ rating }: { rating: Review["rating"] }) {
-  return (
-    <span className={styles.stars} aria-label={`별점 ${rating}점`}>
-      {"★".repeat(rating) + "☆".repeat(5 - rating)}
-    </span>
-  );
-}
+const stars = (rating: number) => "★".repeat(rating) + "☆".repeat(5 - rating);
 
 interface ReviewPanelProps {
   panel: AiReviewContent["panel"];
   callout: AiReviewContent["callout"];
 }
 
-/** 리뷰 관리 화면 미리보기 + 아래 "고객 획득 포인트" 띠 */
+/** 오른쪽: 리뷰 관리 화면 목업 + 아래 고객 획득 포인트 띠 */
 export function ReviewPanel({ panel, callout }: ReviewPanelProps) {
   return (
-    <div className={styles.panel}>
-      <div className={styles.inner}>
-        <PanelHeader title={panel.title} aside={<Pill variant="tint">{panel.status}</Pill>} />
-        <div className={styles.tabs}>
-          {panel.tabs.map((tab) => (
-            <span key={tab.label} className={cx(tab.active && styles.activeTab)}>
-              {tab.label} {tab.count}
-            </span>
-          ))}
-        </div>
-        <ul className={styles.reviews}>
+    <div className="rv-panel">
+      <div className="rv-panel__inner">
+        <PanelTop title={panel.title} aside={<Pill modifiers={["tint"]}>{panel.status}</Pill>} />
+        <Tabs tabs={panel.tabs} />
+        <ul className="rv-list">
           {panel.reviews.map((review) => (
             <li key={review.platform}>
-              <div className={styles.meta}>
-                <span className={styles.tag}>{PLATFORM_NAMES[review.platform]}</span>
-                <Stars rating={review.rating} />
-                <PlatformLogo platform={review.platform} variant="card" className={styles.platformLogo} decorative />
+              <div className="rv-list__meta">
+                <span className="rv-list__tag">{review.tag}</span>
+                <span className="rv-list__stars" aria-label={panel.ratingLabel}>
+                  {stars(review.rating)}
+                </span>
+                <PlatformLogo platform={review.platform} variant="review" alt="" />
               </div>
-              <p className={styles.text}>{review.text}</p>
-              <p className={styles.note}>
-                <OrbMark className={styles.noteMark} />
+              <p className="rv-list__text">{review.text}</p>
+              <div className="rv-list__photos">
+                <ReviewPhoto photo={review.photos[0]} alt={`${review.tag} ${panel.photoAlt}`} />
+                <span className="rv-list__more">
+                  <ReviewPhoto photo={review.photos[1]} alt="" />
+                  <b>+{review.morePhotos}</b>
+                </span>
+              </div>
+              <p className="rv-list__note">
+                <OrbMark />
                 <b>AI</b> {review.aiNote}
               </p>
             </li>
@@ -49,15 +44,15 @@ export function ReviewPanel({ panel, callout }: ReviewPanelProps) {
         </ul>
       </div>
 
-      <div className={styles.callout}>
-        <Illustration id="robot" alt={callout.mascotAlt} className={styles.mascot} />
-        <div className={styles.calloutText}>
+      <div className="rv-cta">
+        <Illustration id={callout.robot} className="rv-cta__robot" alt={callout.robotAlt} />
+        <div>
           <span>{callout.eyebrow}</span>
           <strong>
-            <ArrowFlow parts={callout.flow} />
+            {callout.flow[0]} <Arrow /> {callout.flow[1]}
           </strong>
         </div>
-        <DuoMark className={styles.calloutMark} />
+        <DuoMark />
       </div>
     </div>
   );

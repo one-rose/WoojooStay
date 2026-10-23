@@ -2,4 +2,3 @@
 node_modules
 pnpm-lock.yaml
 src/ui/brand/logo-paths.ts
-src/ui/media/illustration-manifest.ts

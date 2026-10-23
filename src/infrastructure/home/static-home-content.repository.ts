@@ -1,15 +1,19 @@
-import type { HomeContent, HomeContentRepository } from "@/core";
-import { homeContentKo } from "./home-content.ko";
+import type { HomeContent, HomeContentRepository, Locale } from "@/core";
+import { homeContentEn } from "./content/en";
+import { homeContentJa } from "./content/ja";
+import { homeContentKo } from "./content/ko";
+import { homeContentZh } from "./content/zh";
 
-const CONTENT_BY_LOCALE: Record<string, HomeContent> = {
+const CONTENT_BY_LOCALE: Record<Locale, HomeContent> = {
   ko: homeContentKo,
+  en: homeContentEn,
+  ja: homeContentJa,
+  zh: homeContentZh,
 };
 
 /** 코드에 들어 있는 정적 콘텐츠를 돌려주는 저장소 구현 */
 export class StaticHomeContentRepository implements HomeContentRepository {
-  async get(locale: string): Promise<HomeContent> {
-    const content = CONTENT_BY_LOCALE[locale];
-    if (!content) throw new Error(`홈 콘텐츠가 없는 언어입니다: ${locale}`);
-    return content;
+  async get(locale: Locale): Promise<HomeContent> {
+    return CONTENT_BY_LOCALE[locale];
   }
 }

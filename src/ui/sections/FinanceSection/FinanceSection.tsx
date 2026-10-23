@@ -1,17 +1,17 @@
 import type { FinanceContent } from "@/core";
 import { OrbMark } from "../../brand";
-import { ArrowFlow, Container, Section, SectionIntro } from "../../components";
+import { ArrowFlow, Container, Section, SectionHead } from "../../components";
 import { FinanceProductCard } from "./FinanceProductCard";
-import styles from "./FinanceSection.module.css";
+import "./finance.css";
 
 /** SERVICE 03 — 매출선정산 · 미래매출선지급 */
 export function FinanceSection({ content }: { content: FinanceContent }) {
+  const { orbitBand } = content;
   return (
-    <Section className={styles.section}>
+    <Section className="section--s3">
       <Container>
-        <SectionIntro intro={content.intro} />
-
-        <div className={styles.products}>
+        <SectionHead intro={content.intro} />
+        <div className="fin-grid block-narrow">
           {content.products.map((product) => (
             <FinanceProductCard
               key={product.name}
@@ -22,14 +22,13 @@ export function FinanceSection({ content }: { content: FinanceContent }) {
             />
           ))}
         </div>
-
-        <div className={styles.band}>
-          <span className={styles.bandLabel}>{content.orbitBand.label}</span>
+        <div className="orbit-band block-narrow">
+          <span className="orbit-band__label">{orbitBand.label}</span>
           <strong>
-            <ArrowFlow parts={content.orbitBand.flow} />
+            <ArrowFlow parts={orbitBand.flow} />
           </strong>
-          <em>{content.orbitBand.tagline}</em>
-          <OrbMark className={styles.bandMark} />
+          <em>{orbitBand.tagline}</em>
+          <OrbMark />
         </div>
       </Container>
     </Section>
