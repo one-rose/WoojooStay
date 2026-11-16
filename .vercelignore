@@ -1,0 +1,8 @@
+# Vercel 에는 화면(Next.js)만 올린다 — API 서버·배포 구성은 Lightsail 용
+/api
+/deploy
+/docs
+/agency-agents
+/Claude outputs
+Dockerfile
+.dockerignore
