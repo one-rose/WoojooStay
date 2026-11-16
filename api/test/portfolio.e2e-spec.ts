@@ -322,6 +322,42 @@ describe('여러 업장 통합 현황 (e2e)', () => {
       .expect(404);
   });
 
+  it('통합 알림 — 업장을 빼면 내 업장 전부의 알림이 업장 이름과 함께, 모두 읽음도 전부', async () => {
+    await prisma.notification.createMany({
+      data: [
+        {
+          propertyId: busy,
+          userId: owner.userId,
+          kind: 'SYNC',
+          text: '여기어때 연동이 끊겼어요.',
+          link: '/app/settings/channels',
+        },
+        { propertyId: quiet, userId: owner.userId, kind: 'REVIEW', text: '새 리뷰 2건', link: '/app/reviews' },
+        { propertyId: foreign, userId: other.userId, kind: 'REVIEW', text: '남의 알림' },
+      ],
+    });
+    const all = await http.get(api('/notifications')).set(owner.auth).expect(200);
+    type N = { text: string; propertyId: string; propertyName: string };
+    const mine: N[] = all.body.items;
+    expect(mine.map((n) => n.text)).toEqual(expect.arrayContaining(['여기어때 연동이 끊겼어요.', '새 리뷰 2건']));
+    expect(mine.some((n) => n.text === '남의 알림')).toBe(false);
+    expect(mine.find((n) => n.propertyId === busy)?.propertyName).toBe('바쁜 호텔');
+    expect(all.body.unread).toBeGreaterThanOrEqual(2);
+
+    const one = await http
+      .get(api(`/notifications?propertyId=${quiet}`))
+      .set(owner.auth)
+      .expect(200);
+    expect(one.body.items.every((n: N) => n.propertyId === quiet)).toBe(true);
+
+    await http.post(api('/notifications/read-all')).set(owner.auth).expect(204);
+    const after = await http.get(api('/notifications')).set(owner.auth).expect(200);
+    expect(after.body.unread).toBe(0);
+    // 남의 알림은 그대로
+    const theirs = await http.get(api('/notifications')).set(other.auth).expect(200);
+    expect(theirs.body.items.find((n: N) => n.text === '남의 알림')).toMatchObject({ readAt: null });
+  });
+
   it('업장이 없으면 빈 목록', async () => {
     const lone = await signup('010-8410-0003', '새 사장');
     const res = await http.get(api('/portfolio')).set(lone.auth).expect(200);

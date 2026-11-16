@@ -1,15 +1,23 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
-import { hasUrgentAlert, type PortfolioData, type PropertyOption, type ReviewInbox } from "@/core";
+import {
+  hasUrgentAlert,
+  type NotificationItem,
+  type PortfolioData,
+  type PropertyOption,
+  type ReviewInbox,
+} from "@/core";
 import {
   ApiAuthError,
   DEMO_DEFAULT_PROPERTY,
   demoPortfolio,
+  demoNotifications,
   demoPropertyOptions,
   demoReviewInbox,
   isLiveApi,
   pmsRepository,
+  toNotification,
   toPortfolio,
   toReviewInbox,
   toPropertyType,
@@ -54,6 +62,8 @@ export interface PropertySwitcherData {
   options: PropertyOption[];
   /** 업장 전부의 미답변 리뷰 수 (통합 리뷰함 메뉴 숫자) — 업장 1곳이면 0 */
   unanswered: number;
+  /** 업장 전부의 알림 (업장 이름이 붙은 통합 알림) — 업장 1곳이거나 못 불러오면 null (그 업장 알림을 쓴다) */
+  notifications: NotificationItem[] | null;
 }
 
 /**
@@ -66,10 +76,11 @@ export const loadPropertySwitcher = cache(async (): Promise<PropertySwitcherData
       currentId: (await cookies()).get(COOKIE.property)?.value ?? DEMO_DEFAULT_PROPERTY,
       options: demoPropertyOptions(),
       unanswered: demoPortfolio().totals.reviews.unanswered,
+      notifications: demoNotifications(),
     };
   }
   const s = await readSession();
-  if (!s.accessToken) return { currentId: s.propertyId, options: [], unanswered: 0 };
+  if (!s.accessToken) return { currentId: s.propertyId, options: [], unanswered: 0, notifications: null };
   const me = await loadMe(s.accessToken).catch(() => null);
   const mine = (me?.properties ?? []).filter((p) => p.role !== "STAFF");
   const options: PropertyOption[] = mine.map((p) => ({
@@ -79,11 +90,17 @@ export const loadPropertySwitcher = cache(async (): Promise<PropertySwitcherData
     rooms: p.rooms,
   }));
   let unanswered = 0;
+  let notifications: NotificationItem[] | null = null;
   if (options.length >= 2) {
-    const portfolio = await loadPortfolio().catch(() => null);
+    const api = await serverApi(s.accessToken);
+    const [portfolio, notices] = await Promise.all([
+      loadPortfolio().catch(() => null),
+      api.notifications().catch(() => null),
+    ]);
+    notifications = notices?.items.map(toNotification) ?? null;
     const urgent = new Set(portfolio?.properties.filter(hasUrgentAlert).map((p) => p.id));
     for (const o of options) o.urgent = urgent.has(o.id);
     unanswered = portfolio?.totals.reviews.unanswered ?? 0;
   }
-  return { currentId: s.propertyId, options, unanswered };
+  return { currentId: s.propertyId, options, unanswered, notifications };
 });

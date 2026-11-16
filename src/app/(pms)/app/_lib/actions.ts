@@ -449,8 +449,13 @@ export async function changeRoleAction(memberId: string, role: "manager" | "staf
   return act((api, pid) => api.changeMemberRole(pid, memberId, upper(role)));
 }
 
-export async function readAllNotificationsAction() {
-  return act((api, pid) => api.readAllNotifications(pid));
+/** all: 여러 업장 통합 알림 — 내 업장 전부를 읽음으로 (없으면 지금 업장만) */
+export async function readAllNotificationsAction(all?: boolean) {
+  return act((api, pid) => api.readAllNotifications(all ? undefined : pid));
+}
+
+export async function readNotificationAction(id: string) {
+  return act((api) => api.readNotification(id));
 }
 
 export async function setPlanAction(planId: string, enabled: boolean) {

@@ -144,6 +144,8 @@ export interface ApiReplySettings {
 
 export interface ApiNotification {
   id: string;
+  propertyId: string;
+  propertyName?: string;
   kind: "REVIEW" | "SETTLE" | "SYNC" | "BILLING" | "STAFF";
   text: string;
   link: string | null;
@@ -585,11 +587,17 @@ export class PmsApiClient {
   dashboard(propertyId: string) {
     return this.call<ApiDashboard>("GET", `/properties/${propertyId}/dashboard`);
   }
-  notifications(propertyId: string) {
-    return this.call<{ unread: number; items: ApiNotification[] }>("GET", `/notifications?propertyId=${propertyId}`);
+  /** propertyId 가 없으면 내 업장 전부 (통합 알림) */
+  notifications(propertyId?: string) {
+    const q = propertyId ? `?propertyId=${propertyId}` : "";
+    return this.call<{ unread: number; items: ApiNotification[] }>("GET", `/notifications${q}`);
   }
-  readAllNotifications(propertyId: string) {
-    return this.call<unknown>("POST", `/notifications/read-all?propertyId=${propertyId}`, { propertyId });
+  readAllNotifications(propertyId?: string) {
+    const q = propertyId ? `?propertyId=${propertyId}` : "";
+    return this.call<unknown>("POST", `/notifications/read-all${q}`);
+  }
+  readNotification(id: string) {
+    return this.call<unknown>("POST", `/notifications/${id}/read`);
   }
 
   /* 매출장부 */

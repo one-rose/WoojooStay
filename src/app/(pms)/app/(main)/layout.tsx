@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { ApiError, isLiveApi } from "@/infrastructure";
 import { AppShell } from "@/ui/pms";
-import { readAllNotificationsAction, switchPropertyAction } from "../_lib/actions";
+import { readAllNotificationsAction, readNotificationAction, switchPropertyAction } from "../_lib/actions";
 import { loadPropertySwitcher } from "../_lib/portfolio";
 import { getRepository, loadMe, readSession } from "../_lib/session";
 
@@ -41,6 +41,8 @@ async function Shell({ children }: { children: React.ReactNode }) {
   }
   const [dashboard, settings] = loaded;
   const switcher = await switcherLoad;
+  // 업장이 여러 곳이면 종 알림은 업장 전부 (업장 이름을 붙여서)
+  const allNotices = switcher.options.length >= 2 ? switcher.notifications : null;
   const channels = dashboard.channels;
   const synced = channels
     .filter((c) => c.status !== "error")
@@ -52,10 +54,13 @@ async function Shell({ children }: { children: React.ReactNode }) {
       unansweredReviews={dashboard.unanswered.total}
       lastSyncedAt={synced[synced.length - 1] ?? "-"}
       syncErrors={channels.filter((c) => c.status === "error").length}
-      notifications={settings.notifications}
+      notifications={allNotices ?? settings.notifications}
       logoutPath={isLiveApi ? "/app/session/logout" : undefined}
       user={await userLoad}
-      readAllNotifications={isLiveApi ? readAllNotificationsAction : undefined}
+      readAllNotifications={
+        isLiveApi ? (allNotices ? readAllNotificationsAction.bind(null, true) : readAllNotificationsAction) : undefined
+      }
+      readNotification={isLiveApi ? readNotificationAction : undefined}
       demo={!isLiveApi}
       properties={switcher.options}
       portfolioUnanswered={switcher.unanswered}

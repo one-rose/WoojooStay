@@ -9,6 +9,7 @@ import type {
   Property,
   PropertyOption,
   PropertyType,
+  ReadNotificationAction,
   SwitchPropertyAction,
 } from "@/core";
 import { cx } from "@/shared";
@@ -47,6 +48,8 @@ interface AppShellProps {
   user?: { name: string; roleLabel: string };
   /** 알림 모두 읽음 (실서버) */
   readAllNotifications?: () => Promise<ActionResult>;
+  /** 알림 한 건을 눌렀을 때 읽음으로 */
+  readNotification?: ReadNotificationAction;
   /** 서버 없이 배포한 체험 모드 — 맨 위에 안내 띠 */
   demo?: boolean;
   /** 사장님·매니저인 업장 — 2곳 이상이면 업장 전환 · 전체 현황 메뉴 */
@@ -91,6 +94,7 @@ export function AppShell({
   logoutPath,
   user,
   readAllNotifications,
+  readNotification,
   demo,
   properties = [],
   portfolioUnanswered = 0,
@@ -124,6 +128,33 @@ export function AppShell({
       return;
     }
     router.refresh();
+  };
+
+  /**
+   * 알림을 누르면 그 화면으로. 여러 업장이면 그 업장으로 바꿔서 연다 —
+   * 리뷰 알림은 업장을 바꾸지 않고 통합 리뷰함에서 그 업장 것만.
+   */
+  const openNotice = (n: NotificationItem) => {
+    if (n.unread && !readIds.includes(n.id)) {
+      setReadIds((prev) => [...prev, n.id]);
+      void readNotification?.(n.id);
+    }
+    if (!n.link) return;
+    setBellOpen(false);
+    setOpen(false);
+    if (multi && n.propertyId && switchProperty) {
+      if (n.link.startsWith("/app/reviews") && !n.link.startsWith("/app/reviews/settings")) {
+        const id = new URL(n.link, "http://x").searchParams.get("id");
+        const q = new URLSearchParams({ property: n.propertyId, ...(id ? { id } : {}) });
+        router.push(`/app/overview/reviews?${q}`);
+        return;
+      }
+      if (n.propertyId !== property.id || onOverview) {
+        void switchProperty(n.propertyId, n.link);
+        return;
+      }
+    }
+    router.push(n.link);
   };
 
   useEffect(() => {
@@ -322,7 +353,10 @@ export function AppShell({
             {bellOpen && (
               <div className="pm-bell__panel" role="dialog" aria-label="알림">
                 <header className="pm-bell__head">
-                  <strong>알림</strong>
+                  <strong>
+                    알림
+                    {multi && <small> · 업장 {properties.length}곳</small>}
+                  </strong>
                   {unread > 0 && (
                     <button type="button" onClick={readAll}>
                       모두 읽음
@@ -336,17 +370,32 @@ export function AppShell({
                 )}
                 {notifications.length === 0 && <p className="pm-bell__empty">새 알림이 없어요.</p>}
                 <ul>
-                  {notifications.map((n) => (
-                    <li key={n.id} className={cx("pm-bell__item", n.unread && !readIds.includes(n.id) && "is-unread")}>
-                      <span className={cx("pm-bell__kind", `is-${n.kind}`)}>
-                        <Icon name={BELL_ICON[n.kind]} size={15} />
-                      </span>
-                      <span className="pm-bell__text">
-                        {n.text}
-                        <small className="num">{n.at}</small>
-                      </span>
-                    </li>
-                  ))}
+                  {notifications.map((n) => {
+                    const body = (
+                      <>
+                        <span className={cx("pm-bell__kind", `is-${n.kind}`)}>
+                          <Icon name={BELL_ICON[n.kind]} size={15} />
+                        </span>
+                        <span className="pm-bell__text">
+                          {multi && n.propertyName && <b className="pm-bell__property">{n.propertyName}</b>}
+                          {n.text}
+                          <small className="num">{n.at}</small>
+                        </span>
+                      </>
+                    );
+                    const unreadNow = n.unread && !readIds.includes(n.id);
+                    return (
+                      <li key={n.id} className={cx("pm-bell__item", unreadNow && "is-unread", n.link && "is-link")}>
+                        {n.link ? (
+                          <button type="button" className="pm-bell__go" onClick={() => openNotice(n)}>
+                            {body}
+                          </button>
+                        ) : (
+                          body
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
                 <Link href="/app/settings/notifications" className="pm-bell__foot" onClick={() => setBellOpen(false)}>
                   알림 설정

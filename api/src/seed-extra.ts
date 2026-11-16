@@ -15,6 +15,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
 import { BillingService } from './billing/billing.service.js';
 import { ChannelsService } from './channels/channels.service.js';
+import { CHANNEL_CATALOG } from './connectors/catalog.js';
 import { isValidBizNo } from './common/utils/biz-no.js';
 import { sha256 } from './common/utils/crypto.js';
 import { addDaysIso, addMonths, dateOnly, kstDate, monthStart } from './common/utils/dates.js';
@@ -501,6 +502,14 @@ async function seedPortfolio(
         WHERE property_id = ${p.id}::uuid`;
     }
     if (h.broken) {
+      await app
+        .get(NotificationsService)
+        .notifyProperty(
+          p.id,
+          'SYNC',
+          `${CHANNEL_CATALOG[h.broken.channel].name} ${h.broken.status === 'AUTH_EXPIRED' ? '연동이 끊겼어요. 다시 로그인해 주세요.' : '수집이 3번 연속 실패했어요. 연동 상태를 확인해 주세요.'}`,
+          '/app/settings/channels',
+        );
       await prisma.channelConnection.updateMany({
         where: { propertyId: p.id, channel: h.broken.channel },
         data: {

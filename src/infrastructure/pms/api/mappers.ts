@@ -198,7 +198,16 @@ const KIND: Record<ApiNotification["kind"], NotificationItem["kind"]> = {
 
 export function toNotification(n: ApiNotification): NotificationItem {
   const t = kst(n.createdAt);
-  return { id: n.id, kind: KIND[n.kind], text: n.text, at: `${t.slice(5, 10).replace("-", ".")} ${t.slice(11)}`, unread: !n.readAt };
+  return {
+    id: n.id,
+    kind: KIND[n.kind],
+    text: n.text,
+    at: `${t.slice(5, 10).replace("-", ".")} ${t.slice(11)}`,
+    unread: !n.readAt,
+    link: n.link ?? undefined,
+    propertyId: n.propertyId,
+    propertyName: n.propertyName,
+  };
 }
 
 /* ── 운영자 ── */

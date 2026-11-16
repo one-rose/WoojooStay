@@ -203,7 +203,15 @@ export interface NotificationItem {
   text: string;
   at: string;
   unread: boolean;
+  /** 누르면 갈 화면 (업장 안 경로) */
+  link?: string;
+  /** 여러 업장 통합 알림에서 — 어느 업장 알림인지 */
+  propertyId?: string;
+  propertyName?: string;
 }
+
+/** 알림 한 건 읽음 */
+export type ReadNotificationAction = (id: string) => Promise<ActionResult>;
 
 export interface SettingsData {
   profile: PropertyProfile;

@@ -1,6 +1,7 @@
 import type {
   ChannelConnection,
   GuestReview,
+  NotificationItem,
   PmsRepository,
   ReviewInbox,
   PortfolioAlert,
@@ -365,4 +366,45 @@ export function demoReviewInbox(reviews: readonly GuestReview[], channels: reado
     reviews: out,
     truncated: false,
   };
+}
+
+const NOTICE_KIND: Partial<Record<PortfolioAlert["kind"], NotificationItem["kind"]>> = {
+  "channel-auth": "sync",
+  "channel-error": "sync",
+  "payment-failed": "billing",
+  "low-rated": "review",
+  "missing-clock-out": "staff",
+};
+
+/**
+ * 체험 모드 통합 알림 — 업장마다 확인할 일과 새 리뷰 알림을 오늘 날짜로.
+ * 최근 것이 먼저, 앞의 몇 건만 안 읽음.
+ */
+export function demoNotifications(today = kstToday()): NotificationItem[] {
+  const out: NotificationItem[] = [];
+  let minutes = 12;
+  DEMO_PROPERTIES.forEach((d) => {
+    const items: Omit<NotificationItem, "id" | "at" | "unread">[] = [];
+    for (const a of alertsOf(d)) {
+      const kind = NOTICE_KIND[a.kind];
+      if (kind) items.push({ kind, text: a.message, link: a.link });
+    }
+    if (d.reviews[0] > 0)
+      items.push({
+        kind: "review",
+        text: `새 리뷰 ${d.reviews[0]}건을 가져왔어요. 답글 초안을 준비했어요.`,
+        link: "/app/reviews",
+      });
+    items.forEach((n, k) => {
+      const at = new Date(Date.parse(`${today}T10:00:00+09:00`) - minutes * 60_000)
+        .toLocaleString("sv-SE", { timeZone: "Asia/Seoul" })
+        .slice(5, 16)
+        .replace("-", ".")
+        .replace("T", " ");
+      out.push({ ...n, id: `${d.id}-n${k}`, at, unread: false, propertyId: d.id, propertyName: d.name });
+      minutes += 37;
+    });
+  });
+  out.sort((a, b) => b.at.localeCompare(a.at));
+  return out.map((n, i) => ({ ...n, unread: i < 6 }));
 }

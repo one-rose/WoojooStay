@@ -23,6 +23,7 @@ export function demoPmsRepository(propertyId: string | undefined) {
 export {
   demoPortfolio,
   demoPropertyOptions,
+  demoNotifications,
   demoReviewInbox,
   findDemoProperty,
   DEMO_DEFAULT_PROPERTY,
@@ -70,6 +71,7 @@ export {
   toPortfolio,
   toPropertyType,
   toReview,
+  toNotification,
   toReviewInbox,
   toRoomLog,
   toStaffMe,

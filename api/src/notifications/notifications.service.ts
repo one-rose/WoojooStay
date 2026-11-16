@@ -63,13 +63,20 @@ export class NotificationsService {
     }
   }
 
+  /** propertyId 가 없으면 내 업장 전부 (여러 업장 통합 알림) — 알림마다 업장 이름을 붙인다 */
   async list(userId: string, propertyId?: string) {
-    const items = await this.prisma.notification.findMany({
-      where: { userId, ...(propertyId ? { propertyId } : {}) },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-    return { unread: items.filter((n) => !n.readAt).length, items };
+    const where = { userId, ...(propertyId ? { propertyId } : {}) };
+    const [rows, unread] = await Promise.all([
+      this.prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        include: { property: { select: { name: true } } },
+      }),
+      this.prisma.notification.count({ where: { ...where, readAt: null } }),
+    ]);
+    const items = rows.map(({ property, ...n }) => ({ ...n, propertyName: property.name }));
+    return { unread, items };
   }
 
   async read(userId: string, id: string) {
