@@ -3,14 +3,17 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import { BizVerifier, ChecksumBizVerifier, NtsBizVerifier } from './biz-verifier.js';
 import { MembersService } from './members.service.js';
+import { PeopleController } from './people.controller.js';
+import { PeopleService } from './people.service.js';
 import { PropertiesController } from './properties.controller.js';
 import { PropertiesService } from './properties.service.js';
 
 @Module({
-  controllers: [PropertiesController],
+  controllers: [PropertiesController, PeopleController],
   providers: [
     PropertiesService,
     MembersService,
+    PeopleService,
     {
       provide: BizVerifier,
       inject: [ConfigService],

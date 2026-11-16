@@ -15,7 +15,7 @@ import type {
 import { cx } from "@/shared";
 import { Logo } from "@/ui/brand";
 import { DemoBar, Icon } from "../components";
-import { NAV_FOOTER, NAV_GROUPS, NAV_INBOX, NAV_OVERVIEW, type NavItem } from "./nav-items";
+import { NAV_FOOTER, NAV_GROUPS, NAV_INBOX, NAV_OVERVIEW, NAV_PEOPLE, NAV_REPORT, type NavItem } from "./nav-items";
 import { OverviewNav } from "./OverviewNav";
 import { PropertyPicker } from "./PropertyPicker";
 import "./app-shell.css";
@@ -202,9 +202,14 @@ export function AppShell({
     if (base === "/app" || item.exact) return pathname === base;
     if (item.match) {
       // 다른 메뉴가 이 주소를 정확히 가리키면 그 메뉴만 선택 (채널 연동 vs 설정)
-      const exact = [NAV_OVERVIEW, NAV_INBOX, ...NAV_GROUPS.flatMap((g) => g.items), ...NAV_FOOTER].some(
-        (i) => i !== item && i.href === pathname,
-      );
+      const exact = [
+        NAV_OVERVIEW,
+        NAV_INBOX,
+        NAV_REPORT,
+        NAV_PEOPLE,
+        ...NAV_GROUPS.flatMap((g) => g.items),
+        ...NAV_FOOTER,
+      ].some((i) => i !== item && i.href === pathname);
       return !exact && pathname.startsWith(base);
     }
     return pathname === base || pathname.startsWith(`${base}/`);
@@ -288,6 +293,8 @@ export function AppShell({
             <ul className="pm-nav__top">
               {renderItem(NAV_OVERVIEW)}
               {renderItem(NAV_INBOX)}
+              {renderItem(NAV_REPORT)}
+              {renderItem(NAV_PEOPLE)}
             </ul>
           )}
           {/* 전체 현황에서는 업장 하나에 딸린 메뉴 대신 업장 목록 — 어느 업장인지 먼저 고른다 */}
@@ -355,7 +362,7 @@ export function AppShell({
                 <header className="pm-bell__head">
                   <strong>
                     알림
-                    {multi && <small> · 업장 {properties.length}곳</small>}
+                    {multi && <small className="pm-bell__scope">업장 {properties.length}곳</small>}
                   </strong>
                   {unread > 0 && (
                     <button type="button" onClick={readAll}>

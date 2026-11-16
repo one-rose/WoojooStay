@@ -4,6 +4,8 @@
  */
 export { AppShell } from "./shell/AppShell";
 export { OverviewScreen } from "./screens/Overview/OverviewScreen";
+export { ReportScreen } from "./screens/Report/ReportScreen";
+export { PeopleScreen } from "./screens/People/PeopleScreen";
 export { DashboardScreen } from "./screens/Dashboard/DashboardScreen";
 export { ReviewsScreen } from "./screens/Reviews/ReviewsScreen";
 export { LinkedReviewsScreen } from "./screens/Reviews/LinkedReviewsScreen";

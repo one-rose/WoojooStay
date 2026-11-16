@@ -68,6 +68,27 @@ export async function seedOrbitChain(app: INestApplicationContext): Promise<numb
   const count = await prisma.membership.count({ where: { userId: owner.id, role: { in: ['OWNER', 'MANAGER'] } } });
   if (count > 1) return 0;
   await seedPortfolio(app, prisma, { name: owner.name, phone: owner.phone }, ORBIT_CHAIN);
+  // 여러 업장을 맡은 매니저 — 직원·권한(/app/overview/people) 확인용
+  const ids = new Map(
+    (
+      await prisma.property.findMany({
+        where: { memberships: { some: { userId: owner.id, role: 'OWNER' } } },
+        select: { id: true, name: true },
+      })
+    ).map((p) => [p.name, p.id]),
+  );
+  for (const m of ORBIT_MANAGERS) {
+    const user = await account(prisma, m.phone, m.name);
+    for (const name of m.properties) {
+      const propertyId = ids.get(name);
+      if (propertyId)
+        await prisma.membership.upsert({
+          where: { userId_propertyId: { userId: user.id, propertyId } },
+          create: { userId: user.id, propertyId, role: 'MANAGER' },
+          update: {},
+        });
+    }
+  }
   return ORBIT_CHAIN.length;
 }
 
@@ -448,6 +469,21 @@ const ORBIT_NAMES: { name: string; address: string; type?: PilotHotel['type'] }[
   { name: '오르빗 한옥스테이 북촌', address: '서울 종로구 가회동 OO길 11', type: 'PENSION' },
 ];
 
+/** 정현 계정 업장의 지역 매니저 (각자 여러 곳) */
+const ORBIT_MANAGERS = [
+  {
+    name: '이서준',
+    phone: '01060000001',
+    properties: ['스테이 오르빗 명동', '스테이 오르빗 종로', '스테이 오르빗 성수'],
+  },
+  {
+    name: '박하은',
+    phone: '01060000002',
+    properties: ['스테이 오르빗 홍대', '오르빗 모텔 신림', '스테이 오르빗 여의도'],
+  },
+  { name: '정우진', phone: '01060000003', properties: ['오르빗 게스트하우스 이태원', '오르빗 한옥스테이 북촌'] },
+];
+
 const ORBIT_CHAIN: PilotHotel[] = PORTFOLIO.slice(1).map((h, i) => ({
   ...h,
   ...ORBIT_NAMES[i],
@@ -459,8 +495,8 @@ const ORBIT_CHAIN: PilotHotel[] = PORTFOLIO.slice(1).map((h, i) => ({
   })),
 }));
 
-/** 실증 업장 매출 수집 기간 — 이번 달 · 지난달 비교와 정산 달력이 보이도록 */
-const PILOT_SYNC_DAYS = 100;
+/** 실증 업장 매출 수집 기간 — 업장 비교의 6개월 추이 · 지난달 비교 · 정산 달력이 보이도록 */
+const PILOT_SYNC_DAYS = 185;
 
 async function seedPortfolio(
   app: INestApplicationContext,

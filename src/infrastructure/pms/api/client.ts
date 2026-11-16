@@ -82,6 +82,36 @@ export interface ApiPortfolio {
 
 export type ApiChannel = "YANOLJA" | "YEOGI" | "NAVER" | "AGODA" | "TRIP" | "HOTELS" | "ONDA" | "KKUL" | "DDNAYO";
 
+/** 직원·권한 (GET /portfolio/people) */
+export interface ApiPortfolioPeople {
+  properties: { id: string; name: string }[];
+  people: { userId: string; name: string; phone: string; roles: Record<string, "OWNER" | "MANAGER" | "STAFF"> }[];
+  invitations: { phone: string; role: "MANAGER" | "STAFF"; propertyIds: string[]; expiresAt: string }[];
+}
+
+/** 업장 비교 리포트 (GET /portfolio/report) */
+export interface ApiPortfolioReport {
+  month: string;
+  partial: boolean;
+  days: number;
+  months: string[];
+  properties: {
+    id: string;
+    name: string;
+    type: string;
+    rooms: number;
+    role: "OWNER" | "MANAGER";
+    sales: number;
+    prevSales: number;
+    bookings: number;
+    commission: number;
+    perRoomDay: number;
+    channels: { channel: ApiChannel; name: string; sales: number }[];
+    reviews: { count: number; avgRating: number | null; answered: number };
+    trend: number[];
+  }[];
+}
+
 /** 통합 리뷰함 (GET /portfolio/reviews) */
 export interface ApiReviewInbox {
   properties: { id: string; name: string }[];
@@ -506,6 +536,22 @@ export class PmsApiClient {
   /** 여러 업장 통합 현황 — 내가 사장님·매니저인 업장 전부 */
   portfolio() {
     return this.call<ApiPortfolio>("GET", "/portfolio");
+  }
+  portfolioReport(month?: string) {
+    return this.call<ApiPortfolioReport>("GET", `/portfolio/report${month ? `?month=${month}` : ""}`);
+  }
+  portfolioPeople() {
+    return this.call<ApiPortfolioPeople>("GET", "/portfolio/people");
+  }
+  assignPeople(userId: string, assignments: { propertyId: string; role: "MANAGER" | "STAFF" | null }[]) {
+    return this.call<ApiPortfolioPeople>("PUT", `/portfolio/people/${userId}`, { assignments });
+  }
+  invitePeople(phone: string, role: "MANAGER" | "STAFF", propertyIds: string[]) {
+    return this.call<{ invited: string[]; skipped: string[] }>("POST", "/portfolio/invitations", {
+      phone,
+      role,
+      propertyIds,
+    });
   }
   portfolioReviews() {
     return this.call<ApiReviewInbox>("GET", "/portfolio/reviews");

@@ -4,7 +4,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
 import { isValidBizNo } from '../src/common/utils/biz-no.js';
-import { addDaysIso, dateOnly, kstDate } from '../src/common/utils/dates.js';
+import { addDaysIso, addMonths, dateOnly, kstDate } from '../src/common/utils/dates.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { setupApp } from '../src/setup-app.js';
 
@@ -356,6 +356,125 @@ describe('여러 업장 통합 현황 (e2e)', () => {
     // 남의 알림은 그대로
     const theirs = await http.get(api('/notifications')).set(other.auth).expect(200);
     expect(theirs.body.items.find((n: N) => n.text === '남의 알림')).toMatchObject({ readAt: null });
+  });
+
+  it('업장 비교 리포트 — 지난 달: 업장별 매출 · 예약 · 객실당 하루 매출 · 채널 · 전월 비교 · 6개월 추이', async () => {
+    const thisMonth = today.slice(0, 7);
+    const last = addMonths(thisMonth, -3); // 이번 달·지난달 픽스처와 겹치지 않게 석 달 전
+    const before = addMonths(last, -1);
+    await booking(quiet, `${last}-05`, 600_000);
+    await booking(quiet, `${last}-20`, 300_000);
+    await booking(quiet, `${last}-21`, 999_000, 'CANCELLED');
+    await booking(quiet, `${before}-11`, 450_000);
+    await prisma.booking.create({
+      data: {
+        propertyId: quiet,
+        channel: 'AGODA',
+        reservationNo: 'pf-report-agoda',
+        guestName: '박*',
+        roomType: '트윈',
+        checkinDate: dateOnly(`${last}-07`),
+        checkoutDate: dateOnly(`${last}-08`),
+        saleAmount: 300_000,
+        commission: 45_000,
+        bookedAt: new Date(),
+      },
+    });
+    const res = await http
+      .get(api(`/portfolio/report?month=${last}`))
+      .set(owner.auth)
+      .expect(200);
+    expect(res.body).toMatchObject({ month: last, partial: false });
+    expect(res.body.months).toHaveLength(6);
+    expect(res.body.months[5]).toBe(last);
+    const ids = res.body.properties.map((p: { id: string }) => p.id);
+    expect(ids).not.toContain(staffOnly);
+    expect(ids).not.toContain(foreign);
+    const q = res.body.properties.find((p: { id: string }) => p.id === quiet);
+    const days = new Date(Date.UTC(Number(last.slice(0, 4)), Number(last.slice(5, 7)), 0)).getUTCDate();
+    expect(q).toMatchObject({
+      sales: 1_200_000,
+      bookings: 3,
+      commission: 45_000,
+      prevSales: 450_000,
+      perRoomDay: Math.round(1_200_000 / (6 * days)),
+    });
+    expect(q.channels.map((c: { channel: string }) => c.channel)).toEqual(['YANOLJA', 'AGODA']);
+    expect(q.trend[5]).toBe(1_200_000);
+    expect(q.trend[4]).toBe(450_000);
+
+    await http.get(api('/portfolio/report?month=2026-13')).set(owner.auth).expect(400);
+  });
+
+  it('직원·권한 — 한 사람을 여러 업장에 함께 초대하고, 링크 하나로 모두 수락', async () => {
+    // 사장님인 업장(busy · quiet)만 — 매니저인 업장(managed)에는 초대할 수 없다
+    await http
+      .post(api('/portfolio/invitations'))
+      .set(owner.auth)
+      .send({ phone: '010-8410-0101', role: 'MANAGER', propertyIds: [busy, managed] })
+      .expect(403);
+    const inv = await http
+      .post(api('/portfolio/invitations'))
+      .set(owner.auth)
+      .send({ phone: '010-8410-0101', role: 'MANAGER', propertyIds: [busy, quiet] })
+      .expect(201);
+    expect(inv.body.invited).toEqual(['바쁜 호텔', '조용한 펜션']);
+    const preview = await http.get(api(`/invitations/${inv.body.devToken}`)).expect(200);
+    expect(preview.body).toMatchObject({ propertyName: '바쁜 호텔', status: 'VALID', alsoProperties: ['조용한 펜션'] });
+
+    const listed = await http.get(api('/portfolio/people')).set(owner.auth).expect(200);
+    expect(listed.body.properties.map((p: { id: string }) => p.id)).toEqual([busy, quiet]);
+    expect(listed.body.invitations).toEqual([
+      expect.objectContaining({ role: 'MANAGER', propertyIds: expect.arrayContaining([busy, quiet]) }),
+    ]);
+
+    const mgr = await signup('010-8410-0101', '새 매니저');
+    const acc = await http
+      .post(api('/invitations/accept'))
+      .set(mgr.auth)
+      .send({ token: inv.body.devToken })
+      .expect(200);
+    expect(acc.body.joined).toBe(2);
+    const pf = await http.get(api('/portfolio')).set(mgr.auth).expect(200);
+    expect(pf.body.properties.map((p: { id: string }) => p.id).sort()).toEqual([busy, quiet].sort());
+  });
+
+  it('직원·권한 — 업장별 권한을 한 번에 바꾸고 빼기, 남의 업장 · 다른 사장님 권한은 못 바꾼다', async () => {
+    const mgr = await http.get(api('/portfolio/people')).set(owner.auth).expect(200);
+    type Person = { userId: string; name: string; roles: Record<string, string> };
+    const person: Person = mgr.body.people.find((p: Person) => p.name === '새 매니저');
+    expect(person.roles).toEqual({ [busy]: 'MANAGER', [quiet]: 'MANAGER' });
+
+    const res = await http
+      .put(api(`/portfolio/people/${person.userId}`))
+      .set(owner.auth)
+      .send({
+        assignments: [
+          { propertyId: busy, role: 'STAFF' },
+          { propertyId: quiet, role: null },
+        ],
+      })
+      .expect(200);
+    expect(res.body.people.find((p: Person) => p.userId === person.userId).roles).toEqual({ [busy]: 'STAFF' });
+
+    // 내가 매니저일 뿐인 업장 · 남의 업장
+    await http
+      .put(api(`/portfolio/people/${person.userId}`))
+      .set(owner.auth)
+      .send({ assignments: [{ propertyId: managed, role: 'MANAGER' }] })
+      .expect(403);
+    // 내 업장과 관계없는 사람
+    await http
+      .put(api(`/portfolio/people/${other.userId}`))
+      .set(owner.auth)
+      .send({ assignments: [{ propertyId: busy, role: 'MANAGER' }] })
+      .expect(404);
+    // 잘못된 권한 값
+    await http
+      .put(api(`/portfolio/people/${person.userId}`))
+      .set(owner.auth)
+      .send({ assignments: [{ propertyId: busy, role: 'OWNER' }] })
+      .expect(400);
   });
 
   it('업장이 없으면 빈 목록', async () => {

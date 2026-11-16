@@ -1,4 +1,4 @@
-import type { ChannelConnection, GuestReview, PropertyType } from "./pms";
+import type { ActionResult, ChannelConnection, ChannelId, GuestReview, PropertyType } from "./pms";
 
 /**
  * 여러 업장 통합 현황 (F8) — 업장을 여러 곳 운영하는 사장님이 로그인하면 먼저 보는 화면.
@@ -114,4 +114,97 @@ export interface ReviewInbox {
   reviews: readonly GuestReview[];
   /** 미답변이 너무 많아 오래된 것이 잘림 */
   truncated: boolean;
+}
+
+/** 업장 비교 리포트 (F8) — 한 달 동안 업장마다 같은 기준으로 */
+export interface PortfolioReportProperty {
+  id: string;
+  name: string;
+  type: PropertyType;
+  rooms: number;
+  role: "owner" | "manager";
+  /** 확정 예약 매출 (입실일 기준) */
+  sales: number;
+  /** 지난달 (이번 달이면 지난달 같은 날까지) */
+  prevSales: number;
+  bookings: number;
+  commission: number;
+  /** 객실 하나가 하루에 번 매출 (매출 ÷ 객실 수 ÷ 날 수) */
+  perRoomDay: number;
+  /** 매출 많은 순 */
+  channels: readonly { channel: ChannelId; name: string; sales: number }[];
+  reviews: { count: number; avgRating: number | null; answered: number };
+  /** months 와 같은 순서의 월 매출 */
+  trend: readonly number[];
+}
+
+export interface PortfolioReport {
+  /** "YYYY-MM" */
+  month: string;
+  /** 진행 중인 이번 달 (오늘까지) */
+  partial: boolean;
+  /** 이 달에서 센 날 수 */
+  days: number;
+  /** 추이 6개월 — 마지막이 month */
+  months: readonly string[];
+  properties: readonly PortfolioReportProperty[];
+}
+
+/** 리포트 합계 — 객실 하루 매출은 전체 객실 기준, 별점은 리뷰 수로 가중 */
+export function reportTotals(r: PortfolioReport) {
+  const sum = (f: (p: PortfolioReportProperty) => number) => r.properties.reduce((s, p) => s + f(p), 0);
+  const rooms = sum((p) => p.rooms);
+  const sales = sum((p) => p.sales);
+  const reviewCount = sum((p) => p.reviews.count);
+  const ratingSum = sum((p) => (p.reviews.avgRating ?? 0) * p.reviews.count);
+  return {
+    sales,
+    prevSales: sum((p) => p.prevSales),
+    bookings: sum((p) => p.bookings),
+    commission: sum((p) => p.commission),
+    rooms,
+    perRoomDay: rooms > 0 && r.days > 0 ? Math.round(sales / (rooms * r.days)) : 0,
+    reviews: {
+      count: reviewCount,
+      avgRating: reviewCount ? Math.round((ratingSum / reviewCount) * 10) / 10 : null,
+      answered: sum((p) => p.reviews.answered),
+    },
+    trend: r.months.map((_, i) => sum((p) => p.trend[i] ?? 0)),
+  };
+}
+
+/** 업장별 매니저 권한 (F8) — 사장님인 업장 전부의 사람과 권한 */
+export type PeopleRole = "owner" | "manager" | "staff";
+
+export interface PortfolioPeople {
+  /** 내가 사장님인 업장 */
+  properties: readonly { id: string; name: string }[];
+  people: readonly {
+    userId: string;
+    name: string;
+    /** 가린 번호 (010-****-1234) */
+    phone: string;
+    /** 업장 ID → 권한 (없으면 그 업장 사람 아님) */
+    roles: Readonly<Record<string, PeopleRole>>;
+  }[];
+  /** 대기 중인 초대 — 번호 · 권한별로 묶음 */
+  invitations: readonly {
+    phone: string;
+    role: "manager" | "staff";
+    propertyIds: readonly string[];
+    expiresAt: string;
+  }[];
+}
+
+export interface PeopleActions {
+  /** role null: 그 업장에서 빼기 */
+  assign: (
+    userId: string,
+    assignments: { propertyId: string; role: "manager" | "staff" | null }[],
+  ) => Promise<ActionResult<PortfolioPeople>>;
+  invite: (
+    phone: string,
+    role: "manager" | "staff",
+    propertyIds: string[],
+  ) => Promise<ActionResult<{ invited: string[]; skipped: string[] }>>;
 }

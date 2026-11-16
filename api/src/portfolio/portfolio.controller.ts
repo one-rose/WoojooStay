@@ -1,8 +1,18 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { IsOptional } from 'class-validator';
+import { IsMonth } from '../common/validation/date-fields.js';
 import { CurrentUser, type AuthUser } from '../common/decorators/auth.decorators.js';
+import { PortfolioReportService } from './portfolio-report.service.js';
 import { PortfolioReviewsService } from './portfolio-reviews.service.js';
 import { PortfolioService } from './portfolio.service.js';
+
+class ReportQuery {
+  @ApiPropertyOptional({ example: '2026-11', description: '기본 이번 달 (이번 달은 오늘까지)' })
+  @IsOptional()
+  @IsMonth()
+  month?: string;
+}
 
 @ApiTags('여러 업장 통합 현황 (F8)')
 @ApiBearerAuth()
@@ -11,6 +21,7 @@ export class PortfolioController {
   constructor(
     private readonly portfolio: PortfolioService,
     private readonly reviews: PortfolioReviewsService,
+    private readonly report: PortfolioReportService,
   ) {}
 
   @Get()
@@ -29,5 +40,14 @@ export class PortfolioController {
   })
   inbox(@CurrentUser() user: AuthUser) {
     return this.reviews.list(user.id);
+  }
+
+  @Get('report')
+  @ApiOperation({
+    summary:
+      '업장 비교 리포트 — 한 달 매출 · 예약 · 객실당 하루 매출 · 수수료 · 채널 비중 · 별점 · 답글률 + 6개월 추이',
+  })
+  monthly(@CurrentUser() user: AuthUser, @Query() q: ReportQuery) {
+    return this.report.get(user.id, q.month);
   }
 }

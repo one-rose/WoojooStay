@@ -8,6 +8,7 @@ import type {
   ExpenseInput,
   GuestReview,
   OpsActions,
+  PortfolioPeople,
   RoomLog,
   RoomStatus,
   PropertyInput,
@@ -26,6 +27,7 @@ import {
   pmsApi,
   toApiChannel,
   toApiRoomStatus,
+  toPortfolioPeople,
   toReview,
   toRoomLog,
   type ApiPlanCode,
@@ -92,8 +94,12 @@ async function afterLogin(accessToken: string, next?: string): Promise<string> {
 /** 업장을 바꿔도 그대로 열 수 있는 화면만 — 그 밖(전체 현황 · 업장별 상세 주소 등)은 그 업장 홈으로 */
 function sectionPath(next: string): string {
   const path = safeAppPath(next.split(/[?#]/)[0], "/app");
-  if (path === "/app/overview" || path.startsWith("/app/me") || path.startsWith("/app/onboarding")) return "/app";
-  return path;
+  if (path.startsWith("/app/overview") || path.startsWith("/app/me") || path.startsWith("/app/onboarding"))
+    return "/app";
+  // ?month= 처럼 화면을 정하는 값은 그대로 (업장 비교 → 그 달 매출장부)
+  const raw = next.includes("?") ? next.slice(next.indexOf("?")).split("#")[0] : "";
+  const query = /^\?[\w=&%.-]*$/.test(raw) ? raw : "";
+  return path + query;
 }
 
 /**
@@ -447,6 +453,38 @@ export async function inviteAction(phone: string, role: "manager" | "staff") {
 
 export async function changeRoleAction(memberId: string, role: "manager" | "staff") {
   return act((api, pid) => api.changeMemberRole(pid, memberId, upper(role)));
+}
+
+/* ── 직원·권한 (F8) — 권한은 API 가 업장마다 사장님인지 확인한다 ── */
+
+export async function assignPeopleAction(
+  userId: string,
+  assignments: { propertyId: string; role: "manager" | "staff" | null }[],
+): Promise<ActionResult<PortfolioPeople>> {
+  const { api } = await authed();
+  try {
+    const r = await api.assignPeople(
+      userId,
+      assignments.map((a) => ({ propertyId: a.propertyId, role: a.role ? upper(a.role) : null })),
+    );
+    return { ok: true, data: toPortfolioPeople(r) };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function invitePeopleAction(
+  phone: string,
+  role: "manager" | "staff",
+  propertyIds: string[],
+): Promise<ActionResult<{ invited: string[]; skipped: string[] }>> {
+  const { api } = await authed();
+  try {
+    const r = await api.invitePeople(phone, upper(role), propertyIds);
+    return { ok: true, data: { invited: r.invited, skipped: r.skipped } };
+  } catch (e) {
+    return fail(e);
+  }
 }
 
 /** all: 여러 업장 통합 알림 — 내 업장 전부를 읽음으로 (없으면 지금 업장만) */

@@ -3,6 +3,8 @@ import type {
   GuestReview,
   NotificationItem,
   PmsRepository,
+  PortfolioPeople,
+  PortfolioReport,
   ReviewInbox,
   PortfolioAlert,
   PortfolioData,
@@ -407,4 +409,99 @@ export function demoNotifications(today = kstToday()): NotificationItem[] {
   });
   out.sort((a, b) => b.at.localeCompare(a.at));
   return out.map((n, i) => ({ ...n, unread: i < 6 }));
+}
+
+/** 체험 모드 업장 비교 — 채널 이름과 비중 (업장마다 순서를 돌려 쓴다) */
+const DEMO_MIX: readonly { channel: "yanolja" | "yeogi" | "naver" | "agoda" | "trip"; name: string }[] = [
+  { channel: "yanolja", name: "야놀자" },
+  { channel: "yeogi", name: "여기어때" },
+  { channel: "naver", name: "네이버" },
+  { channel: "agoda", name: "아고다" },
+  { channel: "trip", name: "트립닷컴" },
+];
+const DEMO_WEIGHTS = [0.36, 0.26, 0.18, 0.12, 0.08];
+
+const addMonth = (month: string, n: number) => {
+  const d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+};
+const daysOf = (month: string) =>
+  new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+
+/**
+ * 체험 모드 업장 비교 리포트 — 이번 달은 통합 현황 숫자(month)와 같게, 지난 달은 그 업장 크기로 계절 변화를 줘서 만든다.
+ */
+export function demoPortfolioReport(month?: string, today = kstToday()): PortfolioReport {
+  const thisMonth = today.slice(0, 7);
+  const m = month && month <= thisMonth ? month : thisMonth;
+  const partial = m === thisMonth;
+  const day = Number(today.slice(8, 10));
+  const days = partial ? day : daysOf(m);
+  const months = Array.from({ length: 6 }, (_, i) => addMonth(m, i - 5));
+  const back = (mm: string) =>
+    (Number(thisMonth.slice(0, 4)) - Number(mm.slice(0, 4))) * 12 +
+    Number(thisMonth.slice(5, 7)) -
+    Number(mm.slice(5, 7));
+
+  const properties = DEMO_PROPERTIES.map((d, idx) => {
+    const fullMonth = day > 0 ? (d.month[0] / day) * 30 : 0;
+    /** 그 달 매출 — 이번 달은 오늘까지, 지난 달은 한 달 전체 */
+    const salesOf = (mm: string) => {
+      const k = back(mm);
+      if (k === 0) return d.month[0];
+      const season = 1 + 0.07 * Math.sin(k * 1.3 + idx) - 0.015 * k;
+      return Math.round((fullMonth * (daysOf(mm) / 30) * season) / 1000) * 1000;
+    };
+    const sales = salesOf(m);
+    const prevSales = partial ? d.month[1] : salesOf(addMonth(m, -1));
+    const avgPrice = d.today[1] > 0 ? d.today[0] / d.today[1] : 150_000;
+    const mix = DEMO_MIX.map((c, i) => ({
+      ...c,
+      sales: Math.round((sales * DEMO_WEIGHTS[(i + idx) % 5]) / 1000) * 1000,
+    }))
+      .filter((c) => c.sales > 0)
+      .sort((a, b) => b.sales - a.sales);
+    const count = sales > 0 ? Math.max(3, Math.round(sales / 1_400_000)) : 0;
+    return {
+      id: d.id,
+      name: d.name,
+      type: d.type,
+      rooms: d.rooms,
+      role: "owner" as const,
+      sales,
+      prevSales,
+      bookings: Math.round(sales / avgPrice),
+      commission: Math.round((sales * (0.1 + (idx % 4) * 0.01)) / 1000) * 1000,
+      perRoomDay: d.rooms > 0 && days > 0 ? Math.round(sales / (d.rooms * days)) : 0,
+      channels: mix,
+      reviews: {
+        count,
+        avgRating: count ? Math.round((4.6 - (idx % 5) * 0.15 - d.reviews[1] * 0.05) * 10) / 10 : null,
+        answered: partial ? Math.max(0, count - d.reviews[0]) : Math.round(count * 0.9),
+      },
+      trend: months.map(salesOf),
+    };
+  });
+  return { month: m, partial, days, months, properties };
+}
+
+/** 체험 모드 직원·권한 — 업장마다 매니저 · 직원, 여러 업장을 맡은 매니저 둘 */
+export function demoPeople(today = kstToday()): PortfolioPeople {
+  const ids = DEMO_PROPERTIES.map((d) => d.id);
+  const pick = (...idx: number[]) => Object.fromEntries(idx.map((i) => [ids[i], "manager" as const]));
+  const staffAt = (...idx: number[]) => Object.fromEntries(idx.map((i) => [ids[i], "staff" as const]));
+  const expires = new Date(Date.parse(`${today}T00:00:00Z`) + 5 * 86_400_000).toISOString().slice(0, 10);
+  return {
+    properties: DEMO_PROPERTIES.map((d) => ({ id: d.id, name: d.name })),
+    people: [
+      { userId: "u-choi", name: "최도윤", phone: "010-****-5555", roles: { ...pick(0, 2), ...staffAt(6) } },
+      { userId: "u-kim", name: "김루오", phone: "010-****-0000", roles: pick(1, 3, 4) },
+      { userId: "u-yoon", name: "윤가람", phone: "010-****-6001", roles: pick(5, 7) },
+      { userId: "u-seo", name: "선우린", phone: "010-****-9001", roles: pick(8, 9) },
+      { userId: "u-oh", name: "오세린", phone: "010-****-1001", roles: staffAt(0) },
+      { userId: "u-ha", name: "하준영", phone: "010-****-2001", roles: staffAt(1, 2) },
+      { userId: "u-bae", name: "배은지", phone: "010-****-1003", roles: staffAt(0) },
+    ],
+    invitations: [{ phone: "010-****-7788", role: "manager", propertyIds: [ids[6], ids[9]], expiresAt: expires }],
+  };
 }

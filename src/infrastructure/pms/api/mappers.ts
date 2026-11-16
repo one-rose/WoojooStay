@@ -2,6 +2,8 @@ import type {
   BillingState,
   PortfolioAlertKind,
   PortfolioData,
+  PortfolioPeople,
+  PortfolioReport,
   ReviewInbox,
   ChannelAccount,
   AdminData,
@@ -30,6 +32,8 @@ import type {
 } from "@/core";
 import type {
   ApiPortfolio,
+  ApiPortfolioPeople,
+  ApiPortfolioReport,
   ApiReviewInbox,
   ApiBilling,
   ApiExpenses,
@@ -512,6 +516,30 @@ export function toOps(d: ApiOps): OpsData {
 }
 
 /** 여러 업장 통합 현황 */
+export function toPortfolioPeople(d: ApiPortfolioPeople): PortfolioPeople {
+  const lower = <T extends string>(v: T) => v.toLowerCase() as Lowercase<T>;
+  return {
+    properties: d.properties,
+    people: d.people.map((p) => ({
+      ...p,
+      roles: Object.fromEntries(Object.entries(p.roles).map(([id, r]) => [id, lower(r)])),
+    })),
+    invitations: d.invitations.map((i) => ({ ...i, role: lower(i.role), expiresAt: kstDay(i.expiresAt) })),
+  };
+}
+
+export function toPortfolioReport(d: ApiPortfolioReport): PortfolioReport {
+  return {
+    ...d,
+    properties: d.properties.map((p) => ({
+      ...p,
+      type: toPropertyType(p.type),
+      role: p.role === "OWNER" ? "owner" : "manager",
+      channels: p.channels.map((c) => ({ ...c, channel: toChannelId(c.channel) })),
+    })),
+  };
+}
+
 export function toPortfolio(d: ApiPortfolio): PortfolioData {
   return {
     date: d.date,

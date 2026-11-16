@@ -30,6 +30,12 @@ export const NAV_INBOX: NavItem = {
   counter: "inbox",
 };
 
+/** 업장끼리 한 달 매출·별점 비교 (F8) — 업장이 2곳 이상일 때만 */
+export const NAV_REPORT: NavItem = { label: "업장 비교", icon: "ledger", href: "/app/overview/report" };
+
+/** 업장별 매니저 권한 (F8) — 업장이 2곳 이상일 때만 */
+export const NAV_PEOPLE: NavItem = { label: "직원·권한", icon: "staff", href: "/app/overview/people" };
+
 /** 메뉴 구성 — 기능정의서 서비스 순서 */
 export const NAV_GROUPS: readonly NavGroup[] = [
   {

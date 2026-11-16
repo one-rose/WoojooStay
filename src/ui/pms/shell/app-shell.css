@@ -521,3 +521,6 @@ button.pm-nav__prop:hover {
   border-radius: 50%;
   background: var(--pm-orange);
 }
+.pm-bell__head .pm-bell__scope {
+  margin-left: 6px;
+}

@@ -5,6 +5,8 @@ import {
   hasUrgentAlert,
   type NotificationItem,
   type PortfolioData,
+  type PortfolioPeople,
+  type PortfolioReport,
   type PropertyOption,
   type ReviewInbox,
 } from "@/core";
@@ -13,12 +15,16 @@ import {
   DEMO_DEFAULT_PROPERTY,
   demoPortfolio,
   demoNotifications,
+  demoPeople,
+  demoPortfolioReport,
   demoPropertyOptions,
   demoReviewInbox,
   isLiveApi,
   pmsRepository,
   toNotification,
   toPortfolio,
+  toPortfolioPeople,
+  toPortfolioReport,
   toReviewInbox,
   toPropertyType,
 } from "@/infrastructure";
@@ -38,6 +44,36 @@ export const loadPortfolio = cache(async (): Promise<PortfolioData> => {
     throw e;
   }
 });
+
+/** 직원·권한 — 내가 사장님인 업장 전부 */
+export async function loadPeople(): Promise<PortfolioPeople> {
+  if (!isLiveApi) {
+    await connection();
+    return demoPeople();
+  }
+  const s = await requireSession();
+  try {
+    return toPortfolioPeople(await (await serverApi(s.accessToken)).portfolioPeople());
+  } catch (e) {
+    if (e instanceof ApiAuthError) await redirectToRefresh({ stale: true });
+    throw e;
+  }
+}
+
+/** 업장 비교 리포트 — month 가 없으면 이번 달 (오늘까지) */
+export async function loadPortfolioReport(month?: string): Promise<PortfolioReport> {
+  if (!isLiveApi) {
+    await connection();
+    return demoPortfolioReport(month);
+  }
+  const s = await requireSession();
+  try {
+    return toPortfolioReport(await (await serverApi(s.accessToken)).portfolioReport(month));
+  } catch (e) {
+    if (e instanceof ApiAuthError) await redirectToRefresh({ stale: true });
+    throw e;
+  }
+}
 
 /** 통합 리뷰함 — 체험 모드는 예시 리뷰를 업장 10곳에 나눠서 */
 export async function loadReviewInbox(): Promise<ReviewInbox> {
