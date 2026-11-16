@@ -9,8 +9,10 @@ export interface NavItem {
   match?: string;
   /** 로드맵 단계 표시 — 랜딩 ROADMAP 과 같은 이름 */
   stage?: string;
-  /** "reviews" 면 미답변 수를 배지로 */
-  counter?: "reviews";
+  /** "reviews" 면 지금 업장 미답변 수, "inbox" 면 업장 전부의 미답변 수를 배지로 */
+  counter?: "reviews" | "inbox";
+  /** 하위 경로에서는 선택되지 않음 (전체 현황 vs 통합 리뷰함) */
+  exact?: boolean;
 }
 
 export interface NavGroup {
@@ -19,7 +21,14 @@ export interface NavGroup {
 }
 
 /** 업장이 2곳 이상일 때만 메뉴 맨 위에 (F8) */
-export const NAV_OVERVIEW: NavItem = { label: "전체 현황", icon: "grid", href: "/app/overview" };
+export const NAV_OVERVIEW: NavItem = { label: "전체 현황", icon: "grid", href: "/app/overview", exact: true };
+/** 업장 전부의 리뷰를 한 목록에서 (F8) — 업장이 2곳 이상일 때만 */
+export const NAV_INBOX: NavItem = {
+  label: "통합 리뷰함",
+  icon: "review",
+  href: "/app/overview/reviews",
+  counter: "inbox",
+};
 
 /** 메뉴 구성 — 기능정의서 서비스 순서 */
 export const NAV_GROUPS: readonly NavGroup[] = [

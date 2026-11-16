@@ -1,5 +1,8 @@
 import type {
+  ChannelConnection,
+  GuestReview,
   PmsRepository,
+  ReviewInbox,
   PortfolioAlert,
   PortfolioData,
   PortfolioProperty,
@@ -334,4 +337,32 @@ export function demoPropertyRepository(inner: PmsRepository, propertyId: string 
       };
     },
   });
+}
+
+/**
+ * 체험 모드 통합 리뷰함 — 공통 예시 리뷰를 업장마다 나눠 붙인다.
+ * 업장별 미답변 · 낮은 별점 수는 통합 현황 숫자(reviews)와 같게, 답글 단 리뷰는 앞의 3곳에만.
+ */
+export function demoReviewInbox(reviews: readonly GuestReview[], channels: readonly ChannelConnection[]): ReviewInbox {
+  const low = reviews.filter((r) => r.status === "unanswered" && r.rating <= 3);
+  const high = reviews.filter((r) => r.status === "unanswered" && r.rating > 3);
+  const posted = reviews.filter((r) => r.status === "posted");
+  const pick = <T>(pool: readonly T[], n: number, from: number) =>
+    pool.length ? Array.from({ length: n }, (_, k) => pool[(from + k) % pool.length]) : [];
+  const out: GuestReview[] = [];
+  DEMO_PROPERTIES.forEach((d, i) => {
+    const [unanswered, lowRated] = d.reviews;
+    const rows = [
+      ...pick(low, lowRated, i),
+      ...pick(high, unanswered - lowRated, i * 2),
+      ...(i < 3 ? pick(posted, 1, i) : []),
+    ];
+    rows.forEach((r, k) => out.push({ ...r, id: `${d.id}-${r.id}-${k}`, propertyId: d.id }));
+  });
+  return {
+    properties: DEMO_PROPERTIES.map((d) => ({ id: d.id, name: d.name })),
+    channels,
+    reviews: out,
+    truncated: false,
+  };
 }

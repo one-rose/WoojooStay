@@ -22,6 +22,13 @@ interface ReviewsScreenProps {
   initialId?: string | null;
   /** 실서버 게시·AI 다시 쓰기. 없으면 화면만 동작하는 시안 */
   actions?: ReviewActions;
+  /**
+   * 통합 리뷰함(F8) — 업장 여러 곳의 리뷰를 한 목록에. 리뷰마다 propertyId 가 있고,
+   * 업장으로 거르고 · 목록과 상세에 업장 이름을 보이고 · 답글은 그 업장으로 게시한다.
+   */
+  inbox?: { properties: readonly { id: string; name: string }[]; truncated?: boolean };
+  /** 통합 리뷰함을 이 업장으로 걸러서 연다 (?property=) */
+  initialProperty?: string | null;
 }
 
 const TABS: readonly { id: ReviewTab; label: string }[] = [
@@ -49,7 +56,7 @@ const fallbackChannel = (id: ChannelId): ChannelConnection => ({
 
 type Toast = { text: string; bad: boolean };
 
-export function ReviewsScreen({ reviews, channels, initialId, actions }: ReviewsScreenProps) {
+export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, initialProperty }: ReviewsScreenProps) {
   const router = useRouter();
   // 서버 목록이 새로 오면(router.refresh) 그것으로 바꾼다
   const [base, setBase] = useState(reviews);
@@ -67,6 +74,15 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
   const conn = (id: ChannelId) => channelMap[id] ?? fallbackChannel(id);
   const [tab, setTab] = useState<ReviewTab>(linked ? "all" : "unanswered");
   const [channel, setChannel] = useState<ChannelId | "all">("all");
+  const propertyNames = useMemo(
+    () => new Map((inbox?.properties ?? []).map((p) => [p.id, p.name])),
+    [inbox?.properties],
+  );
+  const [propertyFilter, setPropertyFilter] = useState<string>(
+    initialProperty && propertyNames.has(initialProperty) ? initialProperty : "all",
+  );
+  const inProperty = (r: GuestReview) => propertyFilter === "all" || r.propertyId === propertyFilter;
+  const propertyOf = (r: GuestReview) => (inbox && r.propertyId ? propertyNames.get(r.propertyId) : undefined);
   const [sort, setSort] = useState<Sort>("latest");
   const [selectedId, setSelectedId] = useState<string | null>(linked);
   const [mobileDetail, setMobileDetail] = useState(!!linked);
@@ -88,22 +104,24 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
 
   const counts = useMemo(() => {
     const out = {} as Record<ReviewTab, number>;
-    for (const t of TABS) out[t.id] = items.filter((r) => matchesReviewTab(effective(r), t.id)).length;
+    const scoped = items.filter(inProperty);
+    for (const t of TABS) out[t.id] = scoped.filter((r) => matchesReviewTab(effective(r), t.id)).length;
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- local 이 바뀌면 다시 계산
-  }, [items, local]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- local · 업장 필터가 바뀌면 다시 계산
+  }, [items, local, propertyFilter]);
 
   const list = useMemo(() => {
     const filtered = items
       .filter((r) => matchesReviewTab(effective(r), tab))
+      .filter(inProperty)
       .filter((r) => channel === "all" || r.channel === channel);
     return [...filtered].sort((a, b) =>
       sort === "low"
         ? a.rating - b.rating || b.postedAt.localeCompare(a.postedAt)
         : b.postedAt.localeCompare(a.postedAt),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- local 이 바뀌면 다시 계산
-  }, [items, tab, channel, sort, local]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- local · 업장 필터가 바뀌면 다시 계산
+  }, [items, tab, channel, sort, local, propertyFilter]);
 
   const selected = list.find((r) => r.id === selectedId) ?? list[0] ?? null;
 
@@ -117,7 +135,7 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
   const redraft = (review: GuestReview) =>
     actions &&
     start(async () => {
-      const r = await actions.redraft(review.id);
+      const r = await actions.redraft(review.id, review.propertyId);
       if (!r.ok) return setToast(r.message, true);
       replace(r.data.review);
       setLocal((prev) => ({ ...prev, [review.id]: { draft: r.data.review.aiDraft } }));
@@ -138,7 +156,7 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
     }
     if (actions) {
       start(async () => {
-        const r = await actions.reply(review.id, draft);
+        const r = await actions.reply(review.id, draft, review.propertyId);
         if (!r.ok) {
           win?.close();
           return setToast(r.message, true);
@@ -169,15 +187,27 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
 
   return (
     <div className="rv">
-      <PageHead
-        title="리뷰 관리"
-        desc="채널마다 흩어진 리뷰를 모으고, 리뷰 내용을 짚은 답글 초안을 미리 써 둬요. 확인하고 게시만 하면 돼요."
-        actions={
-          <PmButton icon="settings" href="/app/reviews/settings">
-            답글 말투 설정
-          </PmButton>
-        }
-      />
+      {inbox ? (
+        <PageHead
+          title="통합 리뷰함"
+          desc={`업장 ${inbox.properties.length}곳의 리뷰를 한곳에서 답해요. 미답변은 전부, 답글을 단 리뷰는 최근 7일 것만 보여요.`}
+        />
+      ) : (
+        <PageHead
+          title="리뷰 관리"
+          desc="채널마다 흩어진 리뷰를 모으고, 리뷰 내용을 짚은 답글 초안을 미리 써 둬요. 확인하고 게시만 하면 돼요."
+          actions={
+            <PmButton icon="settings" href="/app/reviews/settings">
+              답글 말투 설정
+            </PmButton>
+          }
+        />
+      )}
+      {inbox?.truncated && (
+        <p className="rv-note">
+          미답변 리뷰가 많아 최근 1,000건만 보여요. 오래된 리뷰는 업장별 리뷰 관리에서 볼 수 있어요.
+        </p>
+      )}
 
       <div className="rv-toolbar">
         <div className="rv-tabs" role="tablist" aria-label="리뷰 분류">
@@ -196,6 +226,26 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
           ))}
         </div>
         <div className="rv-filters">
+          {inbox && (
+            <label className="rv-select rv-select--wide">
+              <span className="pm-sr">업장</span>
+              <select
+                value={propertyFilter}
+                onChange={(e) => {
+                  setPropertyFilter(e.target.value);
+                  setSelectedId(null);
+                }}
+              >
+                <option value="all">전체 업장 {inbox.properties.length}곳</option>
+                {inbox.properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevronDown" size={14} />
+            </label>
+          )}
           <label className="rv-select">
             <span className="pm-sr">채널</span>
             <select value={channel} onChange={(e) => setChannel(e.target.value as ChannelId | "all")}>
@@ -236,6 +286,7 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
                   className={cx("rv-item", selected?.id === r.id && "is-on")}
                   onClick={() => select(r.id)}
                 >
+                  {propertyOf(r) && <span className="rv-item__property">{propertyOf(r)}</span>}
                   <span className="rv-item__top">
                     <ChannelChip channel={r.channel} name={conn(r.channel).name} />
                     <Stars rating={r.rating} />
@@ -265,6 +316,7 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
           <ReviewDetail
             key={selected.id}
             review={selected}
+            propertyName={propertyOf(selected)}
             channel={conn(selected.channel)}
             state={stateOf(selected)}
             answered={isAnswered(selected)}
@@ -289,6 +341,8 @@ export function ReviewsScreen({ reviews, channels, initialId, actions }: Reviews
 
 interface ReviewDetailProps {
   review: GuestReview;
+  /** 통합 리뷰함에서만 */
+  propertyName?: string;
   channel: ChannelConnection;
   state: LocalState;
   answered: boolean;
@@ -301,6 +355,7 @@ interface ReviewDetailProps {
 
 function ReviewDetail({
   review,
+  propertyName,
   channel,
   state,
   answered,
@@ -319,6 +374,7 @@ function ReviewDetail({
         <Icon name="chevronLeft" size={16} /> 목록
       </button>
 
+      {propertyName && <p className="rv-detail__property">{propertyName}</p>}
       <header className="rv-detail__head">
         <ChannelChip channel={review.channel} name={channel.name} />
         <Stars rating={review.rating} />

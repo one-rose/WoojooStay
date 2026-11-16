@@ -58,6 +58,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
       readAllNotifications={isLiveApi ? readAllNotificationsAction : undefined}
       demo={!isLiveApi}
       properties={switcher.options}
+      portfolioUnanswered={switcher.unanswered}
       switchProperty={switchPropertyAction}
     >
       {children}

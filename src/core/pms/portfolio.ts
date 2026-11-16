@@ -1,4 +1,4 @@
-import type { PropertyType } from "./pms";
+import type { ChannelConnection, GuestReview, PropertyType } from "./pms";
 
 /**
  * 여러 업장 통합 현황 (F8) — 업장을 여러 곳 운영하는 사장님이 로그인하면 먼저 보는 화면.
@@ -104,3 +104,14 @@ export function topAlertRank(p: Pick<PortfolioProperty, "alerts">): number {
 
 /** 업장 전환 동작 — 업장을 바꾸고 next(그 업장 안 경로)로 이동. 실패하면 메시지 */
 export type SwitchPropertyAction = (propertyId: string, next: string) => Promise<{ ok: false; message: string } | void>;
+
+/** 통합 리뷰함 (F8) — 내 업장 전부의 미답변 리뷰(전부)와 최근 7일 답글 단 리뷰 */
+export interface ReviewInbox {
+  properties: readonly { id: string; name: string }[];
+  /** 리뷰에 나오는 채널 (이름 · 게시 방식) */
+  channels: readonly ChannelConnection[];
+  /** propertyId 가 붙은 리뷰 */
+  reviews: readonly GuestReview[];
+  /** 미답변이 너무 많아 오래된 것이 잘림 */
+  truncated: boolean;
+}

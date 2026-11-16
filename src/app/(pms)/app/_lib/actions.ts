@@ -257,23 +257,30 @@ export async function disconnectChannelAction(channel: ChannelId) {
 
 /* ── AI 리뷰 (F1-03, F1-04, F1-07) ── */
 
+/** forProperty: 통합 리뷰함에서 다른 업장 리뷰에 답글 — 권한은 API 가 업장마다 확인한다 */
 export async function replyAction(
   reviewId: string,
   text: string,
+  forProperty?: string,
 ): Promise<ActionResult<{ review: GuestReview; copyTo: string | null }>> {
   const { api, propertyId } = await authed();
   try {
-    const r = await api.reply(propertyId, reviewId, text);
-    return { ok: true, data: { review: toReview(r), copyTo: r.copyTo ?? null } };
+    const r = await api.reply(forProperty ?? propertyId, reviewId, text);
+    const review = forProperty ? { ...toReview(r), propertyId: forProperty } : toReview(r);
+    return { ok: true, data: { review, copyTo: r.copyTo ?? null } };
   } catch (e) {
     return fail(e);
   }
 }
 
-export async function redraftAction(reviewId: string): Promise<ActionResult<{ review: GuestReview }>> {
+export async function redraftAction(
+  reviewId: string,
+  forProperty?: string,
+): Promise<ActionResult<{ review: GuestReview }>> {
   const { api, propertyId } = await authed();
   try {
-    return { ok: true, data: { review: toReview(await api.redraft(propertyId, reviewId)) } };
+    const review = toReview(await api.redraft(forProperty ?? propertyId, reviewId));
+    return { ok: true, data: { review: forProperty ? { ...review, propertyId: forProperty } : review } };
   } catch (e) {
     return fail(e);
   }

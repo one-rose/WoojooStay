@@ -443,3 +443,28 @@
   font-weight: 600;
   color: var(--pm-ok);
 }
+
+/* 통합 리뷰함 (F8) — 업장 이름 */
+.rv-item__property {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pm-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv-detail__property {
+  margin: 0 0 var(--pm-s2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+.rv-select--wide select {
+  max-width: 240px;
+}
+.rv-note {
+  margin: 0 0 var(--pm-s3);
+  font-size: 12.5px;
+  color: var(--pm-muted);
+}

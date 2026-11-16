@@ -14,7 +14,7 @@ import type {
 import { cx } from "@/shared";
 import { Logo } from "@/ui/brand";
 import { DemoBar, Icon } from "../components";
-import { NAV_FOOTER, NAV_GROUPS, NAV_OVERVIEW, type NavItem } from "./nav-items";
+import { NAV_FOOTER, NAV_GROUPS, NAV_INBOX, NAV_OVERVIEW, type NavItem } from "./nav-items";
 import { OverviewNav } from "./OverviewNav";
 import { PropertyPicker } from "./PropertyPicker";
 import "./app-shell.css";
@@ -51,6 +51,8 @@ interface AppShellProps {
   demo?: boolean;
   /** 사장님·매니저인 업장 — 2곳 이상이면 업장 전환 · 전체 현황 메뉴 */
   properties?: readonly PropertyOption[];
+  /** 업장 전부의 미답변 리뷰 수 (통합 리뷰함 메뉴) */
+  portfolioUnanswered?: number;
   /** 업장을 바꾸고 보던 메뉴 그대로 그 업장 화면으로 */
   switchProperty?: SwitchPropertyAction;
   children: ReactNode;
@@ -91,6 +93,7 @@ export function AppShell({
   readAllNotifications,
   demo,
   properties = [],
+  portfolioUnanswered = 0,
   switchProperty,
   children,
 }: AppShellProps) {
@@ -104,7 +107,8 @@ export function AppShell({
   const [bellError, setBellError] = useState("");
   const userBtn = useRef<HTMLButtonElement>(null);
   const multi = properties.length >= 2 && !!switchProperty;
-  const onOverview = pathname === "/app/overview";
+  /** 전체 현황 · 통합 리뷰함 — 업장 하나가 아니라 업장 전부를 보는 화면 */
+  const onOverview = pathname === "/app/overview" || pathname.startsWith("/app/overview/");
   const homeHref = multi ? "/app/overview" : "/app";
   const unread = notifications.filter((n) => n.unread && !readIds.includes(n.id)).length;
 
@@ -164,10 +168,10 @@ export function AppShell({
   const isActive = (item: NavItem) => {
     const base = item.match ?? item.href;
     if (!base) return false;
-    if (base === "/app") return pathname === "/app";
+    if (base === "/app" || item.exact) return pathname === base;
     if (item.match) {
       // 다른 메뉴가 이 주소를 정확히 가리키면 그 메뉴만 선택 (채널 연동 vs 설정)
-      const exact = [NAV_OVERVIEW, ...NAV_GROUPS.flatMap((g) => g.items), ...NAV_FOOTER].some(
+      const exact = [NAV_OVERVIEW, NAV_INBOX, ...NAV_GROUPS.flatMap((g) => g.items), ...NAV_FOOTER].some(
         (i) => i !== item && i.href === pathname,
       );
       return !exact && pathname.startsWith(base);
@@ -182,6 +186,9 @@ export function AppShell({
         <span className="pm-nav__label">{item.label}</span>
         {item.counter === "reviews" && unansweredReviews > 0 && (
           <span className="pm-nav__count num">{unansweredReviews}</span>
+        )}
+        {item.counter === "inbox" && portfolioUnanswered > 0 && (
+          <span className="pm-nav__count num">{portfolioUnanswered}</span>
         )}
         {item.stage && <span className="pm-nav__stage">{item.stage}</span>}
       </>
@@ -246,7 +253,12 @@ export function AppShell({
         )}
 
         <nav className="pm-nav__groups">
-          {multi && <ul className="pm-nav__top">{renderItem(NAV_OVERVIEW)}</ul>}
+          {multi && (
+            <ul className="pm-nav__top">
+              {renderItem(NAV_OVERVIEW)}
+              {renderItem(NAV_INBOX)}
+            </ul>
+          )}
           {/* 전체 현황에서는 업장 하나에 딸린 메뉴 대신 업장 목록 — 어느 업장인지 먼저 고른다 */}
           {multi && onOverview && switchProperty ? (
             <OverviewNav properties={properties} switchProperty={switchProperty} onNavigate={() => setOpen(false)} />

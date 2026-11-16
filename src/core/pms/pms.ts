@@ -71,6 +71,8 @@ export interface GuestReview {
   reply?: string;
   /** 욕설·개인정보 등 사람 확인이 필요한 리뷰 — 자동 게시 대상에서 제외 */
   needsReview?: boolean;
+  /** 통합 리뷰함(F8)에서만 — 이 리뷰가 달린 업장 */
+  propertyId?: string;
 }
 
 export type ReviewTab = "all" | "unanswered" | "positive" | "improve";
@@ -169,9 +171,14 @@ export interface OnboardingActions {
   finish?: () => Promise<void>;
 }
 
+/** propertyId: 통합 리뷰함에서 다른 업장 리뷰에 답글을 달 때 (없으면 지금 업장) */
 export interface ReviewActions {
-  reply: (reviewId: string, text: string) => Promise<ActionResult<{ review: GuestReview; copyTo: string | null }>>;
-  redraft: (reviewId: string) => Promise<ActionResult<{ review: GuestReview }>>;
+  reply: (
+    reviewId: string,
+    text: string,
+    propertyId?: string,
+  ) => Promise<ActionResult<{ review: GuestReview; copyTo: string | null }>>;
+  redraft: (reviewId: string, propertyId?: string) => Promise<ActionResult<{ review: GuestReview }>>;
 }
 
 /** 운영자 로그인 (F0-14) */

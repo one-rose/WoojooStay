@@ -82,6 +82,14 @@ export interface ApiPortfolio {
 
 export type ApiChannel = "YANOLJA" | "YEOGI" | "NAVER" | "AGODA" | "TRIP" | "HOTELS" | "ONDA" | "KKUL" | "DDNAYO";
 
+/** 통합 리뷰함 (GET /portfolio/reviews) */
+export interface ApiReviewInbox {
+  properties: { id: string; name: string }[];
+  channels: { channel: ApiChannel; name: string; replyMode: "API" | "COPY" }[];
+  items: (ApiReview & { propertyId: string })[];
+  truncated: boolean;
+}
+
 export interface ApiReview {
   id: string;
   channel: ApiChannel;
@@ -496,6 +504,9 @@ export class PmsApiClient {
   /** 여러 업장 통합 현황 — 내가 사장님·매니저인 업장 전부 */
   portfolio() {
     return this.call<ApiPortfolio>("GET", "/portfolio");
+  }
+  portfolioReviews() {
+    return this.call<ApiReviewInbox>("GET", "/portfolio/reviews");
   }
   resetPassword(verificationToken: string, password: string) {
     return this.call<unknown>("POST", "/auth/password/reset", { verificationToken, password });

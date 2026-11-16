@@ -2,6 +2,7 @@ import type {
   BillingState,
   PortfolioAlertKind,
   PortfolioData,
+  ReviewInbox,
   ChannelAccount,
   AdminData,
   AccountMember,
@@ -29,6 +30,7 @@ import type {
 } from "@/core";
 import type {
   ApiPortfolio,
+  ApiReviewInbox,
   ApiBilling,
   ApiExpenses,
   ApiLedger,
@@ -96,6 +98,22 @@ export function toReview(r: ApiReview): GuestReview {
     draftGenerator: r.draft?.generator === "template" ? "template" : r.draft?.generator === "ai" ? "ai" : undefined,
     reply: r.reply?.text,
     needsReview: r.needsReview || undefined,
+  };
+}
+
+/** 통합 리뷰함 — 리뷰마다 업장 ID 를 붙인다 */
+export function toReviewInbox(d: ApiReviewInbox): ReviewInbox {
+  return {
+    properties: d.properties,
+    channels: d.channels.map((c) => ({
+      channel: toChannelId(c.channel),
+      name: c.name,
+      replyMode: c.replyMode === "API" ? "api" : "copy",
+      status: "ok",
+      lastSyncedAt: "-",
+    })),
+    reviews: d.items.map((r) => ({ ...toReview(r), propertyId: r.propertyId })),
+    truncated: d.truncated,
   };
 }
 

@@ -281,6 +281,47 @@ describe('여러 업장 통합 현황 (e2e)', () => {
     expect(q.alerts).toEqual([{ kind: 'NO_CHANNEL', message: expect.any(String), link: '/app/settings/channels' }]);
   });
 
+  it('통합 리뷰함 — 내 업장 미답변 전부 + 최근 7일 답글, 남의 업장·직원 업장은 빠진다', async () => {
+    await review(managed, 2);
+    await review(staffOnly, 1);
+    await review(foreign, 1);
+    const res = await http.get(api('/portfolio/reviews')).set(owner.auth).expect(200);
+    const ids = res.body.properties.map((p: { id: string }) => p.id);
+    expect(ids).toEqual(expect.arrayContaining([busy, quiet, managed]));
+    expect(ids).not.toContain(staffOnly);
+    expect(ids).not.toContain(foreign);
+    type Row = { id: string; propertyId: string; status: string; rating: number };
+    const rows: Row[] = res.body.items;
+    expect(rows.every((r) => [busy, quiet, managed].includes(r.propertyId))).toBe(true);
+    // 바쁜 호텔: 미답변 3건 · 답글 기록 없는 POSTED 1건은 빠진다
+    expect(rows.filter((r) => r.propertyId === busy).map((r) => r.status)).toEqual([
+      'UNANSWERED',
+      'UNANSWERED',
+      'UNANSWERED',
+    ]);
+    expect(res.body.channels).toEqual([{ channel: 'YANOLJA', name: expect.any(String), replyMode: 'COPY' }]);
+
+    // 매니저인 업장 리뷰에 그 업장 주소로 답글 → 최근 답글로 남는다
+    const target = rows.find((r) => r.propertyId === managed)!;
+    await http
+      .post(api(`/properties/${managed}/reviews/${target.id}/reply`))
+      .set(owner.auth)
+      .send({ text: '감사합니다.' })
+      .expect(201);
+    const after = await http.get(api('/portfolio/reviews')).set(owner.auth).expect(200);
+    expect(after.body.items.find((r: Row) => r.id === target.id)).toMatchObject({
+      status: 'POSTED',
+      reply: { text: '감사합니다.' },
+    });
+    // 남의 업장 리뷰에는 답글을 못 단다 (남의 업장은 있는지도 알려 주지 않음)
+    const theirs = await prisma.review.findFirstOrThrow({ where: { propertyId: foreign } });
+    await http
+      .post(api(`/properties/${foreign}/reviews/${theirs.id}/reply`))
+      .set(owner.auth)
+      .send({ text: '감사합니다.' })
+      .expect(404);
+  });
+
   it('업장이 없으면 빈 목록', async () => {
     const lone = await signup('010-8410-0003', '새 사장');
     const res = await http.get(api('/portfolio')).set(lone.auth).expect(200);

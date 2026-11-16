@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   changeRate,
   topAlertRank,
@@ -110,9 +111,15 @@ export function OverviewScreen({ data, switchProperty }: OverviewScreenProps) {
   const [isPending, startTransition] = useTransition();
   const [allAlerts, setAllAlerts] = useState(false);
   const { totals } = data;
+  const router = useRouter();
 
   const open = (p: PortfolioProperty, next = "/app") => {
     if (isPending) return;
+    // 리뷰는 업장을 바꾸지 않고 통합 리뷰함에서 그 업장 것만 걸러서
+    if (next === "/app/reviews") {
+      router.push(`/app/overview/reviews?property=${encodeURIComponent(p.id)}`);
+      return;
+    }
     setError("");
     setPendingId(p.id);
     startTransition(async () => {
@@ -342,7 +349,7 @@ export function OverviewScreen({ data, switchProperty }: OverviewScreenProps) {
                               </span>
                             )}
                           </>,
-                          "리뷰 관리",
+                          "리뷰",
                         )
                       ) : (
                         <span className="is-muted">0</span>

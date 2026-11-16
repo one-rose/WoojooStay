@@ -1,14 +1,17 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
-import { hasUrgentAlert, type PortfolioData, type PropertyOption } from "@/core";
+import { hasUrgentAlert, type PortfolioData, type PropertyOption, type ReviewInbox } from "@/core";
 import {
   ApiAuthError,
   DEMO_DEFAULT_PROPERTY,
   demoPortfolio,
   demoPropertyOptions,
+  demoReviewInbox,
   isLiveApi,
+  pmsRepository,
   toPortfolio,
+  toReviewInbox,
   toPropertyType,
 } from "@/infrastructure";
 import { COOKIE, loadMe, readSession, redirectToRefresh, requireSession, serverApi } from "./session";
@@ -28,11 +31,29 @@ export const loadPortfolio = cache(async (): Promise<PortfolioData> => {
   }
 });
 
+/** 통합 리뷰함 — 체험 모드는 예시 리뷰를 업장 10곳에 나눠서 */
+export async function loadReviewInbox(): Promise<ReviewInbox> {
+  if (!isLiveApi) {
+    await connection();
+    const [reviews, channels] = await Promise.all([pmsRepository.getReviews(), pmsRepository.getChannels()]);
+    return demoReviewInbox(reviews, channels);
+  }
+  const s = await requireSession();
+  try {
+    return toReviewInbox(await (await serverApi(s.accessToken)).portfolioReviews());
+  } catch (e) {
+    if (e instanceof ApiAuthError) await redirectToRefresh({ stale: true });
+    throw e;
+  }
+}
+
 export interface PropertySwitcherData {
   /** 지금 고른 업장 */
   currentId: string | undefined;
   /** 사장님·매니저인 업장 (직원으로만 속한 업장 제외) */
   options: PropertyOption[];
+  /** 업장 전부의 미답변 리뷰 수 (통합 리뷰함 메뉴 숫자) — 업장 1곳이면 0 */
+  unanswered: number;
 }
 
 /**
@@ -44,10 +65,11 @@ export const loadPropertySwitcher = cache(async (): Promise<PropertySwitcherData
     return {
       currentId: (await cookies()).get(COOKIE.property)?.value ?? DEMO_DEFAULT_PROPERTY,
       options: demoPropertyOptions(),
+      unanswered: demoPortfolio().totals.reviews.unanswered,
     };
   }
   const s = await readSession();
-  if (!s.accessToken) return { currentId: s.propertyId, options: [] };
+  if (!s.accessToken) return { currentId: s.propertyId, options: [], unanswered: 0 };
   const me = await loadMe(s.accessToken).catch(() => null);
   const mine = (me?.properties ?? []).filter((p) => p.role !== "STAFF");
   const options: PropertyOption[] = mine.map((p) => ({
@@ -56,10 +78,12 @@ export const loadPropertySwitcher = cache(async (): Promise<PropertySwitcherData
     type: toPropertyType(p.type),
     rooms: p.rooms,
   }));
+  let unanswered = 0;
   if (options.length >= 2) {
     const portfolio = await loadPortfolio().catch(() => null);
     const urgent = new Set(portfolio?.properties.filter(hasUrgentAlert).map((p) => p.id));
     for (const o of options) o.urgent = urgent.has(o.id);
+    unanswered = portfolio?.totals.reviews.unanswered ?? 0;
   }
-  return { currentId: s.propertyId, options };
+  return { currentId: s.propertyId, options, unanswered };
 });

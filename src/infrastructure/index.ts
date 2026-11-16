@@ -20,7 +20,13 @@ export const pmsRepository = demoRepository(new StaticPmsRepository());
 export function demoPmsRepository(propertyId: string | undefined) {
   return demoPropertyRepository(pmsRepository, propertyId);
 }
-export { demoPortfolio, demoPropertyOptions, findDemoProperty, DEMO_DEFAULT_PROPERTY } from "./pms/demo-portfolio";
+export {
+  demoPortfolio,
+  demoPropertyOptions,
+  demoReviewInbox,
+  findDemoProperty,
+  DEMO_DEFAULT_PROPERTY,
+} from "./pms/demo-portfolio";
 
 /** 체험 모드 — 화면에서 직접 만든 예시 데이터도 오늘 기준으로 */
 export { shiftDates as demoDates };
@@ -64,6 +70,7 @@ export {
   toPortfolio,
   toPropertyType,
   toReview,
+  toReviewInbox,
   toRoomLog,
   toStaffMe,
 } from "./pms/api/mappers";
