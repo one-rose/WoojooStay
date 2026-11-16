@@ -19,6 +19,7 @@ NestJS 12 · Prisma 7 · PostgreSQL 16 · TypeScript (ESM) · Vitest
 | 알바관리 | F5-01 ~ F5-04, F5-06 | `/properties/:id/staff` · `/staff/employees` · `/staff/employees/:eid/contract` · `/staff/me`(직원 본인) · `/staff/attendance/clock` · `/staff/attendance` · `/staff/shifts` · `/staff/payroll/:month/{calculate,confirm,reopen,send}` · `/contracts/:token` · `/contracts/:token/sign` |
 | 지출관리 | F6-01, F6-03, F6-04 | `/properties/:id/expenses` · `/receipts` · `/receipts/:rid/register` · `/orders` · `/orders/:oid` |
 | 현장 업무 (객실 상태·인수인계·공지) | F7-01 ~ F7-03 ※ 사업소개서 '내부 업무시스템' — 기능정의서에 추가 필요 | `/properties/:id/ops` · `/rooms` · `/rooms/:rid` · `/rooms/:rid/status` · `/rooms/:rid/logs` · `/ops-notes` · `/ops-notes/:nid/{read,pin}` |
+| 여러 업장 통합 현황 | F8 | `/portfolio` — 내가 사장님·매니저인 업장 전부의 오늘·이번 달 매출 · 미답변 · 7일 정산 · 객실 · 근무 · 연동 + 확인할 일(급한 순). 직원으로만 속한 업장은 빠짐 |
 | 운영자 | F0-14, F0-16 | `/admin/auth/login` · `/admin/overview` · `/admin/properties` · `/admin/sync-issues` · `/admin/inquiries` · `/admin/admins` · `/inquiries`(랜딩 문의, 로그인 없음) |
 
 API 문서(Swagger): 서버 실행 후 http://localhost:4000/api/docs
@@ -40,6 +41,7 @@ pnpm start:dev                # http://localhost:4000
 | 계정 | 로그인 | 주소 |
 | --- | --- | --- |
 | 사장님 | 010-0000-0000 / `woojoo1234` | http://localhost:3000/app/login |
+| 여러 업장 대표 (한소영, 10곳) | 010-2000-0000 / `woojoo1234` | 같은 로그인 → 전체 현황 `/app/overview` |
 | 직원 (김민지) | 010-1111-2222 / `woojoo1234` | 같은 로그인 → 출퇴근 화면 `/app/me` |
 | 운영자 (최고 관리자) | admin@woojoo.kr / `Woojoo1234!` | http://localhost:3000/admin/login |
 

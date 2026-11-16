@@ -1,0 +1,65 @@
+import { cache } from "react";
+import { cookies } from "next/headers";
+import { connection } from "next/server";
+import { hasUrgentAlert, type PortfolioData, type PropertyOption } from "@/core";
+import {
+  ApiAuthError,
+  DEMO_DEFAULT_PROPERTY,
+  demoPortfolio,
+  demoPropertyOptions,
+  isLiveApi,
+  toPortfolio,
+  toPropertyType,
+} from "@/infrastructure";
+import { COOKIE, loadMe, readSession, redirectToRefresh, requireSession, serverApi } from "./session";
+
+/** 여러 업장 통합 현황 — 체험 모드는 예시 10곳. 한 요청 안에서는 한 번만 부른다 */
+export const loadPortfolio = cache(async (): Promise<PortfolioData> => {
+  if (!isLiveApi) {
+    await connection();
+    return demoPortfolio();
+  }
+  const s = await requireSession();
+  try {
+    return toPortfolio(await (await serverApi(s.accessToken)).portfolio());
+  } catch (e) {
+    if (e instanceof ApiAuthError) await redirectToRefresh({ stale: true });
+    throw e;
+  }
+});
+
+export interface PropertySwitcherData {
+  /** 지금 고른 업장 */
+  currentId: string | undefined;
+  /** 사장님·매니저인 업장 (직원으로만 속한 업장 제외) */
+  options: PropertyOption[];
+}
+
+/**
+ * 업장 전환 목록 — 업장이 2곳 이상일 때만 통합 현황을 불러 빨간 점(연동 끊김·결제 실패)을 붙인다.
+ * 실패해도 화면은 그대로 (점 없이).
+ */
+export const loadPropertySwitcher = cache(async (): Promise<PropertySwitcherData> => {
+  if (!isLiveApi) {
+    return {
+      currentId: (await cookies()).get(COOKIE.property)?.value ?? DEMO_DEFAULT_PROPERTY,
+      options: demoPropertyOptions(),
+    };
+  }
+  const s = await readSession();
+  if (!s.accessToken) return { currentId: s.propertyId, options: [] };
+  const me = await loadMe(s.accessToken).catch(() => null);
+  const mine = (me?.properties ?? []).filter((p) => p.role !== "STAFF");
+  const options: PropertyOption[] = mine.map((p) => ({
+    id: p.id,
+    name: p.name,
+    type: toPropertyType(p.type),
+    rooms: p.rooms,
+  }));
+  if (options.length >= 2) {
+    const portfolio = await loadPortfolio().catch(() => null);
+    const urgent = new Set(portfolio?.properties.filter(hasUrgentAlert).map((p) => p.id));
+    for (const o of options) o.urgent = urgent.has(o.id);
+  }
+  return { currentId: s.propertyId, options };
+});

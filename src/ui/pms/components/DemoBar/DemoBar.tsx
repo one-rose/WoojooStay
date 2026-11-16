@@ -2,9 +2,9 @@ import Link from "next/link";
 import "./demo-bar.css";
 
 const VIEWS = [
-  { href: "/app", label: "사장님" },
-  { href: "/app/me", label: "직원" },
-  { href: "/admin", label: "운영자" },
+  { key: "/app", href: "/app/overview", label: "사장님" },
+  { key: "/app/me", href: "/app/me", label: "직원" },
+  { key: "/admin", href: "/admin", label: "운영자" },
 ] as const;
 
 /**
@@ -20,7 +20,7 @@ export function DemoBar({ current }: { current?: "/app" | "/app/me" | "/admin" }
       </p>
       <nav aria-label="다른 화면 보기">
         {VIEWS.map((v) => (
-          <Link key={v.href} href={v.href} aria-current={current === v.href ? "page" : undefined}>
+          <Link key={v.href} href={v.href} aria-current={current === v.key ? "page" : undefined}>
             {v.label} 화면
           </Link>
         ))}

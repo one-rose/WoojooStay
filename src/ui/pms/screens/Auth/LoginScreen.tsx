@@ -234,7 +234,7 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
                     e.preventDefault();
                     setDone(null);
                     if (actions) run(() => actions.login(form.phone, form.password, target()));
-                    else router.push(target() ?? "/app");
+                    else router.push(target() ?? "/app/overview");
                   }}
                 >
                   {done && (

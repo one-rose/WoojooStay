@@ -3,6 +3,7 @@
  * 디자인 규칙: docs/PMS-DESIGN-SYSTEM.md · 토큰: styles/pms-tokens.css
  */
 export { AppShell } from "./shell/AppShell";
+export { OverviewScreen } from "./screens/Overview/OverviewScreen";
 export { DashboardScreen } from "./screens/Dashboard/DashboardScreen";
 export { ReviewsScreen } from "./screens/Reviews/ReviewsScreen";
 export { LinkedReviewsScreen } from "./screens/Reviews/LinkedReviewsScreen";

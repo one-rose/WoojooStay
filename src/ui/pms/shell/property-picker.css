@@ -1,0 +1,179 @@
+/* 업장 전환 (F8) — 사이드바 맨 위 업장 이름 버튼 + 떠 있는 목록 */
+.pm-picker {
+  position: relative;
+  margin-bottom: var(--pm-s4);
+  border-top: 1px solid var(--pm-navy-line);
+  border-bottom: 1px solid var(--pm-navy-line);
+  padding: 6px 0;
+}
+.pm-picker__btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px var(--pm-s3);
+  border-radius: var(--pm-r-md);
+  text-align: left;
+  color: var(--pm-nav-ink);
+  transition: background-color 0.15s;
+}
+.pm-picker__btn:hover,
+.pm-picker.is-open .pm-picker__btn {
+  background: var(--pm-nav-hover);
+}
+.pm-picker__now {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.pm-picker__now strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pm-picker__now small {
+  font-size: 12px;
+  color: var(--pm-nav-muted);
+}
+.pm-picker__caret {
+  flex: none;
+  color: var(--pm-nav-muted);
+  transition: transform 0.15s;
+}
+.pm-picker.is-open .pm-picker__caret {
+  transform: rotate(180deg);
+}
+/* 다른 업장에 급한 문제가 있을 때 — 버튼 위 작은 점 */
+.pm-picker__flag {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pm-orange);
+}
+
+.pm-picker__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 150px);
+  padding: 6px;
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-md);
+  box-shadow: var(--pm-shadow-pop);
+  color: var(--pm-ink);
+}
+.pm-picker__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  margin-bottom: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-md);
+  color: var(--pm-muted);
+}
+.pm-picker__search:focus-within {
+  border-color: var(--pm-ink-2);
+}
+.pm-picker__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--pm-ink);
+}
+.pm-picker__label {
+  padding: 8px 10px 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--pm-line-soft);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pm-muted);
+}
+.pm-picker__list--scroll {
+  overflow-y: auto;
+  min-height: 0;
+}
+.pm-picker__opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--pm-r-sm);
+  text-align: left;
+}
+.pm-picker__opt:hover,
+.pm-picker__opt:focus-visible {
+  background: var(--pm-neutral-bg);
+  outline: none;
+}
+.pm-picker__opt.is-current {
+  background: var(--pm-info-bg);
+}
+.pm-picker__opt.is-pending {
+  opacity: 0.6;
+  cursor: progress;
+}
+.pm-picker__all-icon {
+  flex: none;
+  color: var(--pm-ink-2);
+}
+.pm-picker__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.pm-picker__text strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pm-picker__text small {
+  font-size: 11.5px;
+  color: var(--pm-muted);
+}
+.pm-picker__dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pm-bad);
+}
+.pm-picker__check {
+  flex: none;
+  color: var(--pm-ink);
+}
+.pm-picker__empty {
+  padding: 10px;
+  font-size: 12.5px;
+  color: var(--pm-muted);
+}
+.pm-picker__error {
+  margin: 6px 4px 2px;
+  padding: 6px 10px;
+  border-radius: var(--pm-r-sm);
+  background: var(--pm-bad-bg);
+  color: var(--pm-bad);
+  font-size: 12px;
+  font-weight: 600;
+}

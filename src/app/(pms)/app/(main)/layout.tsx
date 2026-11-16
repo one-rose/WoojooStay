@@ -2,8 +2,9 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { ApiError, isLiveApi } from "@/infrastructure";
 import { AppShell } from "@/ui/pms";
-import { readAllNotificationsAction } from "../_lib/actions";
-import { getRepository, readSession, serverApi } from "../_lib/session";
+import { readAllNotificationsAction, switchPropertyAction } from "../_lib/actions";
+import { loadPropertySwitcher } from "../_lib/portfolio";
+import { getRepository, loadMe, readSession } from "../_lib/session";
 
 const ROLE_LABEL = { OWNER: "사장님", MANAGER: "매니저", STAFF: "직원" } as const;
 
@@ -12,7 +13,7 @@ async function loadUser() {
   if (!isLiveApi) return { name: "정현", roleLabel: "사장님" };
   const s = await readSession();
   if (!s.accessToken) return undefined;
-  const me = await (await serverApi(s.accessToken)).me().catch(() => null);
+  const me = await loadMe(s.accessToken).catch(() => null);
   if (!me) return undefined;
   const role = me.properties.find((p) => p.id === s.propertyId)?.role;
   return { name: me.name, roleLabel: role ? ROLE_LABEL[role] : "" };
@@ -30,6 +31,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
   const repo = await getRepository();
   let loaded;
   const userLoad = loadUser();
+  const switcherLoad = loadPropertySwitcher();
   try {
     loaded = await Promise.all([repo.getDashboard(), repo.getSettings()]);
   } catch (e) {
@@ -38,6 +40,7 @@ async function Shell({ children }: { children: React.ReactNode }) {
     throw e;
   }
   const [dashboard, settings] = loaded;
+  const switcher = await switcherLoad;
   const channels = dashboard.channels;
   const synced = channels
     .filter((c) => c.status !== "error")
@@ -54,6 +57,8 @@ async function Shell({ children }: { children: React.ReactNode }) {
       user={await userLoad}
       readAllNotifications={isLiveApi ? readAllNotificationsAction : undefined}
       demo={!isLiveApi}
+      properties={switcher.options}
+      switchProperty={switchPropertyAction}
     >
       {children}
     </AppShell>

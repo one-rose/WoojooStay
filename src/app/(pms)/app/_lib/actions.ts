@@ -16,9 +16,12 @@ import type {
   SignupInput,
   StaffActions,
 } from "@/core";
+import { redirect } from "next/navigation";
 import {
   ApiAuthError,
   ApiError,
+  findDemoProperty,
+  isLiveApi,
   fromReplySettings,
   pmsApi,
   toApiChannel,
@@ -62,7 +65,7 @@ async function saveTokens(t: { accessToken: string; refreshToken: string; expire
   jar.set(COOKIE.refresh, t.refreshToken, cookieOptions(30 * 86_400));
 }
 
-/** 로그인 후 갈 곳 — 업장이 있으면 첫 업장을 고르고 홈, 없으면 온보딩 */
+/** 로그인 후 갈 곳 — 업장이 있으면 첫 업장을 고르고 홈(2곳 이상이면 전체 현황), 없으면 온보딩 */
 async function afterLogin(accessToken: string, next?: string): Promise<string> {
   const me = await (await serverApi(accessToken)).me();
   const jar = await cookies();
@@ -80,7 +83,41 @@ async function afterLogin(accessToken: string, next?: string): Promise<string> {
   const current = jar.get(COOKIE.property)?.value;
   const keep = me.properties.find((p) => p.id === current && p.role !== "STAFF");
   jar.set(COOKIE.property, (keep ?? first).id, cookieOptions(30 * 86_400));
-  return safeAppPath(next, "/app");
+  const managed = me.properties.filter((p) => p.role !== "STAFF").length;
+  return safeAppPath(next, managed >= 2 ? "/app/overview" : "/app");
+}
+
+/* ── 업장 전환 (F8) ── */
+
+/** 업장을 바꿔도 그대로 열 수 있는 화면만 — 그 밖(전체 현황 · 업장별 상세 주소 등)은 그 업장 홈으로 */
+function sectionPath(next: string): string {
+  const path = safeAppPath(next.split(/[?#]/)[0], "/app");
+  if (path === "/app/overview" || path.startsWith("/app/me") || path.startsWith("/app/onboarding")) return "/app";
+  return path;
+}
+
+/**
+ * 업장 전환 — 내가 사장님·매니저인 업장인지 API(me)로 확인하고 업장 쿠키를 바꾼 뒤,
+ * 보던 메뉴 그대로(next) 그 업장 화면을 연다. 체험 모드는 예시 업장 10곳 중에서.
+ */
+export async function switchPropertyAction(propertyId: string, next: string): Promise<{ ok: false; message: string }> {
+  const target = sectionPath(next);
+  if (!isLiveApi) {
+    if (!findDemoProperty(propertyId)) return { ok: false, message: "업장을 찾지 못했어요." };
+    (await cookies()).set(COOKIE.property, propertyId, cookieOptions(30 * 86_400));
+    redirect(target);
+  }
+  const s = await requireSession();
+  let allowed = false;
+  try {
+    const me = await (await serverApi(s.accessToken)).me();
+    allowed = me.properties.some((p) => p.id === propertyId && p.role !== "STAFF");
+  } catch (e) {
+    return fail(e);
+  }
+  if (!allowed) return { ok: false, message: "이 업장을 관리할 권한이 없어요." };
+  (await cookies()).set(COOKIE.property, propertyId, cookieOptions(30 * 86_400));
+  redirect(target);
 }
 
 /** 로그인한 API 호출기 — try 바깥에서 부른다 (로그인 화면으로 보내는 redirect 가 삼켜지지 않게) */

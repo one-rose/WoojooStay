@@ -2,7 +2,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import type { PmsRepository } from "@/core";
-import { ApiAuthError, isLiveApi, livePmsRepository, pmsApi, pmsRepository } from "@/infrastructure";
+import { cache } from "react";
+import { ApiAuthError, demoPmsRepository, isLiveApi, livePmsRepository, pmsApi } from "@/infrastructure";
 import { clientIpFrom, safeAppPath } from "@/shared";
 
 /** 로그인 정보는 httpOnly 쿠키에만 둔다 (브라우저 스크립트에서 못 읽음) */
@@ -86,9 +87,10 @@ function guardAuth<T extends object>(target: T): T {
  */
 export async function getRepository(): Promise<PmsRepository> {
   if (!isLiveApi) {
-    // 체험 모드 — 날짜를 오늘 기준으로 옮기므로 빌드 때 굳히지 않고 요청마다 그린다
+    // 체험 모드 — 날짜를 오늘 기준으로 옮기므로 빌드 때 굳히지 않고 요청마다 그린다.
+    // 업장 전환(예시 업장 10곳)은 같은 업장 쿠키로 — 고른 업장 이름·객실 수로 보인다
     await connection();
-    return pmsRepository;
+    return demoPmsRepository((await cookies()).get(COOKIE.property)?.value);
   }
   const s = await requireSession();
   if (!s.propertyId) {
@@ -101,3 +103,6 @@ export async function getRepository(): Promise<PmsRepository> {
   }
   return guardAuth(livePmsRepository(s.accessToken, s.propertyId, await clientIp()));
 }
+
+/** 로그인한 사람과 속한 업장 — 한 요청 안에서는 한 번만 부른다 (레이아웃 · 화면 · 전환 목록) */
+export const loadMe = cache(async (accessToken: string) => (await serverApi(accessToken)).me());

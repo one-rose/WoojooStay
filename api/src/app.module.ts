@@ -20,6 +20,7 @@ import { DashboardModule } from './dashboard/dashboard.module.js';
 import { HealthController } from './health.controller.js';
 import { OpsModule } from './ops/ops.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { PortfolioModule } from './portfolio/portfolio.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PropertiesModule } from './properties/properties.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
@@ -51,6 +52,7 @@ import { SmsModule } from './sms/sms.module.js';
     StaffModule,
     ExpensesModule,
     OpsModule,
+    PortfolioModule,
   ],
   controllers: [HealthController],
   providers: [

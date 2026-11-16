@@ -33,6 +33,53 @@ export interface ApiMe extends ApiUser {
   properties: { id: string; name: string; type: string; rooms: number; role: "OWNER" | "MANAGER" | "STAFF" }[];
 }
 
+type ApiAlertKind =
+  | "CHANNEL_AUTH"
+  | "CHANNEL_ERROR"
+  | "PAYMENT_FAILED"
+  | "LOW_RATED"
+  | "STALE_DIRTY"
+  | "MISSING_CLOCK_OUT"
+  | "NO_CHANNEL";
+
+export interface ApiPortfolioProperty {
+  id: string;
+  name: string;
+  type: string;
+  rooms: number;
+  role: "OWNER" | "MANAGER";
+  today: { sales: number; bookings: number; yesterdaySales: number };
+  month: { sales: number; prevToDate: number };
+  reviews: { unanswered: number; lowRated: number };
+  settle7: number;
+  roomStatus: {
+    ready: number;
+    dirty: number;
+    cleaning: number;
+    inspect: number;
+    occupied: number;
+    outOfOrder: number;
+    staleDirty: number;
+  };
+  staff: { onDuty: number; missingClockOut: number };
+  channels: { connected: number; error: number; authExpired: number };
+  billing: { status: "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | null };
+  alerts: { kind: ApiAlertKind; message: string; link: string }[];
+}
+
+export interface ApiPortfolio {
+  date: string;
+  properties: ApiPortfolioProperty[];
+  totals: {
+    properties: number;
+    needsAttention: number;
+    today: { sales: number; bookings: number; yesterdaySales: number };
+    month: { sales: number; prevToDate: number };
+    reviews: { unanswered: number; lowRated: number };
+    settle7: number;
+  };
+}
+
 export type ApiChannel = "YANOLJA" | "YEOGI" | "NAVER" | "AGODA" | "TRIP" | "HOTELS" | "ONDA" | "KKUL" | "DDNAYO";
 
 export interface ApiReview {
@@ -445,6 +492,10 @@ export class PmsApiClient {
   }
   me() {
     return this.call<ApiMe>("GET", "/auth/me");
+  }
+  /** 여러 업장 통합 현황 — 내가 사장님·매니저인 업장 전부 */
+  portfolio() {
+    return this.call<ApiPortfolio>("GET", "/portfolio");
   }
   resetPassword(verificationToken: string, password: string) {
     return this.call<unknown>("POST", "/auth/password/reset", { verificationToken, password });

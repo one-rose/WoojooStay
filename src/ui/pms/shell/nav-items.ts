@@ -18,6 +18,9 @@ export interface NavGroup {
   items: readonly NavItem[];
 }
 
+/** 업장이 2곳 이상일 때만 메뉴 맨 위에 (F8) */
+export const NAV_OVERVIEW: NavItem = { label: "전체 현황", icon: "grid", href: "/app/overview" };
+
 /** 메뉴 구성 — 기능정의서 서비스 순서 */
 export const NAV_GROUPS: readonly NavGroup[] = [
   {

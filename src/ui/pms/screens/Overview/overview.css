@@ -1,0 +1,385 @@
+/* 여러 업장 통합 현황 (F8) — 요약 띠 · 확인할 업장 · 업장별 표 (휴대폰은 카드) */
+.ov.is-switching {
+  cursor: progress;
+}
+.ov-error {
+  margin-bottom: var(--pm-s4);
+  padding: 10px var(--pm-s4);
+  border-radius: var(--pm-r-md);
+  background: var(--pm-bad-bg);
+  color: var(--pm-bad);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── 확인이 필요한 업장 — 급한 순. 왼쪽 상태 막대 + 상태 글자 ── */
+.ov-attn {
+  margin-bottom: var(--pm-s4);
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  overflow: hidden;
+}
+.ov-attn__head,
+.ov-list__head {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-s2);
+  padding: 14px var(--pm-s5) 12px;
+}
+.ov-attn__head h2,
+.ov-list__head h2 {
+  font-size: var(--pm-fs-h2);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ov-attn__head span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-muted);
+}
+.ov-attn__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 84px minmax(160px, 240px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--pm-s4);
+  min-height: 52px;
+  padding: 8px var(--pm-s5);
+  border-top: 1px solid var(--pm-line-soft);
+}
+.ov-attn__row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--pm-line);
+}
+.ov-attn__row.is-bad::before {
+  background: var(--pm-bad);
+}
+.ov-attn__row.is-warn::before {
+  background: var(--pm-warn);
+}
+.ov-attn__row.is-pending,
+.ov-row.is-pending,
+.ov-card.is-pending {
+  opacity: 0.55;
+}
+.ov-attn__badge {
+  justify-self: start;
+}
+.ov-attn__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pm-ink);
+}
+.ov-attn__name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ov-attn__msg {
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--pm-ink-2);
+}
+.ov-attn__more {
+  margin-left: 8px;
+  font-size: 12.5px;
+  color: var(--pm-muted);
+  white-space: nowrap;
+  cursor: help;
+  border-bottom: 1px dotted var(--pm-faint);
+}
+
+/* ── 업장별 현황 ── */
+.ov-list {
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  overflow: hidden;
+}
+.ov-list__sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--pm-muted);
+}
+.ov-list__sort .pm-input {
+  width: auto;
+  height: 30px;
+  padding: 0 28px 0 10px;
+  font-size: 13px;
+}
+.ov-table-wrap {
+  border-top: 1px solid var(--pm-line);
+}
+.ov-table thead th {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.ov-table tbody th,
+.ov-table tfoot th {
+  text-align: left;
+  font-weight: 600;
+}
+.ov-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+.ov-sort:hover,
+.ov-sort.is-active {
+  color: var(--pm-ink);
+}
+.ov-sort__icon {
+  opacity: 0;
+  transition: transform 0.15s;
+}
+.ov-sort:hover .ov-sort__icon {
+  opacity: 0.45;
+}
+.ov-sort.is-active .ov-sort__icon {
+  opacity: 1;
+}
+.ov-sort__icon.is-up {
+  transform: rotate(180deg);
+}
+.ov-row {
+  cursor: pointer;
+}
+.ov-row td,
+.ov-row th {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.ov-name {
+  min-width: 220px;
+}
+.ov-name__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  max-width: 260px;
+  text-align: left;
+}
+.ov-name__btn strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--pm-ink);
+}
+.ov-row:hover .ov-name__btn strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ov-name__btn small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--pm-muted);
+}
+.ov-name__btn small span {
+  margin-left: 6px;
+  color: var(--pm-ink-2);
+}
+.ov-rate {
+  color: var(--pm-muted);
+}
+.ov-rate.is-up {
+  color: var(--pm-ok);
+}
+.ov-rate.is-down {
+  color: var(--pm-bad);
+}
+/* 셀 안 바로가기 — 평소엔 그냥 숫자, 마우스를 올리면 밑줄 */
+.ov-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--pm-r-sm);
+}
+.ov-jump:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ov-jump:hover .pm-badge {
+  text-decoration: none;
+  filter: brightness(0.97);
+}
+.ov-low {
+  margin-left: 6px;
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--pm-warn);
+}
+.ov-jump .ov-low {
+  margin-left: 0;
+}
+.ov-rooms {
+  display: inline-flex;
+  gap: 4px;
+}
+.ov-rooms i {
+  font-style: normal;
+  color: var(--pm-faint);
+}
+.ov-rooms .is-stale {
+  color: var(--pm-warn);
+  font-weight: 700;
+}
+.ov-table tfoot th,
+.ov-table tfoot td {
+  background: var(--pm-surface-sunken);
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* ── 휴대폰: 표 대신 카드 ── */
+.ov-cards {
+  display: none;
+}
+@container pm (max-width: 720px) {
+  .ov-attn__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "badge act"
+      "name act"
+      "msg msg";
+    row-gap: 4px;
+    padding: 12px var(--pm-s4);
+  }
+  .ov-attn__head,
+  .ov-list__head {
+    padding-inline: var(--pm-s4);
+  }
+  .ov-attn__badge {
+    grid-area: badge;
+  }
+  .ov-attn__name {
+    grid-area: name;
+  }
+  .ov-attn__msg {
+    grid-area: msg;
+    font-size: 13px;
+  }
+  .ov-attn__act {
+    grid-area: act;
+    align-self: start;
+  }
+  .ov-table-wrap {
+    display: none;
+  }
+  .ov-cards {
+    display: block;
+    border-top: 1px solid var(--pm-line);
+  }
+  .ov-cards li + li {
+    border-top: 1px solid var(--pm-line-soft);
+  }
+  .ov-card {
+    position: relative;
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 40px 14px var(--pm-s4);
+    text-align: left;
+  }
+  .ov-card:active {
+    background: var(--pm-surface-sunken);
+  }
+  .ov-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--pm-s2);
+  }
+  .ov-card__name {
+    display: grid;
+    min-width: 0;
+  }
+  .ov-card__name strong {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--pm-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ov-card__name small {
+    font-size: 12px;
+    color: var(--pm-muted);
+  }
+  .ov-card__figs {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: var(--pm-s2);
+  }
+  .ov-card__figs > span {
+    display: grid;
+    align-content: start;
+    gap: 1px;
+    min-width: 0;
+  }
+  .ov-card__figs small {
+    font-size: 11.5px;
+    color: var(--pm-muted);
+  }
+  .ov-card__figs b {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--pm-ink);
+    white-space: nowrap;
+  }
+  .ov-card__figs .ov-rate,
+  .ov-card__figs .ov-low {
+    margin: 0;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .ov-card__go {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    margin-top: -8px;
+    color: var(--pm-faint);
+  }
+}
+.ov-attn__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 40px;
+  border-top: 1px solid var(--pm-line-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+.ov-attn__toggle:hover {
+  background: var(--pm-surface-sunken);
+  color: var(--pm-ink);
+}
+.ov-attn__toggle .is-up {
+  transform: rotate(180deg);
+}

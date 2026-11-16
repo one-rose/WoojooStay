@@ -10,3 +10,4 @@ export * from "./pms/pms";
 export * from "./pms/rates";
 export * from "./pms/business";
 export * from "./pms/pms.repository";
+export * from "./pms/portfolio";

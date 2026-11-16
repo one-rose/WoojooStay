@@ -3,11 +3,20 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ActionResult, NotificationItem, Property, PropertyType } from "@/core";
+import type {
+  ActionResult,
+  NotificationItem,
+  Property,
+  PropertyOption,
+  PropertyType,
+  SwitchPropertyAction,
+} from "@/core";
 import { cx } from "@/shared";
 import { Logo } from "@/ui/brand";
 import { DemoBar, Icon } from "../components";
-import { NAV_FOOTER, NAV_GROUPS, type NavItem } from "./nav-items";
+import { NAV_FOOTER, NAV_GROUPS, NAV_OVERVIEW, type NavItem } from "./nav-items";
+import { OverviewNav } from "./OverviewNav";
+import { PropertyPicker } from "./PropertyPicker";
 import "./app-shell.css";
 
 const BELL_ICON: Record<NotificationItem["kind"], "review" | "settle" | "alert" | "expense" | "staff"> = {
@@ -40,6 +49,10 @@ interface AppShellProps {
   readAllNotifications?: () => Promise<ActionResult>;
   /** 서버 없이 배포한 체험 모드 — 맨 위에 안내 띠 */
   demo?: boolean;
+  /** 사장님·매니저인 업장 — 2곳 이상이면 업장 전환 · 전체 현황 메뉴 */
+  properties?: readonly PropertyOption[];
+  /** 업장을 바꾸고 보던 메뉴 그대로 그 업장 화면으로 */
+  switchProperty?: SwitchPropertyAction;
   children: ReactNode;
 }
 
@@ -77,6 +90,8 @@ export function AppShell({
   user,
   readAllNotifications,
   demo,
+  properties = [],
+  switchProperty,
   children,
 }: AppShellProps) {
   const pathname = usePathname();
@@ -88,6 +103,9 @@ export function AppShell({
   const [readIds, setReadIds] = useState<string[]>([]);
   const [bellError, setBellError] = useState("");
   const userBtn = useRef<HTMLButtonElement>(null);
+  const multi = properties.length >= 2 && !!switchProperty;
+  const onOverview = pathname === "/app/overview";
+  const homeHref = multi ? "/app/overview" : "/app";
   const unread = notifications.filter((n) => n.unread && !readIds.includes(n.id)).length;
 
   const readAll = async () => {
@@ -149,7 +167,7 @@ export function AppShell({
     if (base === "/app") return pathname === "/app";
     if (item.match) {
       // 다른 메뉴가 이 주소를 정확히 가리키면 그 메뉴만 선택 (채널 연동 vs 설정)
-      const exact = [...NAV_GROUPS.flatMap((g) => g.items), ...NAV_FOOTER].some(
+      const exact = [NAV_OVERVIEW, ...NAV_GROUPS.flatMap((g) => g.items), ...NAV_FOOTER].some(
         (i) => i !== item && i.href === pathname,
       );
       return !exact && pathname.startsWith(base);
@@ -201,7 +219,7 @@ export function AppShell({
         inert={drawer && !open ? true : undefined}
       >
         <div className="pm-nav__brand">
-          <Link href="/app" aria-label="우주스테이 홈">
+          <Link href={homeHref} aria-label="우주스테이 홈">
             <Logo tone="footer" className="pm-nav__logo" />
           </Link>
           <button type="button" className="pm-nav__close" onClick={() => setOpen(false)} aria-label="메뉴 닫기">
@@ -209,24 +227,42 @@ export function AppShell({
           </button>
         </div>
 
-        {/* 업장 전환은 업장이 둘 이상일 때 붙인다 — 지금은 이름만 보여준다 */}
-        <div className="pm-property">
-          <strong>{property.name}</strong>
-          <small>
-            {TYPE_LABEL[property.type]} {property.rooms}실
-          </small>
-        </div>
+        {/* 업장이 2곳 이상이면 업장 이름이 전환 버튼 — 1곳이면 이름만 */}
+        {multi ? (
+          <PropertyPicker
+            current={property}
+            onOverview={onOverview}
+            properties={properties}
+            switchProperty={switchProperty}
+            onNavigate={() => setOpen(false)}
+          />
+        ) : (
+          <div className="pm-property">
+            <strong>{property.name}</strong>
+            <small>
+              {TYPE_LABEL[property.type]} {property.rooms}실
+            </small>
+          </div>
+        )}
 
         <nav className="pm-nav__groups">
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="pm-nav__group">
-              <p className="pm-nav__group-label">{group.label}</p>
-              <ul>{group.items.map(renderItem)}</ul>
-            </div>
-          ))}
+          {multi && <ul className="pm-nav__top">{renderItem(NAV_OVERVIEW)}</ul>}
+          {/* 전체 현황에서는 업장 하나에 딸린 메뉴 대신 업장 목록 — 어느 업장인지 먼저 고른다 */}
+          {multi && onOverview && switchProperty ? (
+            <OverviewNav properties={properties} switchProperty={switchProperty} onNavigate={() => setOpen(false)} />
+          ) : (
+            <>
+              {NAV_GROUPS.map((group) => (
+                <div key={group.label} className="pm-nav__group">
+                  <p className="pm-nav__group-label">{group.label}</p>
+                  <ul>{group.items.map(renderItem)}</ul>
+                </div>
+              ))}
+            </>
+          )}
         </nav>
 
-        <ul className="pm-nav__foot">{NAV_FOOTER.map(renderItem)}</ul>
+        {!(multi && onOverview) && <ul className="pm-nav__foot">{NAV_FOOTER.map(renderItem)}</ul>}
       </aside>
       {open && <div className="pm-scrim" onClick={() => setOpen(false)} aria-hidden />}
 
@@ -243,20 +279,23 @@ export function AppShell({
           >
             <Icon name="menu" />
           </button>
-          <Link href="/app" className="pm-top__logo" aria-label="우주스테이 홈">
+          <Link href={homeHref} className="pm-top__logo" aria-label="우주스테이 홈">
             <Logo className="pm-top__logo-svg" />
           </Link>
           <div className="pm-top__spacer" />
-          <span
-            className={cx("pm-top__sync", syncErrors > 0 && "has-error")}
-            title={`마지막 채널 수집 ${syncLong(lastSyncedAt)}`}
-          >
-            <Icon name={syncErrors > 0 ? "alert" : "sync"} size={15} />
-            <span>
-              {syncErrors > 0 ? `연동 오류 ${syncErrors}건` : "채널 수집"}{" "}
-              <span className="num">{syncTime(lastSyncedAt)}</span>
+          {/* 채널 수집 시각은 업장 하나의 것 — 전체 현황에서는 숨긴다 */}
+          {!(multi && onOverview) && (
+            <span
+              className={cx("pm-top__sync", syncErrors > 0 && "has-error")}
+              title={`마지막 채널 수집 ${syncLong(lastSyncedAt)}`}
+            >
+              <Icon name={syncErrors > 0 ? "alert" : "sync"} size={15} />
+              <span>
+                {syncErrors > 0 ? `연동 오류 ${syncErrors}건` : "채널 수집"}{" "}
+                <span className="num">{syncTime(lastSyncedAt)}</span>
+              </span>
             </span>
-          </span>
+          )}
           <div className="pm-bell">
             <button
               type="button"
@@ -319,7 +358,7 @@ export function AppShell({
               <div className="pm-usermenu__panel">
                 <p className="pm-usermenu__who">
                   <strong>{user?.name ?? "사장님"}</strong>
-                  <small>{property.name}</small>
+                  <small>{onOverview && multi ? `전체 업장 ${properties.length}곳` : property.name}</small>
                   {user?.roleLabel && <small>{user.roleLabel}</small>}
                 </p>
                 <Link href="/app/settings/property" className="pm-usermenu__item" onClick={() => setUserOpen(false)}>

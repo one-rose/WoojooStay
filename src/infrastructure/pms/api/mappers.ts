@@ -1,4 +1,7 @@
 import type {
+  BillingState,
+  PortfolioAlertKind,
+  PortfolioData,
   ChannelAccount,
   AdminData,
   AccountMember,
@@ -25,6 +28,7 @@ import type {
   ReviewPhotoId,
 } from "@/core";
 import type {
+  ApiPortfolio,
   ApiBilling,
   ApiExpenses,
   ApiLedger,
@@ -477,5 +481,24 @@ export function toOps(d: ApiOps): OpsData {
     notices: d.notices.map(toOpsNote),
     handovers: d.handovers.map(toOpsNote),
     unread: d.unread,
+  };
+}
+
+/** 여러 업장 통합 현황 */
+export function toPortfolio(d: ApiPortfolio): PortfolioData {
+  return {
+    date: d.date,
+    totals: d.totals,
+    properties: d.properties.map((p) => ({
+      ...p,
+      type: toPropertyType(p.type),
+      role: p.role === "OWNER" ? "owner" : "manager",
+      billing: p.billing.status ? (p.billing.status.toLowerCase() as BillingState) : null,
+      alerts: p.alerts.map((a) => ({
+        kind: a.kind.toLowerCase().replaceAll("_", "-") as PortfolioAlertKind,
+        message: a.message,
+        link: a.link,
+      })),
+    })),
   };
 }

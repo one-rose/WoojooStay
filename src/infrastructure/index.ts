@@ -7,6 +7,7 @@ import { ApiPmsRepository } from "./pms/api/api-pms.repository";
 import { PmsApiClient } from "./pms/api/client";
 import { toAdminData } from "./pms/api/mappers";
 import { demoRepository, shiftDates } from "./pms/demo-clock";
+import { demoPropertyRepository } from "./pms/demo-portfolio";
 import { StaticPmsRepository } from "./pms/static-pms.repository";
 
 /** 앱 전체에서 쓰는 저장소 인스턴스 (구현 교체는 여기서만) */
@@ -14,6 +15,12 @@ export const homeContentRepository = new StaticHomeContentRepository();
 
 /** 우주스테이 앱(/app) 예시 데이터 저장소 — API 주소가 없을 때 (체험 모드: 날짜를 오늘 기준으로 옮김) */
 export const pmsRepository = demoRepository(new StaticPmsRepository());
+
+/** 체험 모드 — 고른 예시 업장(쿠키)의 이름·객실 수로 보이는 저장소 */
+export function demoPmsRepository(propertyId: string | undefined) {
+  return demoPropertyRepository(pmsRepository, propertyId);
+}
+export { demoPortfolio, demoPropertyOptions, findDemoProperty, DEMO_DEFAULT_PROPERTY } from "./pms/demo-portfolio";
 
 /** 체험 모드 — 화면에서 직접 만든 예시 데이터도 오늘 기준으로 */
 export { shiftDates as demoDates };
@@ -42,6 +49,7 @@ export {
   ApiAuthError,
   ApiError,
   type ApiChannel,
+  type ApiMe,
   type ApiPlanCode,
   type ApiStaffMe,
   type ApiTokens,
@@ -53,6 +61,8 @@ export {
   toApiRoomStatus,
   toOps,
   toPlanOptions,
+  toPortfolio,
+  toPropertyType,
   toReview,
   toRoomLog,
   toStaffMe,
