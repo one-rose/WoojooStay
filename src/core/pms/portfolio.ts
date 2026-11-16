@@ -90,6 +90,8 @@ export interface PropertyOption {
   rooms: number;
   /** 연동 끊김·결제 실패처럼 바로 손봐야 하는 문제가 있음 (빨간 점) */
   urgent?: boolean;
+  /** 이 업장에서 내 권한 — 사장님인 업장이 하나라도 있어야 '직원·권한' 메뉴가 보인다 */
+  role?: "owner" | "manager";
 }
 
 /** 빨간 점을 찍을 만큼 급한 일 — 채널 끊김 · 결제 실패 */

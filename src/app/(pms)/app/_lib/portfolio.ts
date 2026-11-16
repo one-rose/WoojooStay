@@ -124,6 +124,7 @@ export const loadPropertySwitcher = cache(async (): Promise<PropertySwitcherData
     name: p.name,
     type: toPropertyType(p.type),
     rooms: p.rooms,
+    role: p.role === "OWNER" ? "owner" : "manager",
   }));
   let unanswered = 0;
   let notifications: NotificationItem[] | null = null;

@@ -111,6 +111,8 @@ export function AppShell({
   const [bellError, setBellError] = useState("");
   const userBtn = useRef<HTMLButtonElement>(null);
   const multi = properties.length >= 2 && !!switchProperty;
+  /** 직원·권한은 사장님인 업장이 있을 때만 (매니저는 권한을 정할 수 없다) */
+  const ownsAny = properties.some((p) => p.role === "owner");
   /** 전체 현황 · 통합 리뷰함 — 업장 하나가 아니라 업장 전부를 보는 화면 */
   const onOverview = pathname === "/app/overview" || pathname.startsWith("/app/overview/");
   const homeHref = multi ? "/app/overview" : "/app";
@@ -294,7 +296,7 @@ export function AppShell({
               {renderItem(NAV_OVERVIEW)}
               {renderItem(NAV_INBOX)}
               {renderItem(NAV_REPORT)}
-              {renderItem(NAV_PEOPLE)}
+              {ownsAny && renderItem(NAV_PEOPLE)}
             </ul>
           )}
           {/* 전체 현황에서는 업장 하나에 딸린 메뉴 대신 업장 목록 — 어느 업장인지 먼저 고른다 */}

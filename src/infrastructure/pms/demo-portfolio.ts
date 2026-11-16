@@ -300,6 +300,7 @@ export function demoPropertyOptions(): PropertyOption[] {
     type: d.type,
     rooms: d.rooms,
     urgent: hasUrgentAlert({ alerts: alertsOf(d) }),
+    role: "owner" as const,
   }));
 }
 
