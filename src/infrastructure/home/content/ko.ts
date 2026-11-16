@@ -27,6 +27,7 @@ export const homeContentKo: HomeContent = {
       { label: "핵심 가치", href: "#value" },
       { label: "파트너", href: "#partner" },
     ],
+    app: { label: "이용하기", href: "/app/login" },
     cta: { label: "도입 문의하기", href: "#partner" },
   },
   hero: {
@@ -44,7 +45,7 @@ export const homeContentKo: HomeContent = {
       { illustration: "people", title: "알바관리", caption: "근태·급여·계약" },
       { illustration: "receipt", title: "지출관리", caption: "세금·지출 한눈에" },
     ],
-    primaryCta: { label: "무료로 시작하기", href: "#service" },
+    primaryCta: { label: "무료로 시작하기", href: "/app/login" },
     secondaryCta: { label: "서비스 보기", href: "#service" },
     dashboard: {
       brand: "WOOJOO STAY",

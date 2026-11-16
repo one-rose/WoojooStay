@@ -27,6 +27,7 @@ export const homeContentEn: HomeContent = {
       { label: "Core values", href: "#value" },
       { label: "Partners", href: "#partner" },
     ],
+    app: { label: "Open app", href: "/app/login" },
     cta: { label: "Contact us", href: "#partner" },
   },
   hero: {
@@ -44,7 +45,7 @@ export const homeContentEn: HomeContent = {
       { illustration: "people", title: "Part-timer Management", caption: "Attendance · payroll · contracts" },
       { illustration: "receipt", title: "Expense Management", caption: "Taxes & spend at a glance" },
     ],
-    primaryCta: { label: "Start for free", href: "#service" },
+    primaryCta: { label: "Start for free", href: "/app/login" },
     secondaryCta: { label: "See services", href: "#service" },
     dashboard: {
       brand: "WOOJOO STAY",

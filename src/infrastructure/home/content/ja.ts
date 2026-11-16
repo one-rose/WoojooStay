@@ -27,6 +27,7 @@ export const homeContentJa: HomeContent = {
       { label: "コアバリュー", href: "#value" },
       { label: "パートナー", href: "#partner" },
     ],
+    app: { label: "アプリを使う", href: "/app/login" },
     cta: { label: "導入のお問い合わせ", href: "#partner" },
   },
   hero: {
@@ -44,7 +45,7 @@ export const homeContentJa: HomeContent = {
       { illustration: "people", title: "アルバイト管理", caption: "勤怠・給与・契約" },
       { illustration: "receipt", title: "支出管理", caption: "税金・支出をひと目で" },
     ],
-    primaryCta: { label: "無料ではじめる", href: "#service" },
+    primaryCta: { label: "無料ではじめる", href: "/app/login" },
     secondaryCta: { label: "サービスを見る", href: "#service" },
     dashboard: {
       brand: "WOOJOO STAY",

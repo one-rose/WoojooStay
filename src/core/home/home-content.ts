@@ -58,6 +58,8 @@ export interface SectionIntro {
 export interface SiteHeaderContent {
   navLabel: string;
   nav: readonly Link[];
+  /** 앱(/app)으로 들어가는 링크 — 로그인·체험 */
+  app: Link;
   cta: Link;
 }
 

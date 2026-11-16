@@ -26,6 +26,7 @@ export const homeContentZh: HomeContent = {
       { label: "核心价值", href: "#value" },
       { label: "合作伙伴", href: "#partner" },
     ],
+    app: { label: "进入应用", href: "/app/login" },
     cta: { label: "咨询合作", href: "#partner" },
   },
   hero: {
@@ -40,7 +41,7 @@ export const homeContentZh: HomeContent = {
       { illustration: "people", title: "兼职管理", caption: "考勤·薪资·合同" },
       { illustration: "receipt", title: "支出管理", caption: "税费·支出一目了然" },
     ],
-    primaryCta: { label: "免费开始", href: "#service" },
+    primaryCta: { label: "免费开始", href: "/app/login" },
     secondaryCta: { label: "查看服务", href: "#service" },
     dashboard: {
       brand: "WOOJOO STAY",

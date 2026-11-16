@@ -19,6 +19,9 @@ export function SiteHeader({ content, locale }: { content: SiteHeaderContent; lo
           ))}
         </nav>
         <LanguageSwitcher current={locale} />
+        <Button href={content.app.href} size="sm" variant="ghost" className="header__app">
+          {content.app.label}
+        </Button>
         <Button href={content.cta.href} size="sm">
           {content.cta.label}
         </Button>
