@@ -38,7 +38,7 @@ const eslintConfig = defineConfig([
     ["@/core", "@/core/*", "@/infrastructure", "@/infrastructure/*", "@/ui", "@/ui/*", "@/app/*"],
     "shared 는 어떤 레이어에도 의존하지 않는 순수 유틸만 둡니다.",
   ),
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "api/**"]),
 ]);
 
 export default eslintConfig;

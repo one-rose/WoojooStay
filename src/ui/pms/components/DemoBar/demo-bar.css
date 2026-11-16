@@ -1,0 +1,47 @@
+/* 체험 모드 안내 띠 — 화면 맨 위 한 줄. 주황 대신 안내색 */
+.pm-demo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pm-s3);
+  padding: 7px var(--pm-s5);
+  background: var(--pm-info-bg);
+  border-bottom: 1px solid var(--pm-line);
+  color: var(--pm-info);
+  font-size: var(--pm-fs-cap);
+}
+.pm-demo p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 0;
+}
+.pm-demo strong {
+  font-weight: 700;
+}
+.pm-demo nav {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.pm-demo a {
+  padding: 3px 8px;
+  border-radius: var(--pm-r-sm);
+  color: var(--pm-info);
+  font-weight: 600;
+  text-decoration: none;
+}
+.pm-demo a:hover {
+  background: rgba(44, 64, 104, 0.08);
+}
+.pm-demo a[aria-current="page"] {
+  background: var(--pm-surface);
+  box-shadow: inset 0 0 0 1px var(--pm-line);
+}
+@media (max-width: 720px) {
+  .pm-demo {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-inline: var(--pm-s4);
+  }
+}

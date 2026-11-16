@@ -1,0 +1,97 @@
+.ad-plans {
+  display: inline-flex;
+  gap: 4px;
+}
+.ad-sub {
+  display: block;
+  font-size: var(--pm-fs-cap);
+  color: var(--pm-muted);
+}
+.ad-foot {
+  padding: var(--pm-s3) var(--pm-s5) var(--pm-s4);
+  font-size: var(--pm-fs-cap);
+  color: var(--pm-muted);
+}
+
+/* 운영자 화면 틀 — 사장님 앱(/app)과 분리 */
+.ad-shell {
+  min-height: 100dvh;
+  background: var(--pm-canvas);
+}
+.ad-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 var(--pm-s6);
+  background: var(--pm-navy);
+  color: #fff;
+}
+.ad-top__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.ad-top__logo.logo {
+  height: 18px;
+}
+.ad-top__tag {
+  padding-left: 10px;
+  border-left: 1px solid var(--pm-navy-line);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--pm-nav-muted);
+}
+.ad-top__right {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-s4);
+  font-size: 13px;
+}
+.ad-top__me small {
+  margin-left: 6px;
+  color: var(--on-deep-muted);
+}
+.ad-top__out {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--pm-navy-line);
+  border-radius: var(--pm-r-sm);
+  color: #fff;
+  font-size: 13px;
+}
+.ad-top__out:hover {
+  background: var(--pm-navy-2);
+}
+.ad-top__demo {
+  color: var(--on-deep-muted);
+}
+.ad-main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--pm-s8) var(--pm-s6) 64px;
+}
+.ad-login__title {
+  margin-bottom: var(--pm-s5);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.ad-note {
+  margin: var(--pm-s3) 0;
+  font-size: 13px;
+}
+.ad-note.is-bad {
+  color: var(--pm-bad);
+}
+.ad-acts {
+  display: inline-flex;
+  gap: 6px;
+}

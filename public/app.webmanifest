@@ -1,0 +1,10 @@
+{
+  "name": "우주스테이",
+  "short_name": "우주스테이",
+  "start_url": "/app",
+  "scope": "/app",
+  "display": "standalone",
+  "background_color": "#f5f6f8",
+  "theme_color": "#1c2b46",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

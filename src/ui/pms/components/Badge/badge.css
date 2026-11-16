@@ -1,0 +1,52 @@
+.pm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--pm-r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+}
+.pm-badge--dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pm-badge--ok {
+  color: var(--pm-ok);
+  background: var(--pm-ok-bg);
+}
+.pm-badge--warn {
+  color: var(--pm-warn);
+  background: var(--pm-warn-bg);
+}
+.pm-badge--bad {
+  color: var(--pm-bad);
+  background: var(--pm-bad-bg);
+}
+.pm-badge--info {
+  color: var(--pm-info);
+  background: var(--pm-info-bg);
+}
+.pm-badge--neutral {
+  color: var(--pm-ink-2);
+  background: var(--pm-neutral-bg);
+}
+/* 상태가 아닌 종류 표시 (요금제 이름, 키워드 등) — 선만 있는 4px 태그 */
+.pm-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pm-ink-2);
+  white-space: nowrap;
+}

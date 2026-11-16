@@ -1,0 +1,60 @@
+.pm-tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pm-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+.pm-tabs__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pm-muted);
+}
+/* 밑줄형 */
+.pm-tabs--line {
+  gap: var(--pm-s5);
+  border-bottom: 1px solid var(--pm-line);
+  margin-bottom: var(--pm-s5);
+}
+.pm-tabs--line .pm-tabs__tab {
+  height: 42px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.pm-tabs--line .pm-tabs__tab:hover {
+  color: var(--pm-ink);
+}
+.pm-tabs--line .pm-tabs__tab.is-on {
+  color: var(--pm-ink);
+  font-weight: 700;
+  border-bottom-color: var(--pm-orange);
+}
+/* 알약형 */
+.pm-tabs--pill {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--pm-r-pill);
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+}
+.pm-tabs--pill .pm-tabs__tab {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--pm-r-pill);
+  font-size: 13px;
+}
+.pm-tabs--pill .pm-tabs__tab.is-on {
+  background: var(--pm-navy);
+  color: #fff;
+}
+.pm-tabs--pill .pm-tabs__tab.is-on .pm-tabs__count {
+  color: rgba(255, 255, 255, 0.72);
+}

@@ -4,19 +4,30 @@ import {
   EasyStartSection,
   FinanceSection,
   Hero,
+  InquiryDialog,
   LedgerSection,
   OperationsSection,
   PlatformStrip,
   RoadmapSection,
   SiteFooter,
   SiteHeader,
+  type SubmitInquiry,
   TrustStats,
   UseCasesSection,
   ValuesSection,
 } from "../sections";
 
 /** 홈 화면 = 섹션 조립만. 데이터는 바깥(app)에서 받아 내려준다. */
-export function HomeView({ content, locale }: { content: HomeContent; locale: Locale }) {
+export function HomeView({
+  content,
+  locale,
+  submitInquiry,
+}: {
+  content: HomeContent;
+  locale: Locale;
+  /** 있으면 문의 버튼이 접수 창을 연다 (API 서버 연결 시). 없으면 예전처럼 푸터로 이동 */
+  submitInquiry?: SubmitInquiry;
+}) {
   return (
     <>
       <SiteHeader content={content.header} locale={locale} />
@@ -34,6 +45,9 @@ export function HomeView({ content, locale }: { content: HomeContent; locale: Lo
         <ValuesSection content={content.values} />
       </main>
       <SiteFooter content={content.footer} />
+      {submitInquiry && (
+        <InquiryDialog content={content.inquiry} submit={submitInquiry} serverMessages={locale === "ko"} />
+      )}
     </>
   );
 }

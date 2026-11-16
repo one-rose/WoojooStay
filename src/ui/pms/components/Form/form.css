@@ -1,0 +1,125 @@
+/* 입력 기본 모양 — .pm-input 은 input · select · textarea 공통 */
+.pm-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-md);
+  background: var(--pm-surface);
+  font-size: 14px;
+  min-width: 0;
+}
+textarea.pm-input {
+  height: auto;
+  padding: 10px 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.pm-input:focus {
+  outline: none;
+  border-color: var(--pm-orange);
+  box-shadow: var(--pm-focus);
+}
+.pm-input:disabled,
+.pm-input[readonly] {
+  background: var(--pm-surface-sunken);
+  color: var(--pm-muted);
+}
+.pm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pm-field + .pm-field {
+  margin-top: var(--pm-s4);
+}
+.pm-field__label {
+  font-size: 13px;
+  font-weight: 700;
+}
+.pm-field__label em {
+  font-style: normal;
+  color: var(--pm-bad);
+}
+.pm-field__hint {
+  margin-top: 6px;
+  font-size: var(--pm-fs-cap);
+  color: var(--pm-muted);
+}
+.pm-field--row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: var(--pm-s4);
+  align-items: start;
+  padding: var(--pm-s4) 0;
+  border-bottom: 1px solid var(--pm-line-soft);
+}
+.pm-field--row + .pm-field--row {
+  margin-top: 0;
+}
+.pm-field--row .pm-field__label {
+  padding-top: 10px;
+}
+.pm-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pm-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-pill);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pm-choice input {
+  accent-color: var(--pm-navy);
+}
+.pm-choice label:has(input:checked) {
+  border-color: var(--pm-navy);
+  background: var(--pm-info-bg);
+}
+.pm-switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 24px;
+  border-radius: var(--pm-r-pill);
+  background: #d5d9e0;
+  transition: background-color 0.15s;
+}
+.pm-switch.is-on {
+  background: var(--pm-ok);
+}
+.pm-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+.pm-switch.is-on .pm-switch__knob {
+  transform: translateX(16px);
+}
+@media (max-width: 720px) {
+  .pm-field--row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .pm-field--row .pm-field__label {
+    padding-top: 0;
+  }
+}
+.pm-switch:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}

@@ -12,3 +12,4 @@ export { RoadmapSection } from "./RoadmapSection/RoadmapSection";
 export { EasyStartSection } from "./EasyStartSection/EasyStartSection";
 export { ValuesSection } from "./ValuesSection/ValuesSection";
 export { SiteFooter } from "./SiteFooter/SiteFooter";
+export { InquiryDialog, type InquiryInput, type SubmitInquiry } from "./InquiryDialog/InquiryDialog";

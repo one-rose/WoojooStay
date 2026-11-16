@@ -1,0 +1,114 @@
+/* 앱 공통 바탕 — 랜딩 global.css(리셋) 위에 덮어쓴다 */
+body.pm {
+  background: var(--pm-canvas);
+  color: var(--pm-ink);
+  font-size: var(--pm-fs-body);
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  overflow-x: visible;
+}
+.pm .num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.pm input,
+.pm select,
+.pm textarea {
+  font: inherit;
+  color: inherit;
+}
+/* 포커스 표시 — 흰 틈 + 주황 2px 고리. box-shadow 가 안 보이는 환경(고대비 모드 등)을 위해 투명 outline 도 둔다 */
+.pm :focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: var(--pm-focus);
+}
+@supports not selector(:focus-visible) {
+  .pm :focus {
+    outline: 2px solid var(--pm-orange);
+    outline-offset: 2px;
+  }
+}
+.pm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.pm-sr-only-focusable:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.pm-loading {
+  min-height: 100dvh;
+  background: linear-gradient(to right, var(--pm-nav-bg) var(--pm-nav-w), var(--pm-canvas) 0);
+}
+.pm-error {
+  margin-top: var(--pm-s2);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pm-bad);
+}
+.pm-devhint {
+  margin-top: var(--pm-s2);
+  padding: 6px 10px;
+  border-radius: var(--pm-r-sm);
+  background: var(--pm-info-bg);
+  color: var(--pm-info);
+  font-size: 12px;
+}
+/* 화면 데이터를 불러오는 동안 — 틀(사이드바·상단 바)은 그대로 두고 본문 자리만 */
+.pm-skeleton {
+  display: grid;
+  gap: var(--pm-s4);
+  min-height: 60dvh;
+}
+.pm-skeleton::before,
+.pm-skeleton::after {
+  content: "";
+  display: block;
+  border-radius: var(--pm-r-lg);
+  background: linear-gradient(
+    90deg,
+    var(--pm-line-soft) 0 40%,
+    var(--pm-surface-sunken) 50%,
+    var(--pm-line-soft) 60% 100%
+  );
+  background-size: 300% 100%;
+  animation: pm-shimmer 1.4s ease-in-out infinite;
+}
+.pm-skeleton::before {
+  width: min(320px, 70%);
+  height: 56px;
+}
+.pm-skeleton::after {
+  height: 360px;
+}
+@keyframes pm-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-skeleton::before,
+  .pm-skeleton::after {
+    animation: none;
+  }
+}
+@media (max-width: 1100px) {
+  .pm-loading {
+    background: var(--pm-canvas);
+  }
+}

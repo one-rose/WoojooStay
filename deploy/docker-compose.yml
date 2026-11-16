@@ -1,0 +1,68 @@
+# 우주스테이 파일럿 운영 — AWS Lightsail 한 대에 화면 · API · DB · HTTPS 를 함께 올린다
+# 사용법: deploy/README.md
+name: uzustay
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: uzustay
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 를 .env 에 넣어 주세요}
+      POSTGRES_DB: uzustay
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uzustay"]
+      interval: 10s
+      retries: 5
+
+  api:
+    build: ../api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://uzustay:${DB_PASSWORD}@db:5432/uzustay
+      WEB_ORIGIN: https://${DOMAIN}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads:/app/uploads
+    # 바깥에 열지 않는다 — 화면 서버(web)만 안쪽 네트워크로 부른다
+
+  web:
+    build:
+      context: ..
+      args:
+        PMS_API_URL: http://api:4000
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      PMS_API_URL: http://api:4000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:?INTERNAL_API_KEY 를 .env 에 넣어 주세요}
+      TOSS_CLIENT_KEY: ${TOSS_CLIENT_KEY:-}
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:

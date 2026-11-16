@@ -45,7 +45,11 @@ app ──▶ ui ──▶ core ◀── infrastructure
 src/app/[locale]/layout.tsx   <html lang>, 메타데이터, 전역 CSS
 src/app/[locale]/page.tsx     콘텐츠 조회 → <HomeView>
 next.config.ts                "/" → "/ko" (rewrite),  "/ko" → "/" (redirect)
+src/app/(pms)/app/            우주스테이 앱(/app) — 홈페이지와 별도 root layout (홈 · reviews · rates)
 ```
+
+앱 화면은 같은 레이어 규칙을 따릅니다: `core/pms`(타입·계산·화면 동작 타입) · `infrastructure/pms`(예시 데이터 + `api/` 실서버 저장소) · `ui/pms`(화면). 운영자 화면은 별도 root layout `src/app/(admin)/admin` 에 있습니다.
+디자인 규칙은 [PMS-DESIGN-SYSTEM.md](PMS-DESIGN-SYSTEM.md).
 
 - 언어 목록은 `src/core/i18n/locale.ts` 의 `LOCALES` 한 곳에만 있습니다. 4개 페이지 모두 빌드 때 정적 HTML 로 만들어집니다.
 - 언어 버튼은 각 언어 주소로 가는 링크입니다 (검색엔진도 언어별 페이지를 따로 수집).

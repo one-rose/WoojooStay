@@ -5,4 +5,6 @@
 export { cx } from "./lib/cx";
 export { formatNumber, formatMillions } from "./lib/format";
 export { smoothPath, type Point } from "./lib/smooth-path";
-export { needsSpaceBetween } from "./lib/text";
+export { josa, needsSpaceBetween } from "./lib/text";
+export { addDays, daysBetween, formatLongDate, formatShortDate, kstDay, weekday, weekdayKo } from "./lib/date";
+export { clientIpFrom, safeAppPath } from "./lib/http";

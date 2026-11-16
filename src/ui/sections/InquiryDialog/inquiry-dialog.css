@@ -1,0 +1,148 @@
+/* 도입·파트너 문의 창 — 랜딩 C안 (남색 · 주황 · 알약 버튼) */
+.inq {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 28px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.inq::backdrop {
+  background: rgba(28, 43, 70, 0.55);
+}
+.inq__box {
+  position: relative;
+  padding: 36px 36px 32px;
+}
+.inq__x {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--muted);
+}
+.inq__x:hover {
+  background: var(--bg-alt);
+}
+.inq h2 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.inq__desc {
+  margin: 6px 0 22px;
+  color: var(--muted);
+  font-size: 15px;
+}
+.inq__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.inq__kinds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--bg-alt);
+}
+.inq__kinds button {
+  height: 40px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.inq__kinds button.is-on {
+  background: var(--primary);
+  color: #fff;
+}
+.inq__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.inq label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.inq label em {
+  margin-left: 4px;
+  font-style: normal;
+  font-weight: 500;
+  color: var(--muted);
+}
+.inq input:not([type="checkbox"]),
+.inq select,
+.inq textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+}
+.inq textarea {
+  resize: vertical;
+}
+.inq input:focus,
+.inq select:focus,
+.inq textarea:focus {
+  outline: 2px solid var(--vivid);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+.inq .inq__consent {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+}
+.inq__consent input {
+  margin-top: 2px;
+  accent-color: var(--vivid);
+}
+.inq__error {
+  color: #c62828;
+  font-size: 14px;
+}
+.inq__submit {
+  width: 100%;
+  height: 52px;
+  margin-top: 4px;
+  font-size: 16px;
+}
+.inq__done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0 4px;
+}
+.inq__done p {
+  margin-bottom: 14px;
+  color: var(--muted);
+}
+@media (max-width: 560px) {
+  .inq__box {
+    padding: 28px 20px 24px;
+  }
+  .inq__row {
+    grid-template-columns: 1fr;
+  }
+}

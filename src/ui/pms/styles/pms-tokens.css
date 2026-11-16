@@ -1,0 +1,87 @@
+/*
+ * 우주스테이 앱(PMS) 디자인 토큰
+ * 랜딩 브랜드(남색 + 주황)를 물려받고, 업무 화면에 맞게 회색 단계·모서리·크기를 정했다.
+ * 색을 새로 만들지 말고 아래 토큰만 쓴다. 규칙은 docs/PMS-DESIGN-SYSTEM.md · docs/PMS-DESIGN-V2.md
+ */
+:root {
+  /* 면 */
+  --pm-canvas: #f6f7f9; /* 본문 바탕 — 차가운 회색 (PMS-DESIGN-V2) */
+  --pm-surface: var(--surface);
+  --pm-surface-sunken: #fafafa;
+  --pm-line: #e4e7ec; /* 구역 나눔 — 그림자 대신 선 */
+  --pm-line-soft: #eef0f3;
+
+  /* 글자 */
+  --pm-ink: var(--ink);
+  --pm-ink-2: #475467; /* 본문 */
+  --pm-muted: #667085; /* 보조 — 흰 바탕·캔버스 모두 4.5:1 이상 */
+  --pm-faint: #9aa1ad; /* 선·장식 전용 — 글자에는 --pm-muted */
+
+  /* 브랜드 */
+  --pm-navy: var(--deep);
+  --pm-navy-2: var(--road-card);
+  --pm-navy-line: var(--road-line);
+  --pm-orange: var(--accent);
+  --pm-orange-ink: #c24100; /* 흰 바탕 위 주황 글자 — 4.5:1 이상 (#ff5800 은 작은 글자 대비 부족) */
+  --pm-tint: var(--tint);
+  /* 주 동작 버튼은 남색 단색. 주황은 버튼 면에 쓰지 않는다 (현재 메뉴 · 고친 칸 · 알림 점 · 포커스) */
+  --pm-primary: var(--deep);
+  --pm-primary-hover: #2a3d60;
+
+  /* 사이드바 */
+  --pm-nav-bg: var(--deep);
+  --pm-nav-ink: #d9dee8;
+  --pm-nav-muted: #a3adbf;
+  --pm-nav-hover: rgba(255, 255, 255, 0.06);
+  --pm-nav-active: rgba(255, 255, 255, 0.07); /* 지금 메뉴 — 살짝 밝은 남색 + 왼쪽 주황 2px 막대 */
+
+  /* 상태 — 글자색 / 바탕색 쌍으로만 쓴다 */
+  --pm-ok: #0e7350;
+  --pm-ok-bg: #e4f4ec;
+  --pm-warn: #a15200;
+  --pm-warn-bg: #fff1dd;
+  --pm-bad: #c23a1d;
+  --pm-bad-bg: #fde9e4;
+  --pm-info: var(--primary-2);
+  --pm-info-bg: #e9eef7;
+  --pm-neutral-bg: #eef0f3;
+
+  /* 표 · 그리드 */
+  --pm-dirty: var(--tint); /* 저장 전 고친 칸 */
+  --pm-dirty-line: var(--accent);
+  --pm-closed: repeating-linear-gradient(-45deg, #f1f2f4 0 6px, #e8eaee 6px 12px); /* 판매 마감 칸 */
+  --pm-weekend-sat: #2d5bd7;
+  --pm-weekend-sun: #d23b2a;
+
+  /* 모양 */
+  --pm-r-lg: 10px; /* 패널 · 표 · 모달 */
+  --pm-r-md: 6px; /* 입력칸 · 버튼 · 패널 안 상자 */
+  --pm-r-sm: 4px; /* 배지 · 태그 · 그리드 칸 */
+  --pm-r-pill: 999px; /* 필터 칩 · 세그먼트 토글 · 스위치에만 */
+  --pm-focus: 0 0 0 2px var(--pm-surface), 0 0 0 4px var(--pm-orange);
+  --pm-disabled-bg: #e6e8ec; /* 누를 수 없는 버튼 — 종류와 상관없이 같은 모양 */
+  --pm-disabled-ink: #6b7280;
+  --pm-shadow-pop: 0 18px 48px -12px rgba(28, 43, 70, 0.28); /* 떠 있는 것(모달·저장 바)에만 */
+
+  /* 글자 크기 */
+  --pm-fs-title: 20px;
+  --pm-fs-h2: 15px;
+  --pm-fs-body: 14px;
+  --pm-fs-table: 13px;
+  --pm-fs-cap: 12px;
+  --pm-fs-kpi: 26px; /* 요약 띠 숫자 */
+
+  /* 간격 (4 배수) */
+  --pm-s1: 4px;
+  --pm-s2: 8px;
+  --pm-s3: 12px;
+  --pm-s4: 16px;
+  --pm-s5: 20px;
+  --pm-s6: 24px;
+  --pm-s8: 32px;
+
+  /* 레이아웃 */
+  --pm-nav-w: 240px;
+  --pm-top-h: 60px;
+  --pm-content-max: 1440px;
+}

@@ -1,0 +1,71 @@
+/* 근로계약서 전자서명 — 휴대폰에서 연다 */
+.ct {
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+.ct-logo.logo {
+  height: 20px;
+  margin-bottom: 28px;
+}
+.ct-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.ct-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 20px;
+  color: var(--pm-muted);
+  font-size: 14px;
+}
+.ct-terms {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  border-top: 1px solid var(--pm-line);
+  font-size: 14px;
+}
+.ct-terms dt,
+.ct-terms dd {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--pm-line);
+}
+.ct-terms dt {
+  color: var(--pm-muted);
+}
+.ct-terms small {
+  display: block;
+  margin-top: 2px;
+  color: var(--pm-muted);
+  font-size: 12px;
+}
+.ct-note {
+  margin: 16px 0 24px;
+  font-size: 12px;
+  color: var(--pm-muted);
+}
+.ct-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ct-agree {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.ct-done,
+.ct-empty {
+  padding: 16px;
+  border-radius: var(--pm-r-md);
+  background: var(--pm-ok-bg);
+  color: var(--pm-ok);
+  font-size: 14px;
+}
+.ct-empty {
+  background: var(--pm-surface-sunken);
+  color: var(--pm-ink, inherit);
+}

@@ -1,0 +1,104 @@
+/* 요약 띠 — 카드 여러 장 대신 패널 하나를 세로선으로 나눈다 (PMS-DESIGN-V2 §2) */
+.pm-stats {
+  display: grid;
+  margin-bottom: var(--pm-s4);
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  overflow: hidden;
+}
+.pm-stats--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.pm-stats--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.pm-stats--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.pm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--pm-s4) var(--pm-s5) 18px;
+  /* 칸 사이 선 — 왼쪽·위에 1px 선을 그리고, 패널 가장자리에 닿는 선은 overflow 로 잘린다 */
+  box-shadow:
+    -1px 0 0 var(--pm-line),
+    0 -1px 0 var(--pm-line);
+}
+.pm-stat--link {
+  transition: background-color 0.15s;
+}
+.pm-stat--link:hover {
+  background: var(--pm-surface-sunken);
+}
+.pm-stat--link:hover .pm-stat__label {
+  color: var(--pm-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pm-stat__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pm-muted);
+}
+.pm-stat__value {
+  font-size: var(--pm-fs-kpi);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pm-stat__unit {
+  font-size: 0.62em;
+  font-weight: 600;
+  margin-right: 2px;
+}
+.pm-stat__unit--after {
+  margin: 0 0 0 2px;
+}
+.pm-stat__foot {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  font-size: 12.5px;
+  color: var(--pm-muted);
+}
+.pm-stat__delta {
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+.pm-stat__delta.is-good {
+  color: var(--pm-ok);
+}
+.pm-stat__delta.is-bad {
+  color: var(--pm-bad);
+}
+/* 4칸 띠는 좁은 본문에서 2칸씩 두 줄 */
+@container pm (max-width: 960px) {
+  .pm-stats--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* 휴대폰: 2칸씩, 줄 사이 가로선 */
+@media (max-width: 720px) {
+  .pm-stats--3,
+  .pm-stats--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pm-stat {
+    padding: var(--pm-s3) 14px 14px;
+  }
+  .pm-stats--3 .pm-stat:first-child {
+    grid-column: 1 / -1;
+  }
+  .pm-stat__value {
+    font-size: 19px;
+  }
+  .pm-stats--3 .pm-stat:first-child .pm-stat__value {
+    font-size: 22px;
+  }
+}

@@ -1,0 +1,54 @@
+.pm-table-wrap {
+  position: relative; /* 안의 화면 낭독기 전용 글자(.pm-sr)가 표 밖으로 튀어나가 가로 스크롤을 만들지 않게 */
+  overflow-x: auto;
+}
+.pm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--pm-fs-table);
+}
+.pm-table th,
+.pm-table td {
+  padding: 11px 12px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--pm-line-soft);
+}
+.pm-table thead th {
+  font-size: var(--pm-fs-cap);
+  font-weight: 700;
+  color: var(--pm-muted);
+  background: var(--pm-surface-sunken);
+  border-bottom: 1px solid var(--pm-line);
+}
+.pm-table th:first-child,
+.pm-table td:first-child {
+  padding-left: var(--pm-s5);
+}
+.pm-table th:last-child,
+.pm-table td:last-child {
+  padding-right: var(--pm-s5);
+}
+.pm-table .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.pm-table tbody tr:hover {
+  background: var(--pm-surface-sunken);
+}
+.pm-table tfoot td {
+  font-weight: 700;
+  border-top: 1px solid var(--pm-line);
+  border-bottom: 0;
+}
+.pm-table .is-muted {
+  color: var(--pm-muted);
+}
+.pm-table .is-wrap {
+  white-space: normal;
+  min-width: 200px;
+}
+/* 빈 목록 안내 등 여러 칸을 합친 줄은 줄바꿈 */
+.pm-table td[colspan] {
+  white-space: normal;
+}

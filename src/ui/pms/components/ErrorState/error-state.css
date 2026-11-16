@@ -1,0 +1,47 @@
+.pm-errstate {
+  display: grid;
+  justify-items: center;
+  gap: var(--pm-s2);
+  max-width: 480px;
+  margin: 64px auto;
+  padding: var(--pm-s8) var(--pm-s6);
+  text-align: center;
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+}
+.pm-errstate--full {
+  margin: 12dvh auto;
+  width: calc(100% - 32px);
+}
+.pm-errstate__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--pm-bad-bg);
+  color: var(--pm-bad);
+}
+.pm-errstate__title {
+  margin-top: var(--pm-s2);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.pm-errstate__msg {
+  font-size: 13.5px;
+  color: var(--pm-muted);
+}
+.pm-errstate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--pm-s2);
+  margin-top: var(--pm-s3);
+}
+.pm-errstate__digest {
+  margin-top: var(--pm-s2);
+  font-size: 11.5px;
+  color: var(--pm-muted);
+}

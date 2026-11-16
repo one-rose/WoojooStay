@@ -1,0 +1,12 @@
+.pm-stars {
+  display: inline-flex;
+  gap: 1px;
+  font-size: 13px;
+  line-height: 1;
+}
+.pm-stars__on {
+  color: var(--pm-orange);
+}
+.pm-stars__off {
+  color: #dfe2e7;
+}

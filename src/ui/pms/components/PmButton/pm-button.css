@@ -1,0 +1,60 @@
+.pm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--pm-r-md);
+  border: 1px solid transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.pm-btn--sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+/* 주 동작 — 남색 단색. navy 는 예전 이름 (같은 모양) */
+.pm-btn--primary,
+.pm-btn--navy {
+  background: var(--pm-primary);
+  color: #fff;
+}
+.pm-btn--primary:hover,
+.pm-btn--navy:hover {
+  background: var(--pm-primary-hover);
+}
+.pm-btn--ghost {
+  background: var(--pm-surface);
+  color: var(--pm-ink);
+  border: 1px solid var(--pm-line);
+}
+.pm-btn--ghost:hover {
+  border-color: #c9ced6;
+  background: var(--pm-surface-sunken);
+}
+.pm-btn--quiet {
+  color: var(--pm-ink-2);
+  padding: 0 8px;
+}
+.pm-btn--quiet:hover {
+  color: var(--pm-ink);
+  background: var(--pm-neutral-bg);
+}
+/* 누를 수 없는 버튼 — 주황·남색·흰 버튼 모두 같은 회색 (흐린 주황이 "눌러도 되는" 것처럼 보이지 않게) */
+.pm-btn:disabled,
+.pm-btn[aria-disabled="true"] {
+  background: var(--pm-disabled-bg);
+  border-color: transparent;
+  color: var(--pm-disabled-ink);
+  cursor: not-allowed;
+}
+.pm-btn--quiet:disabled {
+  background: transparent;
+}

@@ -1,0 +1,169 @@
+.ex-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--pm-s4);
+  align-items: start;
+}
+.ex-cats li {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) 100px 44px;
+  gap: var(--pm-s3);
+  align-items: center;
+  padding: 8px 0;
+  font-size: var(--pm-fs-table);
+}
+.ex-cats__track {
+  height: 10px;
+  border-radius: var(--pm-r-pill);
+  background: var(--pm-neutral-bg);
+  overflow: hidden;
+}
+.ex-cats__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pm-navy);
+}
+.ex-cats li:first-child .ex-cats__fill {
+  background: var(--pm-navy);
+}
+.ex-cats strong {
+  text-align: right;
+}
+.ex-cats small {
+  text-align: right;
+  font-size: var(--pm-fs-cap);
+  color: var(--pm-muted);
+}
+.ex-note {
+  margin-top: var(--pm-s3);
+  font-size: var(--pm-fs-cap);
+  color: var(--pm-muted);
+}
+.ex-receipt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--pm-s4);
+  align-items: start;
+}
+.ex-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 280px;
+  border: 2px dashed var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  background: var(--pm-surface-sunken);
+  color: var(--pm-muted);
+  font-size: 13px;
+}
+.ex-drop:hover {
+  border-color: var(--pm-ink-2);
+  color: var(--pm-ink);
+}
+.ex-drop strong {
+  font-size: 15px;
+  color: var(--pm-ink);
+}
+.ex-drop.is-done {
+  border-style: solid;
+  border-color: var(--pm-ok);
+  background: var(--pm-ok-bg);
+  color: var(--pm-ok);
+}
+.ex-form {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.ex-form:disabled {
+  opacity: 0.5;
+}
+.ex-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--pm-s3);
+  margin-top: var(--pm-s4);
+}
+.ex-form__row .pm-field + .pm-field {
+  margin-top: 0;
+}
+.ex-form__row + .pm-field {
+  margin-top: var(--pm-s4);
+}
+.ex-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--pm-s2);
+  margin-top: var(--pm-s5);
+}
+@container pm (max-width: 860px) {
+  .ex-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .ex-receipt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ex-cats li {
+    grid-template-columns: 92px minmax(0, 1fr) 84px;
+  }
+  .ex-cats small {
+    display: none;
+  }
+}
+
+.ex-msg {
+  margin: var(--pm-s3) 0;
+  font-size: 13px;
+  color: var(--pm-ok);
+}
+.ex-msg.is-bad {
+  color: var(--pm-bad);
+}
+.ex-wait {
+  margin-top: var(--pm-s4);
+  font-size: 13px;
+}
+.ex-wait p {
+  margin-bottom: var(--pm-s2);
+  color: var(--pm-muted);
+}
+.ex-wait ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ex-wait button {
+  color: var(--pm-ink, inherit);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ex-row-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+.ex-empty {
+  font-size: 13px;
+  color: var(--pm-muted);
+}
+.ex-drop.is-miss {
+  border-color: var(--pm-warn);
+  background: var(--pm-warn-bg);
+}
+.ex-drop.is-miss svg {
+  color: var(--pm-warn);
+}
+.ex-drop__preview {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: var(--pm-r-sm);
+  border: 1px solid var(--pm-line);
+  object-fit: contain;
+  background: var(--pm-surface);
+}

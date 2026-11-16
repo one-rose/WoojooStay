@@ -69,6 +69,32 @@ export interface SiteFooterContent {
   copyright: string;
 }
 
+/** 도입·파트너 문의 창 (F0-16) — 헤더·푸터의 문의 버튼으로 연다 */
+export interface InquiryContent {
+  title: string;
+  description: string;
+  kinds: { intro: string; partner: string };
+  fields: {
+    name: string;
+    phone: string;
+    phonePlaceholder: string;
+    email: string;
+    property: string;
+    propertyType: string;
+    rooms: string;
+    message: string;
+    messagePlaceholder: string;
+  };
+  propertyTypes: { hotel: string; motel: string; pension: string; guesthouse: string; other: string };
+  optional: string;
+  consent: string;
+  submit: string;
+  sending: string;
+  close: string;
+  done: { title: string; message: string };
+  error: string;
+}
+
 /* ───────── 히어로 ───────── */
 
 export interface OrbitItem {
@@ -272,4 +298,5 @@ export interface HomeContent {
   easyStart: EasyStartContent;
   values: ValuesContent;
   footer: SiteFooterContent;
+  inquiry: InquiryContent;
 }
