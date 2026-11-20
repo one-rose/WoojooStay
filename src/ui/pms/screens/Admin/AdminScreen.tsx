@@ -1,7 +1,18 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import type { AdminActions, AdminData, ChannelConnection, ChannelId, Inquiry, PropertyType } from "@/core";
+import { useMemo, useState, useTransition } from "react";
+import { formatWon } from "@/shared";
+import type {
+  AdminActions,
+  AdminData,
+  AdminPilotActions,
+  AdminProperty,
+  AdminPropertyActions,
+  ChannelConnection,
+  ChannelId,
+  Inquiry,
+  PropertyType,
+} from "@/core";
 import {
   Badge,
   Card,
@@ -15,9 +26,12 @@ import {
   Tag,
   type BadgeTone,
 } from "../../components";
+import { AdminAttentionTab } from "./AdminAttentionTab";
+import { AdminPilotTab } from "./AdminPilotTab";
+import { AdminPropertyPanel } from "./AdminPropertyPanel";
 import "./admin.css";
 
-type Tab = "properties" | "sync" | "inquiries";
+type Tab = "properties" | "pilot" | "attention" | "sync" | "inquiries";
 const TYPE: Record<PropertyType, string> = {
   hotel: "호텔",
   motel: "모텔",
@@ -32,7 +46,20 @@ const STATUS: Record<Inquiry["status"], { tone: BadgeTone; label: string }> = {
 };
 const NEXT: Record<Inquiry["status"], Inquiry["status"]> = { new: "contacted", contacted: "done", done: "done" };
 
-const won = (n: number) => n.toLocaleString("ko-KR");
+/** "2026-11-21 08:12" → "11.21 08:12" */
+const short = (t: string | null | undefined) => (t ? t.slice(5).replace("-", ".") : null);
+
+/** 사장님 단위로 묶기 — 사장님 id(없으면 이름+번호)별 */
+function byOwner(rows: readonly AdminProperty[]) {
+  const groups = new Map<string, { owner: string; phone?: string; rows: AdminProperty[] }>();
+  for (const r of rows) {
+    const key = r.ownerId ?? `${r.owner ?? ""}|${r.ownerPhone ?? ""}`;
+    const g = groups.get(key) ?? { owner: r.owner ?? "사장님 없음", phone: r.ownerPhone, rows: [] };
+    g.rows.push(r);
+    groups.set(key, g);
+  }
+  return [...groups.entries()].sort((a, b) => b[1].rows.length - a[1].rows.length);
+}
 
 /**
  * 우주스테이 운영팀 백오피스 (F0-14) · 도입·파트너 문의 (F0-16)
@@ -45,9 +72,50 @@ export function AdminScreen({
 }: {
   data: AdminData;
   channels: readonly ChannelConnection[];
-  actions?: AdminActions;
+  actions?: AdminActions & Partial<AdminPropertyActions> & Partial<AdminPilotActions>;
 }) {
   const [tab, setTab] = useState<Tab>("properties");
+  const [rows, setRows] = useState(data.properties);
+  const [query, setQuery] = useState("");
+  const [opened, setOpened] = useState<AdminProperty | null>(null);
+  const [grouped, setGrouped] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState("");
+  /** 업장명 · 사장님 이름 · 휴대폰 번호(숫자만 비교)로 찾기 */
+  const owners = useMemo(() => byOwner(rows).filter(([, g]) => g.rows.length > 1), [rows]);
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase().replace(/\s+/g, "");
+    const base = ownerFilter
+      ? rows.filter((p) => (p.ownerId ?? `${p.owner ?? ""}|${p.ownerPhone ?? ""}`) === ownerFilter)
+      : rows;
+    if (!q) return base;
+    const digits = q.replace(/\D/g, "");
+    return base.filter(
+      (p) =>
+        p.name.toLowerCase().replace(/\s+/g, "").includes(q) ||
+        (p.owner ?? "").replace(/\s+/g, "").includes(q) ||
+        (digits.length >= 3 && (p.ownerPhone ?? "").replace(/\D/g, "").includes(digits)),
+    );
+  }, [rows, query, ownerFilter]);
+  const detailActions: AdminPropertyActions | undefined =
+    actions?.propertyDetail && actions.assignManager && actions.operators
+      ? { propertyDetail: actions.propertyDetail, assignManager: actions.assignManager, operators: actions.operators }
+      : undefined;
+  const pilotActions: AdminPilotActions | undefined =
+    actions?.setPilot && actions.saveSurvey && actions.addNote && actions.removeNote && actions.loadPilot
+      ? {
+          setPilot: actions.setPilot,
+          saveSurvey: actions.saveSurvey,
+          addNote: actions.addNote,
+          removeNote: actions.removeNote,
+          loadPilot: actions.loadPilot,
+        }
+      : undefined;
+  const tableGroups: ReturnType<typeof byOwner> = grouped ? byOwner(shown) : [["", { owner: "", rows: [...shown] }]];
+  const openById = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (row) setOpened(row);
+    else setNote({ bad: false, text: "체험 모드 예시 업장이라 상세가 없어요." });
+  };
   const [inq, setInq] = useState(data.inquiries);
   const [issues, setIssues] = useState(data.syncIssues);
   const [note, setNote] = useState<{ bad: boolean; text: string } | null>(null);
@@ -92,7 +160,7 @@ export function AdminScreen({
     <div className="ad">
       <PageHead
         title="운영자 백오피스"
-        desc="업장·구독·채널 연동 상태를 보고 도입 문의를 처리합니다. 운영자 계정으로만 들어올 수 있어요."
+        desc="업장, 구독, 채널 연동 상태를 보고 도입 문의를 처리해요. 운영자 계정으로만 들어올 수 있어요."
       />
       <StatRow cols={4}>
         <Stat
@@ -107,7 +175,7 @@ export function AdminScreen({
           suffix="곳"
           foot={
             ov
-              ? `유료 ${ov.payingProperties}곳, 무료 체험 ${ov.trialProperties}곳, 월 ${won(ov.monthlyRevenue)}원`
+              ? `유료 ${ov.payingProperties}곳, 무료 체험 ${ov.trialProperties}곳, 월 ${formatWon(ov.monthlyRevenue)}`
               : "온보딩 미완료 1곳"
           }
         />
@@ -122,6 +190,10 @@ export function AdminScreen({
       <Tabs
         items={[
           { id: "properties", label: "업장", count: data.properties.length },
+          ...(data.pilot ? [{ id: "pilot" as const, label: "실증 KPI", count: data.pilot.properties.length }] : []),
+          ...(data.attention
+            ? [{ id: "attention" as const, label: "연락할 곳", count: data.attention.items.length }]
+            : []),
           { id: "sync", label: "연동 오류", count: issues.length },
           { id: "inquiries", label: "도입·파트너 문의", count: fresh },
         ]}
@@ -131,6 +203,37 @@ export function AdminScreen({
       />
       {note && <p className={note.bad ? "ad-note is-bad" : "ad-note"}>{note.text}</p>}
 
+      {tab === "properties" && (
+        <div className="ad-search">
+          <input
+            type="search"
+            className="pm-input"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="업장명, 사장님 이름, 휴대폰 번호로 찾기"
+            aria-label="업장 찾기"
+          />
+          {owners.length > 0 && (
+            <select
+              className="pm-input ad-search__owner"
+              value={ownerFilter}
+              onChange={(e) => setOwnerFilter(e.target.value)}
+              aria-label="사장님으로 거르기"
+            >
+              <option value="">사장님 전체</option>
+              {owners.map(([key, g]) => (
+                <option key={key} value={key}>
+                  {g.owner} ({g.rows.length}곳)
+                </option>
+              ))}
+            </select>
+          )}
+          <label className="ad-search__group">
+            <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} /> 사장님별로 묶기
+          </label>
+          {(query.trim() || ownerFilter) && <span className="num">{shown.length}곳</span>}
+        </div>
+      )}
       {tab === "properties" && (
         <Card flush>
           <TableWrap>
@@ -143,52 +246,115 @@ export function AdminScreen({
                   <th>구독</th>
                   <th className="is-num">채널</th>
                   <th>연동</th>
+                  <th>활성화</th>
+                  <th>최근 접속</th>
                   <th>가입일</th>
                   <th>담당 매니저</th>
                 </tr>
               </thead>
               <tbody>
-                {data.properties.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <strong>{p.name}</strong>
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="is-muted">
+                      찾는 업장이 없어요.
                     </td>
-                    <td>{TYPE[p.type]}</td>
-                    <td className="is-muted">{p.region}</td>
-                    <td>
-                      {p.plans.length ? (
-                        <span className="ad-plans">
-                          {p.plans.map((x) => (
-                            <Tag key={x}>{PLAN[x]}</Tag>
-                          ))}
-                        </span>
-                      ) : (
-                        <Badge tone="warn">온보딩 중</Badge>
-                      )}
-                    </td>
-                    <td className="is-num">{p.channels}</td>
-                    <td>
-                      {p.syncErrors ? (
-                        <Badge tone="bad" dot>
-                          오류 {p.syncErrors}
-                        </Badge>
-                      ) : p.channels ? (
-                        <Badge tone="ok" dot>
-                          정상
-                        </Badge>
-                      ) : (
-                        <span className="is-muted">-</span>
-                      )}
-                    </td>
-                    <td className="num">{p.joined.replaceAll("-", ".")}</td>
-                    <td>{p.manager}</td>
                   </tr>
-                ))}
+                )}
+                {tableGroups.map(([key, g]) => [
+                  grouped && (
+                    <tr key={`g-${key}`} className="ad-group">
+                      <th colSpan={10} scope="rowgroup">
+                        {g.owner}
+                        {g.phone && (
+                          <span className="num"> {g.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3")}</span>
+                        )}
+                        <span className="ad-group__n num">{g.rows.length}곳</span>
+                      </th>
+                    </tr>
+                  ),
+                  ...g.rows.map((p) => (
+                    <tr key={p.id} className="ad-row" onClick={() => setOpened(p)}>
+                      <td>
+                        <button
+                          type="button"
+                          className="ad-row__open"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpened(p);
+                          }}
+                        >
+                          <strong>{p.name}</strong>
+                        </button>
+                        {p.owner && !grouped && <small className="ad-sub">{p.owner}</small>}
+                        {p.pilotGroup && <small className="ad-sub">실증 {p.pilotGroup}</small>}
+                      </td>
+                      <td>{TYPE[p.type]}</td>
+                      <td className="is-muted">{p.region}</td>
+                      <td>
+                        {p.plans.length ? (
+                          <span className="ad-plans">
+                            {p.plans.map((x) => (
+                              <Tag key={x}>{PLAN[x]}</Tag>
+                            ))}
+                          </span>
+                        ) : (
+                          <Badge tone="warn">온보딩 중</Badge>
+                        )}
+                      </td>
+                      <td className="is-num">{p.channels}</td>
+                      <td>
+                        {p.syncErrors ? (
+                          <Badge tone="bad" dot>
+                            오류 {p.syncErrors}
+                          </Badge>
+                        ) : p.channels ? (
+                          <span className="is-muted">정상</span>
+                        ) : (
+                          <span className="is-muted">-</span>
+                        )}
+                      </td>
+                      <td>
+                        {!p.activation ? (
+                          <span className="is-muted">-</span>
+                        ) : p.activation.blocked ? (
+                          <span className="ad-stage">
+                            <Badge tone="warn">
+                              {p.activation.steps.find((x) => x.key === p.activation?.blocked)?.label} 전
+                            </Badge>
+                          </span>
+                        ) : (
+                          <span className="is-muted">첫 답글까지</span>
+                        )}
+                      </td>
+                      <td className="num is-muted">
+                        {short(p.lastLoginOwner) ?? (p.ownerId ? "접속 없음" : "-")}
+                        {p.lastLoginManager && <small className="ad-sub">매니저 {short(p.lastLoginManager)}</small>}
+                      </td>
+                      <td className="num">{p.joined.replaceAll("-", ".")}</td>
+                      <td>{p.manager}</td>
+                    </tr>
+                  )),
+                ])}
               </tbody>
             </table>
           </TableWrap>
         </Card>
       )}
+
+      {opened && (
+        <AdminPropertyPanel
+          row={opened}
+          channels={channels}
+          actions={detailActions}
+          pilotActions={pilotActions}
+          onPilotChange={(id, group) => setRows((l) => l.map((x) => (x.id === id ? { ...x, pilotGroup: group } : x)))}
+          onClose={() => setOpened(null)}
+          onManagerChange={(id, name) => setRows((l) => l.map((x) => (x.id === id ? { ...x, manager: name } : x)))}
+        />
+      )}
+
+      {tab === "pilot" && data.pilot && <AdminPilotTab kpi={data.pilot} actions={pilotActions} />}
+      {tab === "attention" && data.attention && <AdminAttentionTab data={data.attention} onOpen={openById} />}
 
       {tab === "sync" && (
         <Card flush>
@@ -249,8 +415,8 @@ export function AdminScreen({
                 <tr>
                   <th>접수</th>
                   <th>구분</th>
-                  <th>이름 · 업장</th>
-                  <th>유형 · 객실</th>
+                  <th>보낸 사람</th>
+                  <th>업장 규모</th>
                   <th>문의 내용</th>
                   <th>상태</th>
                   <th>
@@ -274,12 +440,7 @@ export function AdminScreen({
                     </td>
                     <td className="is-num">
                       {q.status !== "done" && (
-                        <PmButton
-                          size="sm"
-                          variant={q.status === "new" ? "primary" : "ghost"}
-                          disabled={pending}
-                          onClick={() => moveInquiry(q)}
-                        >
+                        <PmButton size="sm" variant="ghost" disabled={pending} onClick={() => moveInquiry(q)}>
                           {q.status === "new" ? "연락함으로" : "완료로"}
                         </PmButton>
                       )}

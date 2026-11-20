@@ -6,7 +6,7 @@ import { toView } from '../reviews/reviews.service.js';
 
 /** 답글을 단 리뷰는 최근 이만큼만 (미답변은 전부) */
 export const INBOX_ANSWERED_DAYS = 7;
-/** 한 번에 내려주는 최대 건수 — 미답변이 이보다 많으면 오래된 것부터 잘린다 */
+/** 한 번에 내려주는 최대 건수 — 미답변을 먼저 채우고 남는 자리에 최근 답글 (넘치면 오래된 것부터 잘린다) */
 const INBOX_LIMIT = 1000;
 
 /**
@@ -27,20 +27,32 @@ export class PortfolioReviewsService {
     if (properties.length === 0) return { properties, channels: [], items: [], truncated: false };
 
     const since = new Date(now.getTime() - INBOX_ANSWERED_DAYS * 86_400_000);
-    const rows = await this.prisma.review.findMany({
-      where: {
-        propertyId: { in: properties.map((p) => p.id) },
-        OR: [
-          { status: { in: [ReviewStatus.UNANSWERED, ReviewStatus.POSTING] } },
-          { status: ReviewStatus.POSTED, reply: { postedAt: { gte: since } } },
-        ],
-      },
+    const propertyIds = properties.map((p) => p.id);
+    // 상한이 있으니 미답변(게시 중 포함)을 먼저 채우고, 남는 자리에 최근 답글 — 답글이 많아도 미답변이 잘리지 않게
+    const open = await this.prisma.review.findMany({
+      where: { propertyId: { in: propertyIds }, status: { in: [ReviewStatus.UNANSWERED, ReviewStatus.POSTING] } },
       orderBy: { postedAt: 'desc' },
       take: INBOX_LIMIT + 1,
       include: { draft: true, reply: true },
     });
-    const truncated = rows.length > INBOX_LIMIT;
-    const items = rows.slice(0, INBOX_LIMIT).map((r) => ({ ...toView(r), propertyId: r.propertyId }));
+    const room = Math.max(0, INBOX_LIMIT - open.length);
+    const answered = room
+      ? await this.prisma.review.findMany({
+          where: {
+            propertyId: { in: propertyIds },
+            status: ReviewStatus.POSTED,
+            reply: { postedAt: { gte: since } },
+          },
+          orderBy: { postedAt: 'desc' },
+          take: room + 1,
+          include: { draft: true, reply: true },
+        })
+      : [];
+    const truncated = open.length > INBOX_LIMIT || answered.length > room;
+    const rows = [...open.slice(0, INBOX_LIMIT), ...answered.slice(0, room)].sort(
+      (a, b) => b.postedAt.getTime() - a.postedAt.getTime(),
+    );
+    const items = rows.map((r) => ({ ...toView(r), propertyId: r.propertyId }));
     const used = [...new Set(items.map((r) => r.channel))];
     return {
       properties,

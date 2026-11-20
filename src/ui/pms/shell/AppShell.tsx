@@ -16,17 +16,10 @@ import { cx } from "@/shared";
 import { Logo } from "@/ui/brand";
 import { DemoBar, Icon } from "../components";
 import { NAV_FOOTER, NAV_GROUPS, NAV_INBOX, NAV_OVERVIEW, NAV_PEOPLE, NAV_REPORT, type NavItem } from "./nav-items";
+import { NotificationList, noticeLink } from "./NotificationList";
 import { OverviewNav } from "./OverviewNav";
 import { PropertyPicker } from "./PropertyPicker";
 import "./app-shell.css";
-
-const BELL_ICON: Record<NotificationItem["kind"], "review" | "settle" | "alert" | "expense" | "staff"> = {
-  review: "review",
-  settle: "settle",
-  sync: "alert",
-  billing: "expense",
-  staff: "staff",
-};
 
 const TYPE_LABEL: Record<PropertyType, string> = {
   hotel: "호텔",
@@ -58,6 +51,8 @@ interface AppShellProps {
   portfolioUnanswered?: number;
   /** 업장을 바꾸고 보던 메뉴 그대로 그 업장 화면으로 */
   switchProperty?: SwitchPropertyAction;
+  /** 숨길 메뉴 주소 — 실증 기간 업장의 요금·재고 등 */
+  hiddenNav?: readonly string[];
   children: ReactNode;
 }
 
@@ -99,6 +94,7 @@ export function AppShell({
   properties = [],
   portfolioUnanswered = 0,
   switchProperty,
+  hiddenNav = [],
   children,
 }: AppShellProps) {
   const pathname = usePathname();
@@ -107,12 +103,16 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  /** 모바일 상단 업장 이름을 누른 횟수 — 누를 때마다 서랍을 열고 업장 목록을 펼친다 */
+  const [pickerSeq, setPickerSeq] = useState(0);
   const [readIds, setReadIds] = useState<string[]>([]);
   const [bellError, setBellError] = useState("");
   const userBtn = useRef<HTMLButtonElement>(null);
   const multi = properties.length >= 2 && !!switchProperty;
   /** 직원·권한은 사장님인 업장이 있을 때만 (매니저는 권한을 정할 수 없다) */
   const ownsAny = properties.some((p) => p.role === "owner");
+  /** 업장 추가는 지금 업장의 사장님일 때만 (매니저에게는 숨김) */
+  const ownsCurrent = properties.find((p) => p.id === property.id)?.role === "owner";
   /** 전체 현황 · 통합 리뷰함 — 업장 하나가 아니라 업장 전부를 보는 화면 */
   const onOverview = pathname === "/app/overview" || pathname.startsWith("/app/overview/");
   const homeHref = multi ? "/app/overview" : "/app";
@@ -136,27 +136,30 @@ export function AppShell({
    * 알림을 누르면 그 화면으로. 여러 업장이면 그 업장으로 바꿔서 연다 —
    * 리뷰 알림은 업장을 바꾸지 않고 통합 리뷰함에서 그 업장 것만.
    */
-  const openNotice = (n: NotificationItem) => {
-    if (n.unread && !readIds.includes(n.id)) {
-      setReadIds((prev) => [...prev, n.id]);
-      void readNotification?.(n.id);
+  const openNotice = (n: NotificationItem, alsoRead: readonly NotificationItem[] = []) => {
+    const toRead = [n, ...alsoRead].filter((x) => x.unread && !readIds.includes(x.id));
+    if (toRead.length > 0) {
+      setReadIds((prev) => [...prev, ...toRead.map((x) => x.id)]);
+      for (const x of toRead) void readNotification?.(x.id);
     }
     if (!n.link) return;
     setBellOpen(false);
     setOpen(false);
+    const link = noticeLink(n);
     if (multi && n.propertyId && switchProperty) {
-      if (n.link.startsWith("/app/reviews") && !n.link.startsWith("/app/reviews/settings")) {
-        const id = new URL(n.link, "http://x").searchParams.get("id");
-        const q = new URLSearchParams({ property: n.propertyId, ...(id ? { id } : {}) });
+      if (link.startsWith("/app/reviews") && !link.startsWith("/app/reviews/settings")) {
+        const from = new URL(link, "http://x").searchParams;
+        const q = new URLSearchParams({ property: n.propertyId });
+        for (const k of ["id", "tab"]) if (from.get(k)) q.set(k, from.get(k)!);
         router.push(`/app/overview/reviews?${q}`);
         return;
       }
       if (n.propertyId !== property.id || onOverview) {
-        void switchProperty(n.propertyId, n.link);
+        void switchProperty(n.propertyId, link);
         return;
       }
     }
-    router.push(n.link);
+    router.push(link);
   };
 
   useEffect(() => {
@@ -275,6 +278,8 @@ export function AppShell({
         {/* 업장이 2곳 이상이면 업장 이름이 전환 버튼 — 1곳이면 이름만 */}
         {multi ? (
           <PropertyPicker
+            key={pickerSeq}
+            defaultOpen={pickerSeq > 0}
             current={property}
             onOverview={onOverview}
             properties={properties}
@@ -292,12 +297,16 @@ export function AppShell({
 
         <nav className="pm-nav__groups">
           {multi && (
-            <ul className="pm-nav__top">
-              {renderItem(NAV_OVERVIEW)}
-              {renderItem(NAV_INBOX)}
-              {renderItem(NAV_REPORT)}
-              {ownsAny && renderItem(NAV_PEOPLE)}
-            </ul>
+            <div className="pm-nav__group">
+              {/* 업장 하나가 아니라 업장 전부를 보는 메뉴 — 아래 업장 하나 메뉴와 헷갈리지 않게 이름을 붙인다 */}
+              <p className="pm-nav__group-label">업장 {properties.length}곳 전체</p>
+              <ul className="pm-nav__top">
+                {renderItem(NAV_OVERVIEW)}
+                {renderItem(NAV_INBOX)}
+                {renderItem(NAV_REPORT)}
+                {ownsAny && renderItem(NAV_PEOPLE)}
+              </ul>
+            </div>
           )}
           {/* 전체 현황에서는 업장 하나에 딸린 메뉴 대신 업장 목록 — 어느 업장인지 먼저 고른다 */}
           {multi && onOverview && switchProperty ? (
@@ -307,7 +316,7 @@ export function AppShell({
               {NAV_GROUPS.map((group) => (
                 <div key={group.label} className="pm-nav__group">
                   <p className="pm-nav__group-label">{group.label}</p>
-                  <ul>{group.items.map(renderItem)}</ul>
+                  <ul>{group.items.filter((i) => !i.href || !hiddenNav.includes(i.href)).map(renderItem)}</ul>
                 </div>
               ))}
             </>
@@ -334,6 +343,25 @@ export function AppShell({
           <Link href={homeHref} className="pm-top__logo" aria-label="우주스테이 홈">
             <Logo className="pm-top__logo-svg" />
           </Link>
+          {/* 모바일: 지금 어느 업장인지 — 여러 업장이면 눌러서 업장 바꾸기 */}
+          {multi ? (
+            <button
+              type="button"
+              className="pm-top__property"
+              aria-label={`${onOverview ? `전체 업장 ${properties.length}곳` : property.name} — 업장 바꾸기`}
+              onClick={() => {
+                setPickerSeq((n) => n + 1);
+                setOpen(true);
+              }}
+            >
+              <span>{onOverview ? `전체 업장 ${properties.length}곳` : property.name}</span>
+              <Icon name="chevronDown" size={14} />
+            </button>
+          ) : (
+            <span className="pm-top__property">
+              <span>{property.name}</span>
+            </span>
+          )}
           <div className="pm-top__spacer" />
           {/* 채널 수집 시각은 업장 하나의 것 — 전체 현황에서는 숨긴다 */}
           {!(multi && onOverview) && (
@@ -343,7 +371,7 @@ export function AppShell({
             >
               <Icon name={syncErrors > 0 ? "alert" : "sync"} size={15} />
               <span>
-                {syncErrors > 0 ? `연동 오류 ${syncErrors}건` : "채널 수집"}{" "}
+                {syncErrors > 0 ? `연동 끊김 ${syncErrors}건` : "채널 수집"}{" "}
                 <span className="num">{syncTime(lastSyncedAt)}</span>
               </span>
             </span>
@@ -378,34 +406,7 @@ export function AppShell({
                   </p>
                 )}
                 {notifications.length === 0 && <p className="pm-bell__empty">새 알림이 없어요.</p>}
-                <ul>
-                  {notifications.map((n) => {
-                    const body = (
-                      <>
-                        <span className={cx("pm-bell__kind", `is-${n.kind}`)}>
-                          <Icon name={BELL_ICON[n.kind]} size={15} />
-                        </span>
-                        <span className="pm-bell__text">
-                          {multi && n.propertyName && <b className="pm-bell__property">{n.propertyName}</b>}
-                          {n.text}
-                          <small className="num">{n.at}</small>
-                        </span>
-                      </>
-                    );
-                    const unreadNow = n.unread && !readIds.includes(n.id);
-                    return (
-                      <li key={n.id} className={cx("pm-bell__item", unreadNow && "is-unread", n.link && "is-link")}>
-                        {n.link ? (
-                          <button type="button" className="pm-bell__go" onClick={() => openNotice(n)}>
-                            {body}
-                          </button>
-                        ) : (
-                          body
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
+                <NotificationList notifications={notifications} readIds={readIds} multi={multi} onOpen={openNotice} />
                 <Link href="/app/settings/notifications" className="pm-bell__foot" onClick={() => setBellOpen(false)}>
                   알림 설정
                 </Link>
@@ -435,6 +436,12 @@ export function AppShell({
                   <Icon name="settings" size={16} />
                   설정
                 </Link>
+                {ownsCurrent && (
+                  <Link href="/app/onboarding?add=1" className="pm-usermenu__item" onClick={() => setUserOpen(false)}>
+                    <Icon name="plus" size={16} />
+                    업장 추가
+                  </Link>
+                )}
                 {logoutPath && (
                   <form action={logoutPath} method="post">
                     <button type="submit" className="pm-usermenu__item">
@@ -447,7 +454,16 @@ export function AppShell({
             )}
           </div>
         </header>
-        <main className="pm-content">{children}</main>
+        <main className="pm-content">
+          {/* 휴대폰: 업장 안 화면에서 전체 현황으로 돌아가는 길 */}
+          {multi && !onOverview && (
+            <Link href="/app/overview" className="pm-back-all">
+              <Icon name="chevronLeft" size={16} />
+              전체 업장 {properties.length}곳
+            </Link>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

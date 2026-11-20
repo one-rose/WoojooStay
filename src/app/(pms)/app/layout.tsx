@@ -14,7 +14,7 @@ import "@/ui/pms/components/Table/table.css";
  */
 
 export const metadata: Metadata = {
-  title: { default: "우주스테이", template: "%s · 우주스테이" },
+  title: { default: "우주스테이", template: "%s · 우주스테이" }, // copy-ok 브라우저 탭 제목 구분
   icons: { icon: "/favicon.svg" },
   manifest: "/app.webmanifest",
   robots: { index: false, follow: false },

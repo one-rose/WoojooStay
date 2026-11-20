@@ -1,10 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { changeRate, type ChannelConnection, type ChannelId, type LedgerData } from "@/core";
-import { addDays, cx, daysBetween, formatNumber, smoothPath, weekday, weekdayKo } from "@/shared";
-import { Badge, Card, ChannelChip, Icon, PageHead, PmButton, Stat, StatRow, TableWrap, Tabs } from "../../components";
+import { useRouter } from "next/navigation";
+import {
+  changeRate,
+  type ChannelConnection,
+  type ChannelId,
+  type LedgerActions,
+  type LedgerChannelRow,
+  type LedgerData,
+} from "@/core";
+import {
+  addDays,
+  csvCell,
+  cx,
+  daysBetween,
+  formatNumber,
+  formatWon,
+  formatWonCompact,
+  weekday,
+  weekdayKo,
+} from "@/shared";
+import {
+  Badge,
+  Card,
+  ChannelChip,
+  Field,
+  Icon,
+  Modal,
+  PageHead,
+  PmButton,
+  Stat,
+  StatRow,
+  TableWrap,
+  Tabs,
+} from "../../components";
 import "./ledger.css";
 
 type Tab = "month" | "calendar" | "price" | "mix";
@@ -16,7 +47,7 @@ const TABS = [
   { id: "mix", label: "대실·숙박" },
 ] as const;
 
-const won = (n: number) => `₩${formatNumber(n)}`;
+const won = formatWon;
 const pct = (n: number) => `${(Math.round(n * 1000) / 10).toFixed(1)}%`;
 /** 나누는 값이 0 이면 null (NaN · Infinity 를 화면에 내지 않는다) */
 const ratio = (a: number, b: number): number | null => (b > 0 && Number.isFinite(a) ? a / b : null);
@@ -40,6 +71,8 @@ interface LedgerScreenProps {
   navigable?: boolean;
   /** 실서버 화면 — 예시 경쟁 업소·AI 제안은 숨긴다 */
   live?: boolean;
+  /** 광고비 직접 입력 (사장님·매니저) — 없으면 입력 버튼 없음 */
+  actions?: LedgerActions;
 }
 
 /** 채널별 실적을 CSV(엑셀에서 열림)로 내려받기 */
@@ -56,12 +89,8 @@ function downloadCsv(data: LedgerData, names: Record<ChannelId, string>) {
     ]),
     ["합계", data.channels.reduce((s, c) => s + c.bookings, 0), data.sales, "", data.fees, data.adSpend],
   ];
-  const esc = (v: string | number) => {
-    const t = String(v);
-    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-  };
   // 엑셀이 한글을 바로 읽도록 BOM 을 붙인다
-  const blob = new Blob(["\ufeff" + rows.map((r) => r.map(esc).join(",")).join("\r\n")], {
+  const blob = new Blob(["\ufeff" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n")], {
     type: "text/csv;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
@@ -74,7 +103,7 @@ function downloadCsv(data: LedgerData, names: Record<ChannelId, string>) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function LedgerScreen({ data, channels, today, navigable = false, live = false }: LedgerScreenProps) {
+export function LedgerScreen({ data, channels, today, navigable = false, live = false, actions }: LedgerScreenProps) {
   const [tab, setTab] = useState<Tab>("month");
   const names = Object.fromEntries(channels.map((c) => [c.channel, c.name])) as Record<ChannelId, string>;
 
@@ -85,12 +114,14 @@ export function LedgerScreen({ data, channels, today, navigable = false, live = 
         desc="채널마다 흩어진 예약·수수료·광고비·정산을 한 장부로 모았어요."
         actions={
           <PmButton icon="download" onClick={() => downloadCsv(data, names)} disabled={data.channels.length === 0}>
-            엑셀(CSV)로 내려받기
+            엑셀로 내려받기
           </PmButton>
         }
       />
       <Tabs items={TABS} value={tab} onChange={setTab} label="매출장부 보기" />
-      {tab === "month" && <MonthView data={data} names={names} thisMonth={today.slice(0, 7)} navigable={navigable} />}
+      {tab === "month" && (
+        <MonthView data={data} names={names} thisMonth={today.slice(0, 7)} navigable={navigable} actions={actions} />
+      )}
       {tab === "calendar" && <CalendarView data={data} names={names} today={today} />}
       {tab === "price" && <PriceView data={data} names={names} live={live} />}
       {tab === "mix" && <MixView data={data} />}
@@ -101,12 +132,21 @@ export function LedgerScreen({ data, channels, today, navigable = false, live = 
 type ViewProps = { data: LedgerData; names: Record<ChannelId, string> };
 
 /* F2-01 월 경영 대시보드 + F2-02 추이 */
-function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMonth: string; navigable: boolean }) {
+function MonthView({
+  data,
+  names,
+  thisMonth,
+  navigable,
+  actions,
+}: ViewProps & { thisMonth: string; navigable: boolean; actions?: LedgerActions }) {
   const prev = shiftMonth(data.month, -1);
   const next = shiftMonth(data.month, 1);
   const canNext = navigable && next <= thisMonth;
-  // 진행 중인 달은 지난달 같은 날짜까지와 비교 (API 가 주면)
-  const rate = changeRate(data.sales, data.prevSalesToDate ?? data.prevSales);
+  // 진행 중인 달: 매출은 오늘 체크인까지(확정), 비교도 지난달 같은 날까지 — 내일~말일 예약은 따로 한 줄
+  const partial = data.partial ?? false;
+  const upcoming = data.upcoming;
+  const rate = changeRate(data.sales, partial ? (data.prevSalesToDate ?? data.prevSales) : data.prevSales);
+  const [adFor, setAdFor] = useState<LedgerChannelRow | null>(null);
   const W = 640;
   const H = 180;
   const max = Math.max(1, ...data.trend.map((t) => t.sales)) * 1.1;
@@ -114,7 +154,8 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
   const hasTrend = data.trend.some((t) => t.sales > 0);
   const kept = data.sales - data.fees - data.adSpend;
   const points = data.trend.map((t, i) => [Math.round(i * step), Math.round(H - (t.sales / max) * H)] as const);
-  const line = smoothPath(points);
+  // 곧은 선 — 매끈한 곡선은 없는 오르내림을 만들어 낸다 (D-14)
+  const line = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x} ${y}`).join(" ");
 
   return (
     <>
@@ -142,7 +183,19 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
       </div>
 
       <StatRow cols={4}>
-        <Stat label="총 예약매출" prefix="₩" value={formatNumber(data.sales)} delta={{ rate, label: "전월보다" }} />
+        <Stat
+          label={partial ? "확정 매출" : "총 예약매출"}
+          prefix="₩"
+          value={formatNumber(data.sales)}
+          delta={{ rate, label: partial ? "지난달 같은 날보다" : "전월보다" }}
+          foot={
+            partial
+              ? upcoming && upcoming.sales > 0
+                ? `말일까지 예약 ${won(upcoming.sales)} 더 있어요`
+                : "오늘 체크인까지"
+              : undefined
+          }
+        />
         <Stat
           label="광고비"
           prefix="₩"
@@ -178,19 +231,24 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
                 <line key={g} x1={0} x2={W} y1={H - g * H} y2={H - g * H} className="lg-trend__grid" />
               ))}
               <path d={line} className="lg-trend__line" />
-              {points.map(([x, y], i) => (
-                <g key={data.trend[i].month}>
-                  {i === points.length - 1 && <circle cx={x} cy={y} r={4} className="lg-trend__dot" />}
-                  <text x={x} y={H + 22} className="lg-trend__x">
-                    {monthLabel(data.trend[i].month)}
-                  </text>
-                  {i === points.length - 1 && (
-                    <text x={x} y={y - 12} className="lg-trend__val">
-                      {(data.trend[i].sales / 1_000_000).toFixed(1)}M
+              {points.map(([x, y], i) => {
+                const last = i === points.length - 1;
+                // 휴대폰에서는 글자가 겹치지 않게 홀수 달(끝에서부터 하나 건너)만
+                const odd = (points.length - 1 - i) % 2 === 1;
+                return (
+                  <g key={data.trend[i].month} className={cx(odd && "is-odd", last && "is-last")}>
+                    <circle cx={x} cy={y} r={last ? 4 : 2.5} className={last ? "lg-trend__dot" : "lg-trend__pt"} />
+                    <text x={x} y={H + 24} className="lg-trend__x">
+                      {monthLabel(data.trend[i].month)}
                     </text>
-                  )}
-                </g>
-              ))}
+                    {data.trend[i].sales > 0 && (
+                      <text x={x} y={y - 10} className="lg-trend__val num">
+                        {formatWonCompact(data.trend[i].sales)}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
             </svg>
           )}
         </Card>
@@ -223,17 +281,17 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
         </Card>
       </div>
 
-      <Card title="채널별 실적" meta={yearMonth(data.month)} flush>
+      <Card title="채널별 실적" meta={partial ? "오늘 체크인까지" : yearMonth(data.month)} flush>
         <TableWrap>
           <table className="pm-table">
             <thead>
               <tr>
                 <th>채널</th>
                 <th className="is-num">예약</th>
-                <th className="is-num">예약매출</th>
+                <th className="is-num">예약매출(원)</th>
                 <th className="is-num">수수료율</th>
-                <th className="is-num">수수료</th>
-                <th className="is-num">광고비</th>
+                <th className="is-num">수수료(원)</th>
+                <th className="is-num">광고비(원)</th>
                 <th className="is-num">광고 효율</th>
               </tr>
             </thead>
@@ -241,7 +299,9 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
               {data.channels.length === 0 && (
                 <tr>
                   <td colSpan={7} className="is-muted lg-empty-row">
-                    이 달 채널 실적이 아직 없어요. 채널을 연결하면 예약·수수료가 자동으로 쌓여요.
+                    {data.month < thisMonth
+                      ? "이 달 기록이 없어요."
+                      : "이 달 채널 실적이 아직 없어요. 채널을 연결하면 예약·수수료가 자동으로 쌓여요."}
                   </td>
                 </tr>
               )}
@@ -251,10 +311,26 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
                     <ChannelChip channel={c.channel} name={names[c.channel]} />
                   </td>
                   <td className="is-num">{c.bookings}건</td>
-                  <td className="is-num">{won(c.sales)}</td>
+                  <td className="is-num">{formatNumber(c.sales)}</td>
                   <td className="is-num">{pct(c.feeRate)}</td>
-                  <td className="is-num">{won(Math.round(c.sales * c.feeRate))}</td>
-                  <td className="is-num">{c.adSpend ? won(c.adSpend) : <span className="is-muted">-</span>}</td>
+                  <td className="is-num">{formatNumber(Math.round(c.sales * c.feeRate))}</td>
+                  <td className="is-num">
+                    {actions ? (
+                      <button
+                        type="button"
+                        className="lg-ad"
+                        aria-label={`${names[c.channel] ?? c.channel} 광고비 입력`}
+                        onClick={() => setAdFor(c)}
+                      >
+                        {c.adSpend ? formatNumber(c.adSpend) : "입력"}
+                        <Icon name="edit" size={13} />
+                      </button>
+                    ) : c.adSpend ? (
+                      formatNumber(c.adSpend)
+                    ) : (
+                      <span className="is-muted">-</span>
+                    )}
+                  </td>
                   <td className="is-num">
                     {c.adSpend > 0 ? (
                       <strong>{(c.sales / c.adSpend).toFixed(1)}배</strong>
@@ -270,10 +346,10 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
                 <tr>
                   <td>합계</td>
                   <td className="is-num">{data.channels.reduce((s, c) => s + c.bookings, 0)}건</td>
-                  <td className="is-num">{won(data.sales)}</td>
+                  <td className="is-num">{formatNumber(data.sales)}</td>
                   <td className="is-num">{pctOr(ratio(data.fees, data.sales))}</td>
-                  <td className="is-num">{won(data.fees)}</td>
-                  <td className="is-num">{won(data.adSpend)}</td>
+                  <td className="is-num">{formatNumber(data.fees)}</td>
+                  <td className="is-num">{formatNumber(data.adSpend)}</td>
                   <td className="is-num">{data.adSpend > 0 ? `${(data.sales / data.adSpend).toFixed(1)}배` : "-"}</td>
                 </tr>
               </tfoot>
@@ -282,9 +358,94 @@ function MonthView({ data, names, thisMonth, navigable }: ViewProps & { thisMont
         </TableWrap>
         <p className="lg-foot">
           광고 효율 = 예약매출 ÷ 광고비. 광고비는 채널 광고 관리자에서 가져오거나 직접 입력해요.
+          {partial && upcoming && upcoming.bookings > 0 && (
+            <> 내일부터 말일까지 체크인 예정 {formatNumber(upcoming.bookings)}건은 투숙일이 지나면 더해져요.</>
+          )}
         </p>
       </Card>
+      {adFor && actions && (
+        <AdSpendDialog
+          channel={names[adFor.channel] ?? adFor.channel}
+          month={data.month}
+          current={adFor.adSpend}
+          onClose={() => setAdFor(null)}
+          save={(amount) => actions.setAdSpend(adFor.channel, data.month, amount)}
+        />
+      )}
     </>
+  );
+}
+
+/** 채널 광고비 직접 입력 — 같은 채널·달은 덮어쓴다 */
+function AdSpendDialog({
+  channel,
+  month,
+  current,
+  onClose,
+  save,
+}: {
+  channel: string;
+  month: string;
+  current: number;
+  onClose: () => void;
+  save: (amount: number) => ReturnType<LedgerActions["setAdSpend"]>;
+}) {
+  const router = useRouter();
+  const [value, setValue] = useState(current ? formatNumber(current) : "");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const digits = value.replace(/\D/g, "");
+  const amount = Number(digits);
+  const valid = digits !== "" && amount <= 1_000_000_000;
+  const submit = () =>
+    start(async () => {
+      setError(null);
+      const r = await save(amount);
+      if (!r.ok) return setError(r.message);
+      onClose();
+      router.refresh();
+    });
+  return (
+    <Modal
+      title={`${channel} 광고비`}
+      desc={`${yearMonth(month)}에 ${channel}에서 쓴 광고비를 넣어 주세요. 광고 효율 계산에 바로 반영돼요.`}
+      onClose={onClose}
+      footer={
+        <>
+          <PmButton variant="ghost" onClick={onClose}>
+            취소
+          </PmButton>
+          <PmButton variant="primary" disabled={pending || !valid} onClick={submit}>
+            {pending ? "저장 중…" : "저장"}
+          </PmButton>
+        </>
+      }
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (valid && !pending) submit();
+        }}
+      >
+        <Field label="광고비 (원)" hint="같은 달에 다시 넣으면 새 금액으로 바뀌어요.">
+          <input
+            className="pm-input num"
+            inputMode="numeric"
+            value={value}
+            onChange={(e) => {
+              const d = e.target.value.replace(/\D/g, "");
+              setValue(d ? formatNumber(Number(d)) : "");
+            }}
+          />
+        </Field>
+        {error && (
+          <p className="pm-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" hidden />
+      </form>
+    </Modal>
   );
 }
 
@@ -334,7 +495,7 @@ function CalendarView({ data, names, today }: ViewProps & { today: string }) {
                 {items.map((it) => (
                   <span key={it.channel} className={cx("lg-cal__item", it.done && "is-done")}>
                     <ChannelChip channel={it.channel} name={names[it.channel]} variant="icon" />
-                    <span className="num">{formatNumber(Math.round(it.amount / 10_000))}만</span>
+                    <span className="num">{formatWonCompact(it.amount)}</span>
                     {it.done && <Icon name="check" size={12} />}
                   </span>
                 ))}

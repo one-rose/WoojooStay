@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
 import type {
@@ -16,6 +17,7 @@ import type {
   SettingsActions,
   SignupInput,
   StaffActions,
+  StaffMonthAttendance,
 } from "@/core";
 import { redirect } from "next/navigation";
 import {
@@ -33,7 +35,7 @@ import {
   type ApiPlanCode,
 } from "@/infrastructure";
 import { safeAppPath } from "@/shared";
-import { COOKIE, cookieOptions, requireSession, serverApi } from "./session";
+import { COOKIE, cookieOptions, getRepository, requireSession, serverApi } from "./session";
 
 /**
  * 화면 → 우주스테이 API 서버 동작 (Server Functions)
@@ -202,7 +204,10 @@ export async function acceptInvitationAction(
     (await cookies()).set(COOKIE.property, r.propertyId, cookieOptions(30 * 86_400));
     const me = await api.me().catch(() => null);
     const name = me?.properties.find((p) => p.id === r.propertyId)?.name ?? null;
-    return { ok: true, data: { next: r.role === "STAFF" ? "/app/me" : "/app", propertyName: name } };
+    // 관리하는 업장(사장님·매니저)이 2곳 이상이 되면 전체 현황부터
+    const managed = me?.properties.filter((p) => p.role !== "STAFF").length ?? 0;
+    const next = r.role === "STAFF" ? "/app/me" : managed >= 2 ? "/app/overview" : "/app";
+    return { ok: true, data: { next, propertyName: name } };
   } catch (e) {
     return fail(e);
   }
@@ -237,6 +242,18 @@ export async function createPropertyAction(input: PropertyInput): Promise<Action
 /** 온보딩을 마쳤으면 이어하기 표시를 지운다 */
 export async function finishOnboardingAction() {
   (await cookies()).delete(COOKIE.onboarding);
+}
+
+/** 채널 연결 뒤 첫 가치 — 답글 기다리는 리뷰 수 + 별점 낮은 것 한 건 (초안 미리보기) */
+export async function previewDraftsAction(): Promise<ActionResult<{ count: number; sample: GuestReview | null }>> {
+  const { api, propertyId } = await authed();
+  try {
+    const waiting = (await api.allReviews(propertyId)).map(toReview).filter((r) => r.status === "unanswered");
+    const sample = [...waiting].sort((a, b) => a.rating - b.rating || b.postedAt.localeCompare(a.postedAt))[0] ?? null;
+    return { ok: true, data: { count: waiting.length, sample } };
+  } catch (e) {
+    return fail(e);
+  }
 }
 
 export async function connectChannelAction(
@@ -292,10 +309,26 @@ export async function redraftAction(
   }
 }
 
-export async function saveReplySettingsAction(settings: ReplySettings): Promise<ActionResult> {
+/** 리뷰를 현장에 전달 — 그 업장 인수인계로 남긴다 (통합 리뷰함이면 리뷰가 달린 업장, API 가 구성원인지 확인) */
+export async function forwardReviewAction(body: string, forProperty?: string): Promise<ActionResult> {
   const { api, propertyId } = await authed();
   try {
-    await api.saveReplySettings(propertyId, fromReplySettings(settings));
+    await api.addOpsNote(forProperty ?? propertyId, { kind: "HANDOVER", body: body.slice(0, 1000) });
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** applyTo: 같은 말투·문구·자동 응대를 함께 저장할 다른 업장 (서명은 업장마다 그대로) */
+export async function saveReplySettingsAction(settings: ReplySettings, applyTo?: string[]): Promise<ActionResult> {
+  const { api, propertyId } = await authed();
+  try {
+    await api.saveReplySettings(
+      propertyId,
+      fromReplySettings(settings),
+      applyTo?.filter((id) => id !== propertyId),
+    );
     return { ok: true, data: undefined };
   } catch (e) {
     return fail(e);
@@ -328,8 +361,9 @@ export async function addEmployeeAction(
       name: input.name,
       phone: input.phone,
       jobRole: upper(input.role),
-      payType: upper(input.payType),
-      payAmount: input.payAmount,
+      // 매니저는 급여를 넣지 않는다 (API 가 그해 최저시급 시급제로 등록)
+      ...(input.payType ? { payType: upper(input.payType) } : {}),
+      ...(input.payAmount !== undefined ? { payAmount: input.payAmount } : {}),
       hiredDate: input.hiredDate,
     });
     return { ok: true, data: { belowMinimumWage: r.belowMinimumWage } };
@@ -455,6 +489,26 @@ export async function changeRoleAction(memberId: string, role: "manager" | "staf
   return act((api, pid) => api.changeMemberRole(pid, memberId, upper(role)));
 }
 
+/** 업장에서 빼기 — 사장님만 (API 가 확인) */
+export async function removeMemberAction(memberId: string) {
+  return act((api, pid) => api.removeMember(pid, memberId));
+}
+
+/** 대기 중인 초대 취소 · 다시 보내기 — forProperty: 직원·권한 화면에서 다른 업장 초대 (권한은 API 가 업장마다 확인) */
+export async function cancelInviteAction(invitationId: string, forProperty?: string) {
+  return act((api, pid) => api.cancelInvitation(forProperty ?? pid, invitationId));
+}
+
+export async function resendInviteAction(invitationId: string, forProperty?: string) {
+  return act((api, pid) => api.resendInvitation(forProperty ?? pid, invitationId));
+}
+
+/* ── 매출장부 (F2) ── */
+
+export async function setAdSpendAction(channel: ChannelId, month: string, amount: number) {
+  return act((api, pid) => api.setAdSpend(pid, { channel: toApiChannel(channel), month, amount }));
+}
+
 /* ── 직원·권한 (F8) — 권한은 API 가 업장마다 사장님인지 확인한다 ── */
 
 export async function assignPeopleAction(
@@ -496,20 +550,64 @@ export async function readNotificationAction(id: string) {
   return act((api) => api.readNotification(id));
 }
 
+/** 금융 미리보기 "관심 있어요" — 운영팀 도입 문의로 남긴다 (신청·심사 아님) */
+export async function financeInterestAction(kind: "settle" | "advance"): Promise<ActionResult> {
+  const { api, propertyId } = await authed();
+  try {
+    const me = await api.me();
+    const p = me.properties.find((x) => x.id === propertyId);
+    const label = kind === "settle" ? "매출선정산" : "미래매출선지급";
+    await api.createInquiry({
+      type: "INTRO",
+      contactName: me.name.slice(0, 30),
+      phone: me.phone,
+      email: me.email ?? undefined,
+      propertyName: p?.name.slice(0, 60),
+      propertyType: p?.type,
+      rooms: p?.rooms,
+      message: `[금융 미리보기] ${label} 관심 표시 — 앱 안 미리보기 화면에서 눌렀어요.`,
+    });
+    return { ok: true, data: undefined };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function setPlanAction(planId: string, enabled: boolean) {
   return act((api, pid) => api.setPlan(pid, upper(planId) as ApiPlanCode, enabled));
 }
 
 /** 개발용 PG: 실제 연동 때는 PG 결제창에서 받은 authKey 를 넘긴다 */
+/** 결제 실패한 구독료를 등록된 카드로 다시 결제 */
+export async function retryPaymentAction(): Promise<ActionResult<{ amount: number }>> {
+  const { api, propertyId } = await authed();
+  try {
+    const r = await api.retryBilling(propertyId);
+    return { ok: true, data: { amount: r.retried.amount } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 export async function registerCardAction() {
   return act((api, pid) => api.setCard(pid, `dev-${Date.now()}`));
 }
 
-export async function saveNoticesAction(items: Parameters<SettingsActions["saveNotices"]>[0]) {
+/** 토스 카드 등록 창 열기 전 — 일회용 확인값을 쿠키에 두고, 창의 successUrl 에 붙일 값을 돌려준다 */
+export async function startCardAuthAction(): Promise<ActionResult<{ state: string }>> {
+  const s = await requireSession();
+  if (!s.propertyId) return { ok: false, message: "업장을 먼저 골라 주세요." };
+  const state = randomBytes(18).toString("base64url");
+  (await cookies()).set(COOKIE.card, `${state}.${s.propertyId}`, cookieOptions(15 * 60));
+  return { ok: true, data: { state } };
+}
+
+export async function saveNoticesAction(items: Parameters<SettingsActions["saveNotices"]>[0], applyTo?: string[]) {
   return act((api, pid) =>
     api.setNoticeSettings(
       pid,
       items.map((i) => ({ ...i, kind: upper(i.kind) })),
+      applyTo?.filter((id) => id !== pid),
     ),
   );
 }
@@ -529,6 +627,21 @@ export async function clockAction(employeeId: string, action: "in" | "out") {
   return act((api, pid) => api.clock(pid, employeeId, action));
 }
 
+/** 직원 본인 — 방금 누른 퇴근 되돌리기 (퇴근 후 5분 안) */
+export async function undoClockOutAction() {
+  return act((api, pid) => api.undoClockOut(pid));
+}
+
+/** 근태 '이번 달 기록' — 직원 한 명의 한 달 출퇴근 (체험 모드는 예시) */
+export async function staffMonthAction(staffId: string, month: string): Promise<ActionResult<StaffMonthAttendance>> {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return { ok: false, message: "월은 YYYY-MM 형식이에요." };
+  try {
+    return { ok: true, data: await (await getRepository()).getStaffMonth(staffId, month) };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
 /* ── 현장 업무 (F7) — 직원도 쓰는 동작 ── */
 
 export async function setRoomStatusAction(roomId: string, status: RoomStatus, memo?: string) {
@@ -537,6 +650,14 @@ export async function setRoomStatusAction(roomId: string, status: RoomStatus, me
 
 export async function addRoomsAction(rooms: Parameters<OpsActions["addRooms"]>[0]) {
   return act((api, pid) => api.addRooms(pid, [...rooms]));
+}
+
+export async function updateRoomAction(roomId: string, room: Parameters<OpsActions["updateRoom"]>[1]) {
+  return act((api, pid) => api.updateRoom(pid, roomId, room));
+}
+
+export async function removeRoomAction(roomId: string) {
+  return act((api, pid) => api.removeRoom(pid, roomId));
 }
 
 export async function roomLogsAction(roomId: string): Promise<ActionResult<RoomLog[]>> {

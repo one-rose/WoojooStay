@@ -145,15 +145,28 @@ export function RatesScreen({ grid, today, readOnly = false }: RatesScreenProps)
             <Icon name="chevron" size={16} />
           </button>
         </div>
-        <div className="rt-view">
-          <label className={cx("rt-toggle", showStock && "is-on")}>
-            <input type="checkbox" checked={showStock} onChange={(e) => setShowStock(e.target.checked)} />
-            재고
-          </label>
-          <label className={cx("rt-toggle", showPrice && "is-on")}>
-            <input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} />
-            요금
-          </label>
+        {/* 보기 — 세그먼트 하나 (둘 다 / 재고만 / 요금만), 고른 것은 남색 (D-20) */}
+        <div className="pm-seg rt-view" role="group" aria-label="보이는 줄">
+          {(
+            [
+              ["both", "재고와 요금", true, true],
+              ["stock", "재고만", true, false],
+              ["price", "요금만", false, true],
+            ] as const
+          ).map(([key, label, st, pr]) => (
+            <button
+              key={key}
+              type="button"
+              className="pm-seg__btn"
+              aria-pressed={showStock === st && showPrice === pr}
+              onClick={() => {
+                setShowStock(st);
+                setShowPrice(pr);
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
         <ul className="rt-legend" aria-label="칸 표시 설명">
           <li>
@@ -176,7 +189,7 @@ export function RatesScreen({ grid, today, readOnly = false }: RatesScreenProps)
           <thead>
             <tr>
               <th className="rt-grid__corner" scope="col">
-                객실 · 요금제
+                객실과 요금제
               </th>
               {grid.dates.map((date) => {
                 const d = weekday(date);

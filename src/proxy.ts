@@ -17,11 +17,15 @@ const REFRESH = "uz_rt";
 /** 화면 → 갱신 경로로 보낼 때 돌아올 주소 */
 const PATH_HEADER = "x-uz-path";
 
+/** 같은 리프레시 토큰의 갱신 결과를 함께 쓰는 시간 */
+const INFLIGHT_MS = 3_000;
+
 const inflight = new Map<string, { at: number; result: Promise<ApiTokens | null> }>();
 
 function refreshOnce(refreshToken: string, clientIp?: string): Promise<ApiTokens | null> {
   const now = Date.now();
-  for (const [k, v] of inflight) if (now - v.at > 30_000) inflight.delete(k);
+  // 동시에 들어온 요청끼리만 나눠 쓴다 — 오래 두면 폐기된 토큰으로도 새 토큰을 다시 받을 수 있다
+  for (const [k, v] of inflight) if (now - v.at > INFLIGHT_MS) inflight.delete(k);
   const hit = inflight.get(refreshToken);
   if (hit) return hit.result;
   const result = pmsApi(undefined, clientIp)

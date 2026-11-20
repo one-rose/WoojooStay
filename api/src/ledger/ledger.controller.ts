@@ -3,9 +3,10 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags 
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { IsCalendarDate, IsMonth } from '../common/validation/date-fields.js';
-import { PropertyRoles } from '../common/decorators/auth.decorators.js';
+import { CurrentUser, PropertyRoles, type AuthUser } from '../common/decorators/auth.decorators.js';
 import { Channel, Role } from '../generated/prisma/enums.js';
 import { LedgerService } from './ledger.service.js';
+import { EventsService } from '../events/events.service.js';
 
 class LedgerQuery {
   @ApiPropertyOptional({ example: '2026-11' })
@@ -40,13 +41,22 @@ class AdSpendDto {
 @ApiBearerAuth()
 @Controller('properties/:propertyId/ledger')
 export class LedgerController {
-  constructor(private readonly ledger: LedgerService) {}
+  constructor(
+    private readonly ledger: LedgerService,
+    private readonly events: EventsService,
+  ) {}
 
   @Get()
   @PropertyRoles([Role.OWNER, Role.MANAGER])
   @ApiOperation({ summary: '월 매출·채널별 표·10개월 추이·정산 달력·가격 비교·대실/숙박' })
-  get(@Param('propertyId', ParseUUIDPipe) propertyId: string, @Query() q: LedgerQuery) {
-    return this.ledger.ledger(propertyId, q.month, q.date);
+  async get(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Query() q: LedgerQuery,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const r = await this.ledger.ledger(propertyId, q.month, q.date);
+    await this.events.recordDaily('LEDGER_VIEW', { userId: user.id, propertyId });
+    return r;
   }
 
   @Put('ad-spend')

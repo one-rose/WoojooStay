@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   changeRate,
@@ -12,7 +13,7 @@ import {
   type ExpenseItem,
   type PurchaseOrder,
 } from "@/core";
-import { cx, formatNumber, josa } from "@/shared";
+import { cx, formatNumber, formatWon, josa } from "@/shared";
 import {
   Badge,
   Card,
@@ -53,7 +54,7 @@ const ORDER: Record<PurchaseOrder["status"], { tone: BadgeTone; label: string }>
   received: { tone: "ok", label: "입고 완료" },
   cancelled: { tone: "neutral", label: "취소" },
 };
-const won = (n: number) => `₩${formatNumber(n)}`;
+const won = formatWon;
 
 type Form = { vendor: string; date: string; amount: string; category: ExpenseCategory };
 const emptyForm = (date: string): Form => ({ vendor: "", date, amount: "", category: "amenity" });
@@ -69,21 +70,37 @@ const toInput = (f: Form): ExpenseInput => ({
   amount: Number(f.amount.replace(/\D/g, "")),
   category: f.category,
 });
-const filled = (f: Form) =>
-  f.vendor.trim() !== "" && /^\d{4}-\d{2}-\d{2}$/.test(f.date) && Number(f.amount.replace(/\D/g, "")) > 0;
+/** today: 지출 날짜는 오늘까지만 (API 도 미래 날짜는 받지 않는다) */
+const filled = (f: Form, today: string) =>
+  f.vendor.trim() !== "" &&
+  /^\d{4}-\d{2}-\d{2}$/.test(f.date) &&
+  f.date <= today &&
+  Number(f.amount.replace(/\D/g, "")) > 0;
+const shiftMonth = (m: string, n: number) => {
+  const d = new Date(`${m}-01T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + n);
+  return d.toISOString().slice(0, 7);
+};
 
 /** 지출관리 (F6-01 · F6-03 · F6-04). actions 가 없으면 예시 화면 */
 export function ExpensesScreen({
   data,
   actions,
   today,
+  navigable = false,
 }: {
   data: ExpenseData;
   actions?: ExpenseActions;
   today?: string;
+  /** 실서버면 이전·다음 달로 이동 (?month=YYYY-MM) */
+  navigable?: boolean;
 }) {
   const router = useRouter();
   const day = today ?? data.receiptSample.date;
+  const thisMonth = day.slice(0, 7);
+  const isThisMonth = data.month === thisMonth;
+  const prevMonth = shiftMonth(data.month, -1);
+  const nextMonth = shiftMonth(data.month, 1);
   const [tab, setTab] = useState<Tab>("summary");
   // 발주 상태: 서버 목록 위에 방금 바꾼 상태만 덮어쓴다 — 새로고침으로 목록이 바뀌면 버린다
   const [orderBase, setOrderBase] = useState(data.orders);
@@ -100,7 +117,7 @@ export function ExpensesScreen({
   const [pending, start] = useTransition();
   const total = data.items.reduce((s, e) => s + e.amount, 0);
   // 이번 달이 진행 중이면 지난달 같은 날짜까지와 비교 (API 가 주면)
-  const rate = changeRate(total, data.prevTotalToDate ?? data.prevTotal);
+  const rate = changeRate(total, isThisMonth ? (data.prevTotalToDate ?? data.prevTotal) : data.prevTotal);
   const byCat = (Object.keys(EXPENSE_LABEL) as ExpenseCategory[])
     .map((c) => ({ c, amount: data.items.filter((e) => e.category === c).reduce((s, e) => s + e.amount, 0) }))
     .filter((x) => x.amount > 0)
@@ -163,21 +180,43 @@ export function ExpensesScreen({
 
       {tab === "summary" && (
         <>
+          {navigable && (
+            <div className="ex-month">
+              <Link className="ex-month__nav" aria-label="이전 달" href={`?month=${prevMonth}`} scroll={false}>
+                <Icon name="chevronLeft" size={16} />
+              </Link>
+              <strong>
+                {data.month.slice(0, 4)}년 {Number(data.month.slice(5))}월
+              </strong>
+              {nextMonth <= thisMonth ? (
+                <Link className="ex-month__nav" aria-label="다음 달" href={`?month=${nextMonth}`} scroll={false}>
+                  <Icon name="chevron" size={16} />
+                </Link>
+              ) : (
+                <button type="button" className="ex-month__nav" aria-label="다음 달" disabled>
+                  <Icon name="chevron" size={16} />
+                </button>
+              )}
+            </div>
+          )}
           <StatRow cols={3}>
             <Stat
               label={`${Number(data.month.slice(5))}월 지출`}
               prefix="₩"
               value={formatNumber(total)}
-              delta={{ rate, label: "전월보다", good: "down" }}
+              delta={{ rate, label: isThisMonth && navigable ? "지난달 같은 날보다" : "전월보다", good: "down" }}
             />
             <Stat
               label="매출 대비 지출"
               value={data.sales ? `${((total / data.sales) * 100).toFixed(1)}%` : "-"}
-              foot={`예약매출 ${won(data.sales)}`}
+              foot={
+                data.upcoming && isThisMonth ? `오늘까지 확정 매출 ${won(data.sales)}` : `예약매출 ${won(data.sales)}`
+              }
             />
             <Stat
               label="가장 큰 항목"
               value={byCat[0] ? EXPENSE_LABEL[byCat[0].c] : "-"}
+              text
               foot={byCat[0] ? won(byCat[0].amount) : "아직 지출이 없어요"}
             />
           </StatRow>
@@ -216,7 +255,7 @@ export function ExpensesScreen({
                     {data.items.length === 0 && (
                       <tr>
                         <td colSpan={6} className="is-muted">
-                          이번 달 지출이 아직 없어요.
+                          {isThisMonth ? "이번 달 지출이 아직 없어요." : "이 달 지출 기록이 없어요."}
                         </td>
                       </tr>
                     )}
@@ -231,6 +270,18 @@ export function ExpensesScreen({
                         <td className="is-num">{won(e.amount)}</td>
                         <td className="is-num">
                           <span className="ex-row-actions">
+                            {e.receiptId && actions && (
+                              // 원본 사진은 route handler 가 내 토큰으로 받아 흘려보낸다 (새 창)
+                              <a
+                                className="pm-btn pm-btn--quiet pm-btn--sm"
+                                href={`/app/receipts/${e.receiptId}`}
+                                target="_blank"
+                                rel="noopener"
+                                aria-label={`${e.vendor} 영수증 보기 (새 창)`}
+                              >
+                                영수증 보기
+                              </a>
+                            )}
                             <PmButton
                               size="sm"
                               variant="quiet"
@@ -313,7 +364,7 @@ export function ExpensesScreen({
                           </PmButton>
                         )}
                         {o.status === "requested" && (
-                          <PmButton size="sm" variant="navy" disabled={pending} onClick={() => moveOrder(o, "ordered")}>
+                          <PmButton size="sm" disabled={pending} onClick={() => moveOrder(o, "ordered")}>
                             발주하기
                           </PmButton>
                         )}
@@ -390,7 +441,16 @@ export function ExpensesScreen({
   );
 }
 
-function ExpenseFields({ f, set }: { f: Form; set: (k: keyof Form, v: string) => void }) {
+function ExpenseFields({
+  f,
+  set,
+  today,
+}: {
+  f: Form;
+  set: (k: keyof Form, v: string) => void;
+  /** 날짜는 오늘까지 */
+  today: string;
+}) {
   return (
     <>
       <Field label="가맹점">
@@ -398,7 +458,13 @@ function ExpenseFields({ f, set }: { f: Form; set: (k: keyof Form, v: string) =>
       </Field>
       <div className="ex-form__row">
         <Field label="날짜">
-          <input className="pm-input num" type="date" value={f.date} onChange={(e) => set("date", e.target.value)} />
+          <input
+            className="pm-input num"
+            type="date"
+            max={today}
+            value={f.date}
+            onChange={(e) => set("date", e.target.value)}
+          />
         </Field>
         <Field label="금액">
           <input
@@ -418,6 +484,11 @@ function ExpenseFields({ f, set }: { f: Form; set: (k: keyof Form, v: string) =>
           ))}
         </select>
       </Field>
+      {f.date > today && (
+        <p className="pm-error" role="alert">
+          지출 날짜는 오늘까지만 넣을 수 있어요.
+        </p>
+      )}
     </>
   );
 }
@@ -570,7 +641,7 @@ function ReceiptPanel({
         }
       >
         <fieldset className="ex-form" disabled={!receipt}>
-          <ExpenseFields f={f} set={set} />
+          <ExpenseFields f={f} set={set} today={today} />
         </fieldset>
         <div className="ex-form__actions">
           <PmButton variant="ghost" onClick={reset} disabled={!receipt}>
@@ -579,11 +650,11 @@ function ReceiptPanel({
           <PmButton
             variant="primary"
             icon="check"
-            disabled={!receipt || pending || !filled(f)}
+            disabled={!receipt || pending || !filled(f, today)}
             onClick={() =>
               run(
                 () => actions!.registerReceipt(receipt!.id!, toInput(f)),
-                `${f.vendor} ${f.amount}원을 지출로 등록했어요.`,
+                `${f.vendor} ${formatNumber(toInput(f).amount)}원을 지출로 등록했어요.`,
                 reset,
               )
             }
@@ -620,13 +691,13 @@ function ExpenseDialog({
           <PmButton variant="ghost" onClick={onClose}>
             취소
           </PmButton>
-          <PmButton variant="primary" disabled={pending || !filled(f)} onClick={() => onSubmit(f)}>
+          <PmButton variant="primary" disabled={pending || !filled(f, today)} onClick={() => onSubmit(f)}>
             {pending ? "저장 중…" : item ? "변경 저장" : "등록"}
           </PmButton>
         </>
       }
     >
-      <ExpenseFields f={f} set={(k, v) => setF((x) => ({ ...x, [k]: v }))} />
+      <ExpenseFields f={f} set={(k, v) => setF((x) => ({ ...x, [k]: v }))} today={today} />
     </Modal>
   );
 }

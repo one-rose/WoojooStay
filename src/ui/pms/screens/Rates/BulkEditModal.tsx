@@ -45,7 +45,7 @@ const toNumber = (raw: string) => {
 
 export function BulkEditModal({ grid, minPrice, onClose, onApply }: BulkEditModalProps) {
   const basePlans = grid.roomTypes.flatMap((r) =>
-    r.plans.filter((p) => !p.derived).map((p) => ({ id: p.id, label: `${r.name} · ${p.name}` })),
+    r.plans.filter((p) => !p.derived).map((p) => ({ id: p.id, label: `${r.name} › ${p.name}` })),
   );
   const [planIds, setPlanIds] = useState<string[]>(basePlans.map((p) => p.id));
   const [from, setFrom] = useState(grid.dates[0]);
@@ -72,7 +72,7 @@ export function BulkEditModal({ grid, minPrice, onClose, onApply }: BulkEditModa
       onClose={onClose}
       footer={
         <>
-          <span className="rt-bulk__preview num">{nothing ? "바꿀 값을 입력하세요" : `${cells}칸에 적용합니다`}</span>
+          <span className="rt-bulk__preview num">{nothing ? "바꿀 값을 넣어 주세요" : `${cells}칸에 적용합니다`}</span>
           <PmButton variant="ghost" onClick={onClose}>
             취소
           </PmButton>

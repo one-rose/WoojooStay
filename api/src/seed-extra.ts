@@ -23,6 +23,7 @@ import type { Channel } from './generated/prisma/enums.js';
 import { NotificationsService } from './notifications/notifications.service.js';
 import { PrismaService } from './prisma/prisma.service.js';
 import { PropertiesService } from './properties/properties.service.js';
+import { seedPilot } from './seed-pilot.js';
 import { ReviewsService } from './reviews/reviews.service.js';
 import { StaffService } from './staff/staff.service.js';
 
@@ -54,6 +55,12 @@ export async function seedExtra(app: INestApplicationContext, demo: { propertyId
   const prisma = app.get(PrismaService);
   await enrichDemo(app, prisma, demo);
   await seedPortfolio(app, prisma, PORTFOLIO_OWNER, PORTFOLIO);
+  // 사업소개서 실증 5곳 — 실증 KPI 화면(/admin) 이 비어 보이지 않게 몇 주치 사용 기록·평점·리뷰
+  await seedPilot(
+    prisma,
+    PORTFOLIO_OWNER.phone,
+    PORTFOLIO.slice(0, 5).map((h) => h.name),
+  );
   await seedOrbitChain(app);
 }
 
@@ -277,6 +284,7 @@ async function enrichDemo(
     'BILLING',
     '무료 체험이 끝나기 전에 결제 카드를 확인해 주세요.',
     '/app/settings/billing',
+    { roles: ['OWNER'] },
   );
 }
 
@@ -561,17 +569,20 @@ async function seedPortfolio(
       const open = await prisma.review.findMany({
         where: { propertyId: p.id, status: 'UNANSWERED' },
         orderBy: [{ rating: 'desc' }, { postedAt: 'asc' }],
-        select: { id: true, rating: true },
+        select: { id: true, rating: true, postedAt: true },
       });
       const take = h.answered >= 1 ? open : open.slice(0, Math.round(open.length * h.answered));
       const done = take.filter((r) => h.answered >= 1 || r.rating > 3);
       if (done.length) {
         await prisma.reply.createMany({
-          data: done.map((r) => ({
+          data: done.map((r, i) => ({
             reviewId: r.id,
             text: '소중한 후기 감사합니다. 다음에도 편히 쉬어 가실 수 있게 준비하겠습니다.',
             via: 'COPY' as const,
             postedById: owner.id,
+            // 리뷰가 올라오고 몇 시간 뒤 게시 (응답 소요시간 KPI 가 그럴듯하게) — 지금보다 뒤로 가지 않게
+            postedAt: new Date(Math.min(now - 60_000, r.postedAt.getTime() + (1 + (i % 5) * 3) * 3_600_000)),
+            draftEdited: i % 3 === 0,
           })),
         });
         await prisma.review.updateMany({ where: { id: { in: done.map((r) => r.id) } }, data: { status: 'POSTED' } });

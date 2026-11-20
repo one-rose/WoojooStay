@@ -11,16 +11,18 @@ export type PortfolioAlertKind =
   | "channel-error"
   | "payment-failed"
   | "low-rated"
+  | "no-staff"
   | "stale-dirty"
   | "missing-clock-out"
   | "no-channel";
 
-/** 채널 끊김 > 결제 실패 > 저평점 미답변 > 청소 지연 > 퇴근 누락 > 채널 없음 */
+/** 채널 끊김 > 결제 실패 > 저평점 미답변 > 근무자 없음 · 청소 지연 > 퇴근 누락 > 채널 없음 */
 export const PORTFOLIO_ALERT_RANK: Record<PortfolioAlertKind, number> = {
   "channel-auth": 0,
   "channel-error": 0,
   "payment-failed": 1,
   "low-rated": 2,
+  "no-staff": 3,
   "stale-dirty": 3,
   "missing-clock-out": 4,
   "no-channel": 5,
@@ -34,6 +36,39 @@ export interface PortfolioAlert {
 }
 
 export type PortfolioRole = "owner" | "manager";
+
+/** 이번 달(리포트는 고른 달) 지출 · 인건비 — 급여는 확정 합, 확정 전이면 계산 중 합 */
+export interface MonthCosts {
+  expenses: number;
+  payroll: number;
+  /** CONFIRMED: 확정(발송 포함) · DRAFT: 계산 중 · null: 급여 없음 */
+  payrollStatus: "CONFIRMED" | "DRAFT" | null;
+  /** (지출 + 인건비) ÷ 매출 — 0.412 = 41.2%, 매출 0 이면 null */
+  costRatio: number | null;
+}
+
+/** 전체 현황 매출 기간 (입실일 기준) — GET /portfolio?period= */
+export type PortfolioPeriod = "today" | "yesterday" | "week";
+
+export const PORTFOLIO_PERIODS: readonly { key: PortfolioPeriod; label: string; prev: string }[] = [
+  { key: "today", label: "오늘", prev: "어제보다" },
+  { key: "yesterday", label: "어제", prev: "그제보다" },
+  { key: "week", label: "이번 주", prev: "지난주 같은 날까지보다" },
+];
+
+export function isPortfolioPeriod(v: unknown): v is PortfolioPeriod {
+  return PORTFOLIO_PERIODS.some((p) => p.key === v);
+}
+
+/** 기간 매출 — API 가 period 를 주지 않으면(예전 서버) 오늘 · 어제만 today 에서 */
+export function periodSales(
+  p: Pick<PortfolioProperty, "today" | "period">,
+  key: PortfolioPeriod,
+): { sales: number; bookings: number; prevSales: number | null } {
+  if (p.period) return p.period;
+  if (key === "yesterday") return { sales: p.today.yesterdaySales, bookings: 0, prevSales: null };
+  return { sales: p.today.sales, bookings: p.today.bookings, prevSales: p.today.yesterdaySales };
+}
 export type BillingState = "trial" | "active" | "past_due" | "cancelled";
 
 export interface PortfolioProperty {
@@ -43,8 +78,12 @@ export interface PortfolioProperty {
   rooms: number;
   role: PortfolioRole;
   today: { sales: number; bookings: number; yesterdaySales: number };
+  /** 고른 기간(?period=) 매출 · 예약 수 · 앞 기간 매출 — 입실일 기준 */
+  period?: { sales: number; bookings: number; prevSales: number };
   /** 이번 달 1일 ~ 오늘 · 지난달 같은 날까지 */
   month: { sales: number; prevToDate: number };
+  /** 이번 달 지출 · 인건비 (기간과 상관없이 이번 달) */
+  costs?: MonthCosts;
   reviews: { unanswered: number; lowRated: number };
   /** 7일 안 정산 예정 */
   settle7: number;
@@ -58,7 +97,8 @@ export interface PortfolioProperty {
     /** 청소 필요로 2시간 넘게 */
     staleDirty: number;
   };
-  staff: { onDuty: number; missingClockOut: number };
+  /** scheduledNow: 근무표상 지금 일할 시간인 사람 수 */
+  staff: { onDuty: number; missingClockOut: number; scheduledNow?: number };
   channels: { connected: number; error: number; authExpired: number };
   /** 사장님인 업장만 (매니저면 null) */
   billing: BillingState | null;
@@ -70,7 +110,9 @@ export interface PortfolioTotals {
   properties: number;
   needsAttention: number;
   today: { sales: number; bookings: number; yesterdaySales: number };
+  period?: { sales: number; bookings: number; prevSales: number };
   month: { sales: number; prevToDate: number };
+  costs?: MonthCosts;
   reviews: { unanswered: number; lowRated: number };
   settle7: number;
 }
@@ -78,6 +120,8 @@ export interface PortfolioTotals {
 export interface PortfolioData {
   /** "YYYY-MM-DD" (한국 날짜) */
   date: string;
+  /** 고른 매출 기간 — from ~ to (입실일) */
+  period?: { key: PortfolioPeriod; from: string; to: string };
   properties: readonly PortfolioProperty[];
   totals: PortfolioTotals;
 }
@@ -135,7 +179,10 @@ export interface PortfolioReportProperty {
   perRoomDay: number;
   /** 매출 많은 순 */
   channels: readonly { channel: ChannelId; name: string; sales: number }[];
-  reviews: { count: number; avgRating: number | null; answered: number };
+  /** answered: 우리 서비스로 단 답글 · replyBase: 답글률 분모 (채널에 이미 답글이 있던 리뷰 제외, 없으면 count) */
+  reviews: { count: number; avgRating: number | null; answered: number; replyBase?: number };
+  /** 그 달 지출 · 인건비 */
+  costs?: MonthCosts;
   /** months 와 같은 순서의 월 매출 */
   trend: readonly number[];
 }
@@ -170,7 +217,9 @@ export function reportTotals(r: PortfolioReport) {
       count: reviewCount,
       avgRating: reviewCount ? Math.round((ratingSum / reviewCount) * 10) / 10 : null,
       answered: sum((p) => p.reviews.answered),
+      replyBase: sum((p) => p.reviews.replyBase ?? p.reviews.count),
     },
+    costs: sum((p) => (p.costs ? p.costs.expenses + p.costs.payroll : 0)),
     trend: r.months.map((_, i) => sum((p) => p.trend[i] ?? 0)),
   };
 }
@@ -184,7 +233,7 @@ export interface PortfolioPeople {
   people: readonly {
     userId: string;
     name: string;
-    /** 가린 번호 (010-****-1234) */
+    /** 사장님에게는 전체 번호(010-1234-5678), 그 밖은 가린 번호 (010-****-1234) */
     phone: string;
     /** 업장 ID → 권한 (없으면 그 업장 사람 아님) */
     roles: Readonly<Record<string, PeopleRole>>;
@@ -194,6 +243,8 @@ export interface PortfolioPeople {
     phone: string;
     role: "manager" | "staff";
     propertyIds: readonly string[];
+    /** 실서버: 업장별 초대 id (propertyIds 와 같은 순서) — 취소·다시 보내기 */
+    invitationIds?: readonly string[];
     expiresAt: string;
   }[];
 }
@@ -209,4 +260,7 @@ export interface PeopleActions {
     role: "manager" | "staff",
     propertyIds: string[],
   ) => Promise<ActionResult<{ invited: string[]; skipped: string[] }>>;
+  /** 대기 중인 초대 취소 · 다시 보내기 — 업장별 초대 id */
+  cancelInvite?: (invitationId: string, propertyId: string) => Promise<ActionResult>;
+  resendInvite?: (invitationId: string, propertyId: string) => Promise<ActionResult>;
 }

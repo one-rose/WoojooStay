@@ -1,8 +1,21 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Length, Matches, Max, Min, ValidateBy } from 'class-validator';
 import { PropertyType, Role } from '../../generated/prisma/enums.js';
 import { KOREAN_MOBILE, normalizePhone } from '../../common/utils/phone.js';
+
+/** 업장 이름에 링크(주소) 모양이 들어가면 거절 — 초대·계약서 문자에 업장 이름이 들어가서 피싱에 쓰일 수 있다 */
+const LINK_LIKE =
+  /(https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|kr|co|io|me|ly|gl|xyz|site|link|app|info|biz|shop|top|click)\b)/i;
+function NoLink() {
+  return ValidateBy({
+    name: 'noLink',
+    validator: {
+      validate: (v: unknown) => typeof v !== 'string' || !LINK_LIKE.test(v),
+      defaultMessage: () => '업장 이름에는 인터넷 주소를 넣을 수 없어요.',
+    },
+  });
+}
 
 const digits = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.replace(/\D/g, '') : value);
 
@@ -10,6 +23,7 @@ export class CreatePropertyDto {
   @ApiProperty({ example: '스테이 오르빗 을지로' })
   @IsString()
   @Length(1, 60)
+  @NoLink()
   name: string;
 
   @ApiProperty({ enum: PropertyType })

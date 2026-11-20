@@ -46,6 +46,26 @@
   justify-content: flex-end;
   padding-top: var(--pm-s5);
 }
+.se-addprop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pm-s4);
+  flex-wrap: wrap;
+  padding: var(--pm-s4) var(--pm-s5);
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  background: var(--pm-surface);
+  font-size: 14px;
+  color: var(--pm-ink-2);
+}
+.se-addprop p {
+  flex: 1 1 320px;
+}
+.se-addprop strong {
+  color: var(--pm-ink);
+  font-weight: 600;
+}
 .se-foot {
   padding: var(--pm-s3) var(--pm-s5) var(--pm-s4);
   font-size: var(--pm-fs-cap);
@@ -151,7 +171,16 @@
   .se-nav {
     position: static;
     flex-direction: row;
+    min-width: 0;
+    max-width: 100%;
     overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    /* 탭이 더 있다는 표시 — 오른쪽 끝을 흐리게 */
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+  .se-nav::-webkit-scrollbar {
+    display: none;
   }
   .se-nav__item {
     white-space: nowrap;
@@ -211,4 +240,94 @@
   margin-top: 2px;
   font-size: 12px;
   color: var(--pm-muted);
+}
+/* 매니저 — 사장님만 바꿀 수 있는 곳 */
+.se-owner-only {
+  margin-top: var(--pm-s4);
+  padding-top: var(--pm-s3);
+  border-top: 1px solid var(--pm-line-soft, var(--pm-line));
+}
+.se-owner-note {
+  font-size: var(--pm-fs-cap);
+  white-space: nowrap;
+}
+
+/* 채널 연동 — 끊긴 줄 · 알림에서 눌러 들어온 줄 */
+.se-channels tr.is-problem td {
+  background: #fff8f6;
+}
+.se-channels tr.is-problem td:first-child {
+  box-shadow: inset 3px 0 0 var(--pm-bad);
+}
+.se-channels tr.is-focus td {
+  background: #fff1ec;
+}
+
+/* 결제 실패 — 구독·결제 맨 위 */
+.se-failed {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-s3);
+  margin-bottom: var(--pm-s4);
+  padding: var(--pm-s3) var(--pm-s4);
+  border-radius: var(--pm-r-md);
+  border: 1px solid var(--pm-bad);
+  background: var(--pm-bad-bg);
+  color: var(--pm-bad);
+  font-size: 13px;
+}
+.se-failed p {
+  flex: 1;
+  color: var(--pm-ink);
+  line-height: 1.6;
+}
+.se-failed strong {
+  display: block;
+  color: var(--pm-bad);
+  font-size: 14px;
+}
+@media (max-width: 720px) {
+  .se-failed {
+    flex-wrap: wrap;
+  }
+  .se-failed .pm-btn {
+    width: 100%;
+  }
+}
+
+/* 다른 업장에도 적용 */
+.se-apply {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pm-s3);
+  flex-wrap: wrap;
+  padding: var(--pm-s3) var(--pm-s5);
+  border-top: 1px solid var(--pm-line-soft);
+  font-size: 13px;
+  color: var(--pm-ink-2);
+}
+.se-broken {
+  display: grid;
+  border-bottom: 1px solid var(--pm-line);
+}
+.se-broken li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--pm-s2) var(--pm-s3);
+  padding: 12px var(--pm-s5);
+  background: #fff8f6;
+  box-shadow: inset 3px 0 0 var(--pm-bad);
+  font-size: 13px;
+  color: var(--pm-ink);
+}
+.se-broken li + li {
+  border-top: 1px solid var(--pm-line-soft);
+}
+.se-broken li > span:nth-child(2) {
+  flex: 1 1 180px;
+}
+.se-broken li.is-focus {
+  background: #fff1ec;
 }

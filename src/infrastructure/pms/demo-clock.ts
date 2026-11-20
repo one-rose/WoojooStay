@@ -82,6 +82,9 @@ export function demoRepository(inner: PmsRepository): PmsRepository {
     get(target, key, receiver) {
       const value = Reflect.get(target, key, receiver);
       if (typeof value !== "function") return value;
+      // 직원 한 달 출퇴근은 고른 달(이미 오늘 기준)을 받으므로 실제 오늘로 바로 만든다 (옮기지 않음)
+      if (key === "getStaffMonth")
+        return async (staffId: string, month: string) => value.apply(target, [staffId, month, kstToday()]);
       return async (...args: unknown[]) => {
         const out = shiftDates(await value.apply(target, args));
         // 요금표는 주말 요금이 요일을 따라가야 해서, 옮긴 시작일로 다시 만든다

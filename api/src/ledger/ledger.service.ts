@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import {
   addDaysIso,
   addMonths,
+  confirmedEnd,
   dateOnly,
   isoDay,
   kstDate,
@@ -26,15 +27,23 @@ export class LedgerService {
   constructor(private readonly prisma: PrismaService) {}
 
   async ledger(propertyId: string, month = kstMonth(), date = kstDate()) {
+    const today = kstDate();
     const from = monthStart(month);
     const to = monthStart(addMonths(month, 1));
+    // 진행 중인 달은 오늘 체크인까지만 확정 매출 — 내일~말일 예약은 upcoming 으로 따로 (/portfolio 와 같은 기준)
+    const end = confirmedEnd(month, today);
     const confirmed = { propertyId, status: 'CONFIRMED' as const };
 
     const prevFrom = monthStart(addMonths(month, -1));
-    const [byChannel, prev, prevToDate, ads, soon, trend, settlements, property] = await Promise.all([
+    const [byChannel, upcoming, prev, prevToDate, ads, soon, trend, settlements, property] = await Promise.all([
       this.prisma.booking.groupBy({
         by: ['channel'],
-        where: { ...confirmed, checkinDate: { gte: from, lt: to } },
+        where: { ...confirmed, checkinDate: { gte: from, lt: end } },
+        _count: { _all: true },
+        _sum: { saleAmount: true, commission: true },
+      }),
+      this.prisma.booking.aggregate({
+        where: { ...confirmed, checkinDate: { gte: end, lt: to } },
         _count: { _all: true },
         _sum: { saleAmount: true, commission: true },
       }),
@@ -55,7 +64,7 @@ export class LedgerService {
         },
         _sum: { amount: true },
       }),
-      this.trend(propertyId, month),
+      this.trend(propertyId, month, end),
       this.prisma.settlement.findMany({
         where: { propertyId, expectedDate: { gte: from, lt: to } },
         orderBy: [{ expectedDate: 'asc' }, { channel: 'asc' }],
@@ -95,7 +104,16 @@ export class LedgerService {
 
     return {
       month,
+      /** 진행 중인 달이면 true — sales·fees·channels 는 오늘 체크인까지 */
+      partial: month === today.slice(0, 7),
+      asOf: today,
       sales: channels.reduce((s, c) => s + c.sales, 0),
+      /** 내일 ~ 말일 체크인 예정 (확정 매출에 넣지 않음). 지난 달은 0 */
+      upcoming: {
+        sales: upcoming._sum.saleAmount ?? 0,
+        bookings: upcoming._count._all,
+        commission: upcoming._sum.commission ?? 0,
+      },
       prevSales: prev._sum.saleAmount ?? 0,
       /** 지난달 같은 날까지 매출 — 진행 중인 이번 달과 비교할 때. 지난 달을 볼 때는 prevSales 와 같다 */
       prevSalesToDate: prevToDate._sum.saleAmount ?? 0,
@@ -110,14 +128,14 @@ export class LedgerService {
     };
   }
 
-  /** 최근 10개월 월별 매출 (없는 달은 0) */
-  private async trend(propertyId: string, month: string) {
+  /** 최근 10개월 월별 매출 (없는 달은 0) — 진행 중인 달은 오늘까지 */
+  private async trend(propertyId: string, month: string, end: Date) {
     const first = addMonths(month, -(TREND_MONTHS - 1));
     const rows = await this.prisma.$queryRaw<{ m: string; sales: bigint }[]>(Prisma.sql`
       SELECT to_char(checkin_date, 'YYYY-MM') AS m, SUM(sale_amount)::bigint AS sales
       FROM wj_booking
       WHERE property_id = ${propertyId}::uuid AND status = 'CONFIRMED'
-        AND checkin_date >= ${monthStart(first)} AND checkin_date < ${monthStart(addMonths(month, 1))}
+        AND checkin_date >= ${monthStart(first)} AND checkin_date < ${end}
       GROUP BY 1`);
     const by = new Map(rows.map((r) => [r.m, Number(r.sales)]));
     return Array.from({ length: TREND_MONTHS }, (_, i) => {

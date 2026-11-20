@@ -42,7 +42,10 @@
 }
 .rv-filters {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--pm-s2);
+  min-width: 0;
+  max-width: 100%;
 }
 .rv-select {
   position: relative;
@@ -351,6 +354,24 @@
   .rv-tabs__tab {
     padding: 0 10px;
   }
+  /* 좁은 화면: 업장 고르기는 한 줄 전체, 채널·정렬은 그 아래 반씩 */
+  .rv-filters {
+    width: 100%;
+  }
+  .rv-filters .rv-select {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .rv-filters .rv-select--wide {
+    flex-basis: 100%;
+  }
+  .rv-filters .rv-select select,
+  .rv-select--wide select {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
   .rv-detail {
     padding: var(--pm-s4);
   }
@@ -467,4 +488,198 @@
   margin: 0 0 var(--pm-s3);
   font-size: 12.5px;
   color: var(--pm-muted);
+}
+
+/* 복사 게시 뒤 — 리뷰 상세 안 안내 */
+.rv-copied {
+  margin-bottom: var(--pm-s4);
+  padding: 12px 14px;
+  border-radius: var(--pm-r-md);
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pm-ink-2);
+}
+.rv-copied strong {
+  color: var(--pm-ink);
+}
+.rv-copied__actions {
+  display: flex;
+  gap: var(--pm-s2);
+  margin-top: var(--pm-s2);
+}
+.rv-reply__next {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--pm-s4);
+}
+.rv-reply__warn p {
+  margin: 0;
+}
+.rv-reply__fwd {
+  margin-top: var(--pm-s2);
+}
+
+/* 첫 답글 안내 — 한 번만 */
+.rv-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pm-s4);
+  margin-bottom: var(--pm-s4);
+  padding: var(--pm-s4) var(--pm-s5);
+  border: 1px solid var(--pm-line);
+  border-left: 3px solid var(--pm-navy);
+  border-radius: var(--pm-r-lg);
+  background: var(--pm-surface);
+}
+.rv-guide h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pm-ink);
+}
+.rv-guide p {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--pm-ink-2);
+  line-height: 1.6;
+}
+.rv-guide__actions {
+  display: flex;
+  gap: var(--pm-s2);
+  flex: none;
+}
+@media (max-width: 720px) {
+  .rv-guide {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+.rv-copied__open {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 진행 줄 (S2) — 몇 건 답했는지 + 단축키 */
+.rv-progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: var(--pm-s3);
+  font-size: 13px;
+  color: var(--pm-ink-2);
+}
+.rv-progress b {
+  color: var(--pm-ink);
+}
+.rv-progress__bar {
+  flex: 0 1 160px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--pm-neutral-bg);
+  overflow: hidden;
+}
+.rv-progress__bar span {
+  display: block;
+  height: 100%;
+  background: var(--pm-ok);
+  transition: width 0.3s ease;
+}
+.rv-progress__keys {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--pm-muted);
+}
+.rv-progress kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin: 0 2px;
+  padding: 0 5px;
+  border: 1px solid var(--pm-line);
+  border-bottom-width: 2px;
+  border-radius: var(--pm-r-sm);
+  background: var(--pm-surface);
+  font: 600 11px/1 inherit;
+  color: var(--pm-ink-2);
+}
+@media (hover: none), (max-width: 720px) {
+  .rv-progress__keys {
+    display: none;
+  }
+}
+/* 오른쪽 상세는 화면에 고정 — 긴 리뷰는 상세 안에서 스크롤 */
+@media (min-width: 721px) {
+  .rv-detail {
+    max-height: calc(100dvh - var(--pm-top-h) - var(--pm-s8));
+    overflow-y: auto;
+  }
+}
+
+/* 답글 말투 저장 바 — 폼 아래, 화면 아래쪽에 붙어 따라온다 */
+.rs-savebar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--pm-s2);
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  background: var(--pm-surface);
+}
+.rs-savebar.is-dirty {
+  box-shadow: var(--pm-shadow-pop);
+}
+.rs-savebar p {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.rs-savebar strong {
+  color: var(--pm-orange-ink);
+  font-weight: 600;
+}
+.rs-savebar__idle {
+  color: var(--pm-muted);
+}
+.rs-auto:disabled {
+  opacity: 1;
+}
+.rs-auto:disabled .pm-input,
+.rs-auto:disabled label {
+  color: var(--pm-disabled-ink);
+}
+.rs-auto:disabled .pm-input {
+  background: var(--pm-surface-sunken);
+}
+.rs-auto__off {
+  margin-bottom: var(--pm-s3);
+  font-size: 12.5px;
+  color: var(--pm-muted);
+}
+@media (max-width: 720px) {
+  .rs-savebar {
+    flex-wrap: wrap;
+  }
+  .rs-savebar p {
+    flex-basis: 100%;
+  }
+}
+@media (pointer: coarse) {
+  .rv-tabs__tab,
+  .rv-select select {
+    min-height: var(--pm-touch);
+  }
 }

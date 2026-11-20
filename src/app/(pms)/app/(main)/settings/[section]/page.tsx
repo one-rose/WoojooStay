@@ -1,19 +1,25 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { SETTINGS_SECTIONS, SettingsScreen, isSettingsSection } from "@/ui/pms";
+import { SETTINGS_SECTIONS, SettingsScreen, isSettingsSection, ScreenSkeleton } from "@/ui/pms";
 import { isLiveApi } from "@/infrastructure";
 import {
+  cancelInviteAction,
   changeRoleAction,
   connectChannelAction,
   disconnectChannelAction,
   inviteAction,
   registerCardAction,
+  removeMemberAction,
+  resendInviteAction,
+  retryPaymentAction,
   saveNoticesAction,
   savePropertyAction,
   setPlanAction,
+  startCardAuthAction,
   syncChannelAction,
 } from "../../../_lib/actions";
+import { loadPropertySwitcher } from "../../../_lib/portfolio";
 import { getRepository, readSession } from "../../../_lib/session";
 
 /** 카드 등록 결과 코드 → 고정 문구 (주소에 든 임의 글자를 화면에 그대로 띄우지 않는다) */
@@ -33,12 +39,12 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/app/settings/[section]">): Promise<Metadata> {
   const { section } = await params;
   const label = SETTINGS_SECTIONS.find((s) => s.id === section)?.label ?? "설정";
-  return { title: `설정 · ${label}` };
+  return { title: `설정 · ${label}` }; // copy-ok 탭 제목
 }
 
 export default function SettingsPage({ params, searchParams }: PageProps<"/app/settings/[section]">) {
   return (
-    <Suspense fallback={<div className="pm-skeleton" aria-busy="true" aria-label="불러오는 중" />}>
+    <Suspense fallback={<ScreenSkeleton strip={0} rows={4} />}>
       <Settings params={params} searchParams={searchParams} />
     </Suspense>
   );
@@ -54,13 +60,18 @@ async function Settings({
   const { section } = await params;
   if (!isSettingsSection(section)) notFound();
   const repo = await getRepository();
-  const [data, channels] = await Promise.all([repo.getSettings(), repo.getChannelAccounts()]);
+  const [data, channels, switcher] = await Promise.all([
+    repo.getSettings(),
+    repo.getChannelAccounts(),
+    loadPropertySwitcher(),
+  ]);
+  const role = switcher.options.find((o) => o.id === switcher.currentId)?.role;
   let cardAuth: { clientKey: string; customerKey: string } | undefined;
   let cardResult: { ok: boolean; message: string } | undefined;
+  const q = await searchParams;
   if (section === "billing" && isLiveApi) {
     const { propertyId } = await readSession();
     if (TOSS_CLIENT_KEY && propertyId) cardAuth = { clientKey: TOSS_CLIENT_KEY, customerKey: propertyId };
-    const q = await searchParams;
     if (q.card === "ok") cardResult = { ok: true, message: "결제 카드를 등록했어요." };
     else if (typeof q.cardError === "string")
       cardResult = { ok: false, message: CARD_ERRORS[q.cardError] ?? CARD_ERRORS.failed };
@@ -72,6 +83,11 @@ async function Settings({
       channels={channels}
       cardAuth={cardAuth}
       cardResult={cardResult}
+      role={role ?? "manager"}
+      focusChannel={typeof q.channel === "string" ? q.channel : undefined}
+      otherProperties={switcher.options
+        .filter((o) => o.id !== switcher.currentId)
+        .map((o) => ({ id: o.id, name: o.name }))}
       actions={
         isLiveApi
           ? {
@@ -79,11 +95,16 @@ async function Settings({
               invite: inviteAction,
               setPlan: setPlanAction,
               registerCard: registerCardAction,
+              retryPayment: retryPaymentAction,
+              startCardAuth: startCardAuthAction,
               saveNotices: saveNoticesAction,
               connectChannel: connectChannelAction,
               syncChannel: syncChannelAction,
               disconnectChannel: disconnectChannelAction,
               changeRole: changeRoleAction,
+              removeMember: removeMemberAction,
+              cancelInvite: cancelInviteAction,
+              resendInvite: resendInviteAction,
             }
           : undefined
       }

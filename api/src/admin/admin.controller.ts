@@ -1,10 +1,12 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AdminOnly, CurrentAdmin, Public, type AuthAdmin } from '../common/decorators/auth.decorators.js';
 import { AdminRole } from '../generated/prisma/enums.js';
 import { AdminAuthService } from './admin-auth.service.js';
 import { AdminService } from './admin.service.js';
+import { PilotKpiQuery, PilotSurveyDto, SetPilotDto, SupportNoteDto } from './dto/pilot.dto.js';
+import { PilotService } from './pilot.service.js';
 import {
   AdminLoginDto,
   AssignManagerDto,
@@ -42,7 +44,10 @@ export class AdminAuthController {
 @AdminOnly([])
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly pilot: PilotService,
+  ) {}
 
   @Get('overview')
   @ApiOperation({ summary: '요약 — 업장 수, 체험·유료, 월 구독 매출, 수집 오류, 새 문의' })
@@ -65,6 +70,54 @@ export class AdminController {
   @ApiOperation({ summary: '담당 운영자 지정' })
   assign(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AssignManagerDto) {
     return this.admin.assignManager(id, dto.managerId);
+  }
+
+  @Patch('properties/:id/pilot')
+  @ApiOperation({ summary: '실증 업장 지정·해제 (group null 이면 해제, 시작일 기본 오늘)' })
+  async setPilot(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetPilotDto) {
+    await this.pilot.setPilot(id, dto.group, dto.startedAt);
+    return this.admin.propertyDetail(id);
+  }
+
+  @Put('properties/:id/pilot-survey')
+  @ApiOperation({ summary: '실증 설문 값 — 기준선 · 만족도(4주·8주) · 지불의사 (보낸 칸만, null 이면 비움)' })
+  survey(@Param('id', ParseUUIDPipe) id: string, @CurrentAdmin() admin: AuthAdmin, @Body() dto: PilotSurveyDto) {
+    return this.pilot.saveSurvey(id, admin.id, dto);
+  }
+
+  @Get('properties/:id/notes')
+  @ApiOperation({ summary: '지원 메모 (통화·방문 기록) 최근 100건' })
+  notes(@Param('id', ParseUUIDPipe) id: string) {
+    return this.pilot.notes(id);
+  }
+
+  @Post('properties/:id/notes')
+  @ApiOperation({ summary: '지원 메모 추가' })
+  addNote(@Param('id', ParseUUIDPipe) id: string, @CurrentAdmin() admin: AuthAdmin, @Body() dto: SupportNoteDto) {
+    return this.pilot.addNote(id, admin.id, dto);
+  }
+
+  @Delete('properties/:id/notes/:noteId')
+  @HttpCode(204)
+  @ApiOperation({ summary: '지원 메모 삭제 (쓴 사람 또는 최고 관리자)' })
+  async removeNote(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+    @CurrentAdmin() admin: AuthAdmin,
+  ) {
+    await this.pilot.removeNote(id, noteId, admin);
+  }
+
+  @Get('pilot')
+  @ApiOperation({ summary: '실증 KPI — 실증 업장 × 기준선·1~8주 (정의 문구 포함)' })
+  pilotKpi(@Query() q: PilotKpiQuery) {
+    return this.pilot.kpi(q.group);
+  }
+
+  @Get('attention')
+  @ApiOperation({ summary: '연락할 곳 — 채널 미연결 72시간 · 48시간 넘은 미답변 · 3일 미접속' })
+  attention() {
+    return this.pilot.attention();
   }
 
   @Get('sync-issues')

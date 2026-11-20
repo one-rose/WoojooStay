@@ -39,6 +39,15 @@
   border-color: #c9ced6;
   background: var(--pm-surface-sunken);
 }
+.pm-btn--alert {
+  background: var(--pm-surface);
+  color: var(--pm-bad);
+  border: 1px solid color-mix(in srgb, var(--pm-bad) 45%, transparent);
+}
+.pm-btn--alert:hover {
+  border-color: var(--pm-bad);
+  background: #fff8f6;
+}
 .pm-btn--quiet {
   color: var(--pm-ink-2);
   padding: 0 8px;

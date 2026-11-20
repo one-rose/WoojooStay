@@ -5,6 +5,7 @@
 import { StaticHomeContentRepository } from "./home/static-home-content.repository";
 import { ApiPmsRepository } from "./pms/api/api-pms.repository";
 import { PmsApiClient } from "./pms/api/client";
+import { toAdminAttention, toAdminPilotKpi } from "./pms/api/admin-pilot";
 import { toAdminData } from "./pms/api/mappers";
 import { demoRepository, shiftDates } from "./pms/demo-clock";
 import { demoPropertyRepository } from "./pms/demo-portfolio";
@@ -80,16 +81,25 @@ export {
   toRoomLog,
   toStaffMe,
 } from "./pms/api/mappers";
+export { toAdminOperators, toAdminPropertyDetail } from "./pms/api/admin-detail";
+export { toAdminAttention, toAdminPilotKpi, toSupportNote, toSurvey as toAdminSurvey } from "./pms/api/admin-pilot";
+export { demoAdminAttention, demoAdminPilot } from "./pms/demo-admin-pilot";
 
 /** 운영자 백오피스 데이터 (운영자 토큰) */
 export async function loadAdminData(token: string) {
   const api = pmsApi(token);
-  const [me, overview, properties, syncIssues, inquiries] = await Promise.all([
+  const [me, overview, properties, syncIssues, inquiries, pilot, attention] = await Promise.all([
     api.adminMe(),
     api.adminOverview(),
     api.adminProperties(),
     api.adminSyncIssues(),
     api.adminInquiries(),
+    api.adminPilot(),
+    api.adminAttention(),
   ]);
-  return toAdminData({ me, overview, properties, syncIssues, inquiries: inquiries.items });
+  return {
+    ...toAdminData({ me, overview, properties, syncIssues, inquiries: inquiries.items }),
+    pilot: toAdminPilotKpi(pilot),
+    attention: toAdminAttention(attention),
+  };
 }

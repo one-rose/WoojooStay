@@ -24,6 +24,16 @@ export class PropertiesService {
     const status = await this.biz.check(dto.bizNo);
     if (status === 'INVALID') throw Errors.bizNoInvalid();
     if (status === 'CLOSED') throw Errors.bizClosed();
+    // 같은 사업자번호가 다른 사장님 계정에 이미 있으면 막는다 (내 업장끼리는 같은 번호 허용)
+    const taken = await this.prisma.property.findFirst({
+      where: {
+        bizNo: dto.bizNo,
+        memberships: { some: { role: Role.OWNER } },
+        NOT: { memberships: { some: { userId, role: Role.OWNER } } },
+      },
+      select: { id: true },
+    });
+    if (taken) throw Errors.bizNoTaken();
     const property = await this.prisma.property.create({
       data: {
         name: dto.name.trim(),
@@ -49,8 +59,12 @@ export class PropertiesService {
     });
   }
 
-  async get(propertyId: string) {
-    return this.prisma.property.findUniqueOrThrow({ where: { id: propertyId } });
+  /** 직원(STAFF)에게는 사업자번호·대표자 이름·담당 운영자를 내려주지 않는다 */
+  async get(propertyId: string, viewerRole?: Role) {
+    const p = await this.prisma.property.findUniqueOrThrow({ where: { id: propertyId } });
+    if (viewerRole !== Role.STAFF) return p;
+    const { bizNo: _bizNo, ownerName: _ownerName, managerId: _managerId, ...rest } = p;
+    return rest;
   }
 
   async update(propertyId: string, dto: UpdatePropertyDto) {

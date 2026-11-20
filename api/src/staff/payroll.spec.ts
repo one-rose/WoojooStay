@@ -2,6 +2,7 @@ import {
   computeMonthlyPay,
   employedDays,
   isBelowMinimumWage,
+  minimumWageFor,
   monthWeekRange,
   nightMs,
   sumHours,
@@ -106,9 +107,22 @@ describe('급여 계산 (F5-04)', () => {
     expect(employedDays('2026-02', '2025-01-01', null)).toBe(28);
   });
 
-  it('최저시급 미만 판단 (시급제만)', () => {
-    expect(isBelowMinimumWage({ payType: 'HOURLY', payAmount: 10_000 })).toBe(true);
-    expect(isBelowMinimumWage({ payType: 'HOURLY', payAmount: 10_320 })).toBe(false);
-    expect(isBelowMinimumWage({ payType: 'MONTHLY', payAmount: 1_000_000 })).toBe(false);
+  it('최저시급 미만 판단 — 그 달의 해 기준, 월급제는 월급 ÷ 209시간', () => {
+    expect(isBelowMinimumWage({ payType: 'HOURLY', payAmount: 10_000 }, '2026-11')).toBe(true);
+    expect(isBelowMinimumWage({ payType: 'HOURLY', payAmount: 10_320 }, '2026-11')).toBe(false);
+    // 2025년 달은 2025년 최저시급(10,030원)으로
+    expect(isBelowMinimumWage({ payType: 'HOURLY', payAmount: 10_100 }, '2025-12')).toBe(false);
+    expect(isBelowMinimumWage({ payType: 'HOURLY', payAmount: 10_000 }, '2025-12')).toBe(true);
+    // 월급제: 2,000,000 ÷ 209 = 9,569원 → 미달, 2,200,000 ÷ 209 = 10,526원 → 통과
+    expect(isBelowMinimumWage({ payType: 'MONTHLY', payAmount: 2_000_000 }, '2026-11')).toBe(true);
+    expect(isBelowMinimumWage({ payType: 'MONTHLY', payAmount: 2_200_000 }, '2026-11')).toBe(false);
+  });
+
+  it('연도별 최저시급 — 표에 없는 해는 가까운 앞 해 값', () => {
+    expect(minimumWageFor('2024-05')).toBe(9_860);
+    expect(minimumWageFor('2025-01')).toBe(10_030);
+    expect(minimumWageFor(2026)).toBe(10_320);
+    expect(minimumWageFor(2027)).toBe(10_320);
+    expect(minimumWageFor(2020)).toBe(9_860);
   });
 });

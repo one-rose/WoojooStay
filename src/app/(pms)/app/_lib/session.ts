@@ -7,7 +7,14 @@ import { ApiAuthError, demoPmsRepository, isLiveApi, livePmsRepository, pmsApi }
 import { clientIpFrom, safeAppPath } from "@/shared";
 
 /** 로그인 정보는 httpOnly 쿠키에만 둔다 (브라우저 스크립트에서 못 읽음) */
-export const COOKIE = { access: "uz_at", refresh: "uz_rt", property: "uz_pid", onboarding: "uz_onb" } as const;
+export const COOKIE = {
+  access: "uz_at",
+  refresh: "uz_rt",
+  property: "uz_pid",
+  onboarding: "uz_onb",
+  /** 토스 카드 등록 창 확인값 (등록 시작 → 돌아올 때 대조, 15분) */
+  card: "uz_card",
+} as const;
 
 /** src/proxy.ts 가 넣어 주는 지금 경로 (갱신 후 돌아올 곳) */
 const PATH_HEADER = "x-uz-path";
@@ -83,7 +90,7 @@ function guardAuth<T extends object>(target: T): T {
 /**
  * 화면 데이터 저장소
  * - PMS_API_URL 없음: 예시 데이터 (쿠키를 읽지 않으므로 정적 생성 그대로)
- * - 있음: 로그인 확인 → 실서버 저장소. 토큰이 없으면 로그인, 업장이 없으면 온보딩으로.
+ * - 있음: 로그인 확인 → 실서버 저장소. 토큰이 없으면 로그인, 고른 업장이 없거나 내 업장이 아니면 다시 고르기로.
  */
 export async function getRepository(): Promise<PmsRepository> {
   if (!isLiveApi) {
@@ -93,16 +100,33 @@ export async function getRepository(): Promise<PmsRepository> {
     return demoPmsRepository((await cookies()).get(COOKIE.property)?.value);
   }
   const s = await requireSession();
-  if (!s.propertyId) {
-    // 업장 쿠키가 없을 때도 토큰부터 확인 — 깨진 토큰이면 온보딩이 아니라 갱신·로그인으로
-    await (await serverApi(s.accessToken)).me().catch(async (e: unknown) => {
-      if (e instanceof ApiAuthError) await redirectToRefresh({ stale: true });
-      throw e;
-    });
-    redirect("/app/onboarding");
-  }
-  return guardAuth(livePmsRepository(s.accessToken, s.propertyId, await clientIp()));
+  // 업장 쿠키가 없거나, 그 업장에서 빠졌으면(사장님이 내보냄 등) 남은 업장으로 다시 고른다
+  const propertyId = s.propertyId;
+  if (!propertyId || !(await isMyProperty(s.accessToken, propertyId))) return redirectToPick();
+  return guardAuth(livePmsRepository(s.accessToken, propertyId, await clientIp()));
 }
 
 /** 로그인한 사람과 속한 업장 — 한 요청 안에서는 한 번만 부른다 (레이아웃 · 화면 · 전환 목록) */
 export const loadMe = cache(async (accessToken: string) => (await serverApi(accessToken)).me());
+
+/**
+ * 업장 다시 고르기 — 쿠키는 서버 컴포넌트에서 못 바꾸므로 route handler 로 보낸다.
+ * 거기서 내 업장 목록을 새로 불러 남은 업장(없으면 온보딩)으로 쿠키를 고친다.
+ */
+export async function redirectToPick(): Promise<never> {
+  redirect(`/app/session/pick?next=${encodeURIComponent(await currentPath())}`);
+}
+
+/**
+ * 고른 업장이 아직 내 업장(사장님·매니저·직원)인지.
+ * fresh: 이 요청에서 부른 목록(loadMe)을 쓰지 않고 새로 묻는다 — API 가 404 를 준 뒤 확인할 때.
+ * 목록을 못 불러오면(서버가 잠깐 안 됨) 막지 않는다 — 다시 고르기와 오가며 맴돌지 않게.
+ */
+export async function isMyProperty(accessToken: string, propertyId: string, fresh = false): Promise<boolean> {
+  const load = fresh ? serverApi(accessToken).then((api) => api.me()) : loadMe(accessToken);
+  const me = await load.catch(async (e: unknown) => {
+    if (e instanceof ApiAuthError) await redirectToRefresh({ stale: true });
+    return null;
+  });
+  return !me || me.properties.some((p) => p.id === propertyId);
+}

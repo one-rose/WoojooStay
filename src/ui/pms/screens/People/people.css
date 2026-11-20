@@ -132,6 +132,13 @@
   color: var(--pm-muted);
   font-size: 12px;
 }
+.pp-invites__end {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
 
 /* 권한 바꾸기 */
 .pp-bulk {
@@ -285,8 +292,52 @@
     grid-column: 1 / -1;
     white-space: normal;
   }
+  .pp-invites__end {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
   .pp-invite,
   .pp-pick__grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 휴대폰 사람 목록 */
+.pp-mlist {
+  display: none;
+}
+@container pm (max-width: 720px) {
+  .pp-table-wrap {
+    display: none;
+  }
+  .pp-mlist {
+    display: block;
+    border-top: 1px solid var(--pm-line);
+  }
+  .pp-mlist li + li {
+    border-top: 1px solid var(--pm-line-soft);
+  }
+  .pp-mlist__row {
+    display: flex;
+    align-items: center;
+    gap: var(--pm-s3);
+    width: 100%;
+    min-height: 56px;
+    padding: 10px var(--pm-s4);
+    text-align: left;
+    color: var(--pm-muted);
+  }
+  .pp-mlist__who {
+    flex: 1;
+    display: grid;
+    gap: 2px;
+  }
+  .pp-mlist__who strong {
+    font-size: 14px;
+    color: var(--pm-ink);
+  }
+  .pp-mlist__who small {
+    font-size: 12.5px;
+    color: var(--pm-muted);
   }
 }

@@ -4,7 +4,16 @@ import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Errors } from '../common/errors/app-error.js';
-import { addMonths, dateOnly, isoDay, kstDate, kstMonth, monthStart, prevToDateEnd } from '../common/utils/dates.js';
+import {
+  addMonths,
+  confirmedEnd,
+  dateOnly,
+  isoDay,
+  kstDate,
+  kstMonth,
+  monthStart,
+  prevToDateEnd,
+} from '../common/utils/dates.js';
 import type { Env } from '../config/env.js';
 import type { Expense, PurchaseOrder, Receipt } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -32,7 +41,7 @@ export function sniffReceiptType(buf: Buffer): string | null {
   return null;
 }
 
-const toExpense = (e: Expense) => ({
+const toExpense = (e: Expense & { receipt?: { id: string } | null }) => ({
   id: e.id,
   date: isoDay(e.expenseDate),
   vendor: e.vendor,
@@ -40,6 +49,8 @@ const toExpense = (e: Expense) => ({
   amount: e.amount,
   source: e.source,
   memo: e.memo,
+  /** 영수증으로 등록한 지출이면 그 영수증 id — GET receipts/:id/file 로 사진 보기 */
+  receiptId: e.receipt?.id ?? null,
 });
 
 const toOrder = (o: PurchaseOrder) => ({
@@ -82,10 +93,13 @@ export class ExpensesService {
     const from = monthStart(month);
     const to = monthStart(addMonths(month, 1));
     const prevFrom = monthStart(addMonths(month, -1));
-    const [items, prev, prevToDate, sales, orders, receipts] = await Promise.all([
+    // 매출은 매출장부와 같은 기준 — 진행 중인 달은 오늘 체크인까지, 내일~말일은 upcoming
+    const end = confirmedEnd(month);
+    const [items, prev, prevToDate, sales, upcoming, orders, receipts] = await Promise.all([
       this.prisma.expense.findMany({
         where: { propertyId, expenseDate: { gte: from, lt: to } },
         orderBy: [{ expenseDate: 'desc' }, { createdAt: 'desc' }],
+        include: { receipt: { select: { id: true } } },
       }),
       this.prisma.expense.aggregate({
         where: { propertyId, expenseDate: { gte: prevFrom, lt: from } },
@@ -96,8 +110,13 @@ export class ExpensesService {
         _sum: { amount: true },
       }),
       this.prisma.booking.aggregate({
-        where: { propertyId, status: 'CONFIRMED', checkinDate: { gte: from, lt: to } },
+        where: { propertyId, status: 'CONFIRMED', checkinDate: { gte: from, lt: end } },
         _sum: { saleAmount: true },
+      }),
+      this.prisma.booking.aggregate({
+        where: { propertyId, status: 'CONFIRMED', checkinDate: { gte: end, lt: to } },
+        _count: { _all: true },
+        _sum: { saleAmount: true, commission: true },
       }),
       this.prisma.purchaseOrder.findMany({
         where: {
@@ -118,6 +137,12 @@ export class ExpensesService {
       /** 지난달 같은 날까지 합계 — 이번 달(진행 중)과 비교할 때. 지난 달을 볼 때는 prevTotal 과 같다 */
       prevTotalToDate: prevToDate._sum.amount ?? 0,
       sales: sales._sum.saleAmount ?? 0,
+      /** 내일 ~ 말일 체크인 예정 매출 (sales 에 넣지 않음) */
+      upcoming: {
+        sales: upcoming._sum.saleAmount ?? 0,
+        bookings: upcoming._count._all,
+        commission: upcoming._sum.commission ?? 0,
+      },
       byCategory: [...byCategory]
         .map(([category, amount]) => ({ category, amount }))
         .sort((a, b) => b.amount - a.amount),

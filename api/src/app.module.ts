@@ -17,6 +17,7 @@ import { PropertyRoleGuard } from './common/guards/property-role.guard.js';
 import { validateEnv } from './config/env.js';
 import { ConnectorsModule } from './connectors/connectors.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { EventsModule } from './events/events.module.js';
 import { HealthController } from './health.controller.js';
 import { OpsModule } from './ops/ops.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -37,6 +38,7 @@ import { SmsModule } from './sms/sms.module.js';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    EventsModule,
     SmsModule,
     AuthModule,
     AiModule,

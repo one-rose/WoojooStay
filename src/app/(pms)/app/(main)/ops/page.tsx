@@ -1,15 +1,17 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { isLiveApi } from "@/infrastructure";
-import { OpsScreen } from "@/ui/pms";
+import { OpsScreen, ScreenSkeleton } from "@/ui/pms";
 import {
   addNoteAction,
   addRoomsAction,
   pinNoteAction,
   readNoteAction,
   removeNoteAction,
+  removeRoomAction,
   roomLogsAction,
   setRoomStatusAction,
+  updateRoomAction,
 } from "../../_lib/actions";
 import { getRepository } from "../../_lib/session";
 
@@ -17,7 +19,7 @@ export const metadata: Metadata = { title: "현장 업무" };
 
 export default function OpsPage() {
   return (
-    <Suspense fallback={<div className="pm-skeleton" aria-busy="true" aria-label="불러오는 중" />}>
+    <Suspense fallback={<ScreenSkeleton strip={0} rows={4} />}>
       <Ops />
     </Suspense>
   );
@@ -34,6 +36,8 @@ async function Ops() {
           ? {
               setRoomStatus: setRoomStatusAction,
               addRooms: addRoomsAction,
+              updateRoom: updateRoomAction,
+              removeRoom: removeRoomAction,
               roomLogs: roomLogsAction,
               addNote: addNoteAction,
               readNote: readNoteAction,

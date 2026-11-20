@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Errors } from '../common/errors/app-error.js';
 import { addDaysIso, dateOnly, isoDay, kstDate, monthStart } from '../common/utils/dates.js';
+import { inPilotBillingHold, pilotInfo } from '../common/utils/pilot.js';
 import type { Env } from '../config/env.js';
 import { CredentialVault } from '../connectors/credential-vault.js';
 import type { NotificationKind, PlanCode } from '../generated/prisma/enums.js';
@@ -9,7 +10,8 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PaymentGateway } from './payment-gateway.js';
 
-const NOTICE_KINDS: NotificationKind[] = ['REVIEW', 'SETTLE', 'SYNC', 'BILLING', 'STAFF'];
+/** SUMMARY = 아침 8시 일일 요약 (앱 알림만 — push 로 켜고 끈다, 기본 켜짐) */
+const NOTICE_KINDS: NotificationKind[] = ['REVIEW', 'SETTLE', 'SYNC', 'BILLING', 'STAFF', 'SUMMARY'];
 const won = (n: number) => n.toLocaleString('ko-KR');
 
 /** 결제일 = 무료 체험이 끝나는 날의 '일' (29~31일은 28일로) */
@@ -53,6 +55,15 @@ export class BillingService {
     return this.prisma.plan.findMany({ orderBy: { sortOrder: 'asc' } });
   }
 
+  /** 실증 업장이면 실증이 끝날 때까지 결제하지 않는다 (PO-09) */
+  private async pilotHold(propertyId: string, today: string) {
+    const p = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { pilotGroup: true, pilotStartedAt: true },
+    });
+    return !!p && inPilotBillingHold(p, today);
+  }
+
   /** 업장 등록할 때 — 핵심 두 서비스 무료 체험 */
   async startTrial(propertyId: string, today = kstDate()) {
     const trialEndsAt = dateOnly(addDaysIso(today, this.trialDays));
@@ -81,15 +92,29 @@ export class BillingService {
   }
 
   async billing(propertyId: string, today = kstDate()) {
-    const [plans, subs, card, payments, trialEnd] = await Promise.all([
+    const [plans, subs, card, payments, trialEnd, property] = await Promise.all([
       this.plans(),
       this.prisma.subscription.findMany({ where: { propertyId } }),
       this.prisma.paymentMethod.findFirst({ where: { propertyId, isDefault: true } }),
       this.prisma.payment.findMany({ where: { propertyId }, orderBy: { paidAt: 'desc' }, take: 24 }),
       this.trialEnd(propertyId),
+      this.prisma.property.findUniqueOrThrow({
+        where: { id: propertyId },
+        select: { pilotGroup: true, pilotStartedAt: true },
+      }),
     ]);
     const live = subs.filter((s) => s.status !== 'CANCELLED');
+    const pilot = pilotInfo(property, today);
+    const held = !!pilot?.active;
+    const next = trialEnd && live.length ? this.nextBilling(trialEnd, today) : null;
+    // 실증 중이면 다음 결제는 실증이 끝난 다음 날 이후
+    const afterPilot = pilot ? addDaysIso(pilot.endsAt, 1) : null;
     return {
+      /** 새 업장 무료 체험 일수 (문구용) */
+      trialDays: this.trialDays,
+      /** 실증 업장 — 실증 기간에는 결제하지 않는다 ("실증 기간 무료 (~M월 D일까지), 금액은 실증 뒤 확정") */
+      pilot,
+      billingHeld: held,
       plans: plans.map((p) => ({
         code: p.code,
         name: p.name,
@@ -107,7 +132,7 @@ export class BillingService {
       subscribed: live.map((s) => s.planCode),
       trialEnds: trialEnd,
       inTrial: trialEnd !== null && today < trialEnd,
-      nextBilling: trialEnd && live.length ? this.nextBilling(trialEnd, today) : null,
+      nextBilling: next && held && afterPilot && next < afterPilot ? afterPilot : next,
       monthlyTotal: live.reduce((sum, s) => sum + (plans.find((p) => p.code === s.planCode)?.monthlyPrice ?? 0), 0),
       card: card ? { name: card.cardName, last4: card.cardLast4 } : null,
       payments: payments.map((p) => ({
@@ -146,7 +171,8 @@ export class BillingService {
       if (existing && existing.status !== 'CANCELLED') return;
 
       const trialEnd = (await this.trialEnd(propertyId)) ?? addDaysIso(today, this.trialDays);
-      if (today < trialEnd) {
+      // 실증 업장은 체험이 끝났어도 실증 기간에는 결제 없이 켠다 — 실증이 끝나면 정기결제가 이어 받는다
+      if (today < trialEnd || (await this.pilotHold(propertyId, today))) {
         await this.prisma.subscription.upsert({
           where: { propertyId_planCode: { propertyId, planCode } },
           create: { propertyId, planCode, trialEndsAt: dateOnly(trialEnd) },
@@ -230,7 +256,28 @@ export class BillingService {
     return this.locked(propertyId, () => this.billUnlocked(propertyId, today, force));
   }
 
-  private async billUnlocked(propertyId: string, today: string, force: boolean) {
+  /**
+   * 결제 실패한 구독료 다시 결제 (P-04) — 등록된 카드로, 결제 실패(PAST_DUE) 구독만 묶어 정기결제와 같은 길(billUnlocked)로.
+   * 실증 업장은 결제하지 않는다. 주문번호(멱등 키)는 시도 순번이 붙어 새로 나가고, 업장 잠금으로 두 번 눌러도 한 번만.
+   * 다시 실패하면 402 PAYMENT_FAILED (알림은 다시 보내지 않는다 — 사장님이 화면에서 결과를 본다).
+   */
+  async retry(propertyId: string, today = kstDate()) {
+    if (await this.pilotHold(propertyId, today)) throw Errors.pilotBillingHeld();
+    const r = await this.locked(propertyId, async () => {
+      const pastDue = await this.prisma.subscription.count({ where: { propertyId, status: 'PAST_DUE' } });
+      if (pastDue === 0) throw Errors.nothingToRetry();
+      const card = await this.prisma.paymentMethod.count({ where: { propertyId, isDefault: true } });
+      if (card === 0) throw Errors.paymentFailed('등록된 결제 카드가 없어요. 카드를 먼저 등록해 주세요.');
+      return this.billUnlocked(propertyId, today, true, false);
+    });
+    if (!r) throw Errors.nothingToRetry();
+    if (!r.ok) throw Errors.paymentFailed(r.reason ?? '');
+    return { ...(await this.billing(propertyId, today)), retried: { amount: r.amount, ok: true } };
+  }
+
+  private async billUnlocked(propertyId: string, today: string, force: boolean, notify = true) {
+    // 실증 기간에는 정기결제·재결제 모두 건너뛴다 (PO-09)
+    if (await this.pilotHold(propertyId, today)) return null;
     const month = today.slice(0, 7);
     const subs = await this.prisma.subscription.findMany({
       where: { propertyId, status: { in: ['TRIAL', 'ACTIVE', 'PAST_DUE'] } },
@@ -251,15 +298,17 @@ export class BillingService {
       where: { id: { in: due.map((s) => s.id) } },
       data: r.ok ? { status: 'ACTIVE', paidMonth: monthStart(month) } : { status: 'PAST_DUE' },
     });
-    if (!r.ok) {
+    if (!r.ok && notify) {
       await this.notifications.notifyProperty(
         propertyId,
         'BILLING',
         `구독료 ${won(amount)}원 결제에 실패했어요. ${r.reason} 결제 카드를 확인해 주세요.`,
         '/app/settings/billing',
+        // 결제 화면은 사장님만 볼 수 있다
+        { roles: ['OWNER'] },
       );
     }
-    return { amount, ok: r.ok };
+    return r.ok ? { amount, ok: true as const } : { amount, ok: false as const, reason: r.reason };
   }
 
   /** 매일 한 번 — 모든 업장 정기결제 */
@@ -280,6 +329,45 @@ export class BillingService {
     return { properties: properties.length, charged };
   }
 
+  /**
+   * 체험 종료 3일 전 앱 알림 (PO-10) — 사장님에게만, 업장마다 한 번.
+   * 체험 중(TRIAL)이고 끝나는 날이 오늘+3일 이하인 구독 중 아직 안 알린 것. 실증 업장은 결제가 없으니 보내지 않는다.
+   * 같은 업장 구독들을 한꺼번에 '알림 보냄' 으로 먼저 표시하고, 표시에 성공한 경우에만 보낸다 (두 번 돌아도 한 번).
+   */
+  async notifyTrialEnding(today = kstDate()) {
+    const limit = dateOnly(addDaysIso(today, 3));
+    const subs = await this.prisma.subscription.findMany({
+      where: { status: 'TRIAL', trialNoticeAt: null, trialEndsAt: { gte: dateOnly(today), lte: limit } },
+      include: { plan: true, property: { select: { pilotGroup: true, pilotStartedAt: true } } },
+    });
+    const byProperty = new Map<string, typeof subs>();
+    for (const s of subs) byProperty.set(s.propertyId, [...(byProperty.get(s.propertyId) ?? []), s]);
+    let sent = 0;
+    for (const [propertyId, list] of byProperty) {
+      if (inPilotBillingHold(list[0].property, today)) continue;
+      const claimed = await this.prisma.subscription.updateMany({
+        where: { id: { in: list.map((s) => s.id) }, trialNoticeAt: null },
+        data: { trialNoticeAt: new Date() },
+      });
+      if (claimed.count === 0) continue;
+      const end = list.map((s) => isoDay(s.trialEndsAt)).sort()[0];
+      const total = list.reduce((sum, s) => sum + s.plan.monthlyPrice, 0);
+      const card = await this.prisma.paymentMethod.count({ where: { propertyId, isDefault: true } });
+      await this.notifications.notifyProperty(
+        propertyId,
+        'BILLING',
+        `무료 체험이 ${Number(end.slice(5, 7))}월 ${Number(end.slice(8, 10))}일에 끝나요. ` +
+          (card
+            ? `그 뒤로 매달 ${won(total)}원이 결제돼요.`
+            : `계속 쓰시려면 결제 카드를 등록해 주세요 (월 ${won(total)}원).`),
+        '/app/settings/billing',
+        { roles: ['OWNER'] },
+      );
+      sent += 1;
+    }
+    return { sent };
+  }
+
   // ─── F0-13 알림 받기 설정 ─────────────────────────────
   async noticeSettings(userId: string, propertyId: string) {
     const rows = await this.prisma.notificationSetting.findMany({ where: { userId, propertyId } });
@@ -289,19 +377,35 @@ export class BillingService {
     });
   }
 
+  /**
+   * 알림 받기 설정 저장. applyTo 가 있으면 그 업장들에도 같은 값으로 (PO-20 '모든 업장에 같게').
+   * applyTo 에 내가 사장님·매니저가 아닌 업장이 하나라도 있으면 아무것도 바꾸지 않고 403.
+   */
   async setNoticeSettings(
     userId: string,
     propertyId: string,
     items: { kind: NotificationKind; alimtalk: boolean; push: boolean; email: boolean }[],
+    applyTo: string[] = [],
   ) {
-    for (const i of items) {
-      const data = { alimtalk: i.alimtalk, push: i.push, email: i.email };
-      await this.prisma.notificationSetting.upsert({
-        where: { userId_propertyId_kind: { userId, propertyId, kind: i.kind } },
-        create: { userId, propertyId, kind: i.kind, ...data },
-        update: data,
+    const others = [...new Set(applyTo)].filter((id) => id !== propertyId);
+    if (others.length) {
+      const allowed = await this.prisma.membership.count({
+        where: { userId, propertyId: { in: others }, role: { in: ['OWNER', 'MANAGER'] } },
       });
+      if (allowed !== others.length) throw Errors.forbidden();
     }
+    await this.prisma.$transaction(
+      [propertyId, ...others].flatMap((pid) =>
+        items.map((i) => {
+          const data = { alimtalk: i.alimtalk, push: i.push, email: i.email };
+          return this.prisma.notificationSetting.upsert({
+            where: { userId_propertyId_kind: { userId, propertyId: pid, kind: i.kind } },
+            create: { userId, propertyId: pid, kind: i.kind, ...data },
+            update: data,
+          });
+        }),
+      ),
+    );
     return this.noticeSettings(userId, propertyId);
   }
 }

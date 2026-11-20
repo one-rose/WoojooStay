@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { ActionResult } from "@/core";
 import { formatNumber } from "@/shared";
 import { Logo } from "@/ui/brand";
-import { Badge, Field, PmButton } from "../../components";
+import { Badge, ErrorState, Field, PmButton } from "../../components";
 import "./contract.css";
 
 export interface ContractView {
@@ -36,7 +36,10 @@ export function ContractScreen({
     return (
       <main className="ct">
         <Logo className="ct-logo" />
-        <p className="ct-empty">계약서 링크가 만료됐거나 잘못됐어요. 사장님께 다시 보내 달라고 요청해 주세요.</p>
+        <ErrorState
+          title="계약서를 열 수 없어요"
+          message="링크가 만료됐거나 잘못됐어요. 사장님께 계약서를 다시 보내 달라고 요청해 주세요."
+        />
       </main>
     );
 

@@ -1,7 +1,18 @@
 import { Body, Controller, Get, HttpCode, Param, ParseEnumPipe, ParseUUIDPipe, Post, Put } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsBoolean, IsEnum, IsString, MaxLength, MinLength, ValidateNested } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 import { CurrentUser, PropertyRoles, type AuthUser } from '../common/decorators/auth.decorators.js';
 import { NotificationKind, PlanCode, Role } from '../generated/prisma/enums.js';
 import { BillingService } from './billing.service.js';
@@ -33,6 +44,16 @@ class NoticeSettingsDto {
   @ArrayMaxSize(10)
   @Type(() => NoticeItemDto)
   items: NoticeItemDto[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: '같은 설정을 함께 저장할 다른 업장 id (내가 사장님·매니저인 업장만, 아니면 403)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true, message: '업장 id 형식이 아니에요.' })
+  applyTo?: string[];
 }
 
 @ApiTags('구독 · 결제 · 알림 설정 (F0-08, F0-09, F0-13)')
@@ -73,6 +94,14 @@ export class BillingController {
     return this.billing.setCard(propertyId, dto.authKey);
   }
 
+  @Post('properties/:propertyId/billing/retry')
+  @HttpCode(200)
+  @PropertyRoles([Role.OWNER])
+  @ApiOperation({ summary: '결제 실패한 구독료 다시 결제 (등록된 카드로 · 실증 업장 제외)' })
+  retry(@Param('propertyId', ParseUUIDPipe) propertyId: string) {
+    return this.billing.retry(propertyId);
+  }
+
   @Get('properties/:propertyId/notification-settings')
   @ApiOperation({ summary: '내 알림 받기 설정' })
   notices(@Param('propertyId', ParseUUIDPipe) propertyId: string, @CurrentUser() user: AuthUser) {
@@ -80,11 +109,12 @@ export class BillingController {
   }
 
   @Put('properties/:propertyId/notification-settings')
+  @ApiOperation({ summary: '알림 받기 설정 저장 — applyTo 로 다른 업장에도 같게 (SUMMARY = 아침 요약 켜고 끄기)' })
   setNotices(
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: NoticeSettingsDto,
   ) {
-    return this.billing.setNoticeSettings(user.id, propertyId, dto.items);
+    return this.billing.setNoticeSettings(user.id, propertyId, dto.items, dto.applyTo);
   }
 }

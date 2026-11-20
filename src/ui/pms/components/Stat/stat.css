@@ -52,6 +52,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.pm-stat__value--text {
+  font-size: var(--pm-fs-kpi-text);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.6;
+  padding: 4px 0 3px;
+  white-space: normal;
+}
 .pm-stat__unit {
   font-size: 0.62em;
   font-weight: 600;
@@ -100,5 +108,30 @@
   }
   .pm-stats--3 .pm-stat:first-child .pm-stat__value {
     font-size: 22px;
+  }
+}
+
+/* 얇은 띠 — 라벨과 숫자를 한 줄에, 보조는 그 아래 작게 */
+.pm-stats--slim .pm-stat {
+  padding: 10px var(--pm-s4) 11px;
+  gap: 1px;
+}
+.pm-stats--slim .pm-stat__label {
+  font-size: 12px;
+}
+.pm-stats--slim .pm-stat__value {
+  font-size: 18px;
+  line-height: 1.35;
+}
+.pm-stats--slim .pm-stat__foot {
+  font-size: 12px;
+}
+@media (max-width: 720px) {
+  .pm-stats--slim .pm-stat {
+    padding: 9px 12px 10px;
+  }
+  .pm-stats--slim .pm-stat__value,
+  .pm-stats--slim.pm-stats--3 .pm-stat:first-child .pm-stat__value {
+    font-size: 16px;
   }
 }

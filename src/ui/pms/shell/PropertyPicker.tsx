@@ -25,16 +25,25 @@ interface PropertyPickerProps {
   switchProperty: SwitchPropertyAction;
   /** 고른 뒤 (서랍 닫기) */
   onNavigate: () => void;
+  /** 처음부터 목록을 펼친 채로 (모바일 상단 업장 이름을 눌러 열었을 때) */
+  defaultOpen?: boolean;
 }
 
 /**
  * 사이드바 맨 위 업장 전환 (F8) — 맨 위 "전체 현황", 그 아래 업장들(급한 문제가 있으면 빨간 점).
  * 업장을 고르면 지금 보던 메뉴 그대로 그 업장 화면을 연다.
  */
-export function PropertyPicker({ current, onOverview, properties, switchProperty, onNavigate }: PropertyPickerProps) {
+export function PropertyPicker({
+  current,
+  onOverview,
+  properties,
+  switchProperty,
+  onNavigate,
+  defaultOpen = false,
+}: PropertyPickerProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState("");

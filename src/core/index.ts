@@ -9,5 +9,7 @@ export * from "./home/get-home-content";
 export * from "./pms/pms";
 export * from "./pms/rates";
 export * from "./pms/business";
+export * from "./pms/admin-pilot";
 export * from "./pms/pms.repository";
 export * from "./pms/portfolio";
+export * from "./pms/finance";

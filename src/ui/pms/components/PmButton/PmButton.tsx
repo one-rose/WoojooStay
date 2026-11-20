@@ -5,8 +5,11 @@ import { Icon, type IconName } from "../Icon/Icon";
 import "./pm-button.css";
 
 interface PmButtonProps {
-  /** primary: 남색 단색 주 동작 (화면당 1개) · navy: primary 와 같은 모양(예전 이름) · ghost: 흰 바탕 + 선 · quiet: 글자만 */
-  variant?: "primary" | "navy" | "ghost" | "quiet";
+  /**
+   * primary: 남색 단색 주 동작 (화면당 1개) · navy: primary 와 같은 모양(예전 이름) · ghost: 흰 바탕 + 선 · quiet: 글자만
+   * alert: 경고 띠 안의 해결 버튼 — 흰 바탕 + 빨간 선·글자 (남색 주 버튼과 겹치지 않게, D-04)
+   */
+  variant?: "primary" | "navy" | "ghost" | "quiet" | "alert";
   size?: "md" | "sm";
   icon?: IconName;
   href?: string;

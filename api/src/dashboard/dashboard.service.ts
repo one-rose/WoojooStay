@@ -53,7 +53,12 @@ export class DashboardService {
         bookings: today.reduce((s, r) => s + r._count, 0),
       },
       unanswered: { total: unanswered, lowRating },
-      settlementWeek: { amount: settlements.reduce((s, r) => s + r.amount, 0), count: settlements.length },
+      // count 는 정산 예정 채널 수 (같은 채널이 여러 날 나눠 들어와도 한 번)
+      settlementWeek: {
+        amount: settlements.reduce((s, r) => s + r.amount, 0),
+        count: new Set(settlements.map((r) => r.channel)).size,
+        items: settlements.length,
+      },
       channelSales: today
         .map((r) => ({ channel: r.channel, name: CHANNEL_CATALOG[r.channel].name, amount: r._sum.saleAmount ?? 0 }))
         .sort((a, b) => b.amount - a.amount),

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { webOrigin, type Env } from '../config/env.js';
-import type { NotificationKind } from '../generated/prisma/enums.js';
+import type { NotificationKind, Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SmsSender } from '../sms/sms-sender.js';
 
@@ -20,16 +20,16 @@ export class NotificationsService {
     private readonly config: ConfigService<Env, true>,
   ) {}
 
-  /** 업장 구성원(사장님·매니저) 각자에게 한 건씩. urgent 면 문자도 */
+  /** 업장 구성원(사장님·매니저, roles 로 좁힐 수 있음) 각자에게 한 건씩. urgent 면 문자도 */
   async notifyProperty(
     propertyId: string,
     kind: NotificationKind,
     text: string,
     link?: string,
-    opts: { urgent?: boolean } = {},
+    opts: { urgent?: boolean; roles?: Role[] } = {},
   ) {
     const members = await this.prisma.membership.findMany({
-      where: { propertyId, role: { in: ['OWNER', 'MANAGER'] } },
+      where: { propertyId, role: { in: opts.roles ?? ['OWNER', 'MANAGER'] } },
       select: { userId: true, user: { select: { phone: true } } },
     });
     if (members.length === 0) return;
@@ -63,9 +63,21 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * 내가 지금 사장님·매니저인 업장의 알림만 — 업장에서 빠졌거나 직원(STAFF)으로 내려가면 그 업장 알림은 안 보인다.
+   * propertyId 가 없으면 그런 업장 전부.
+   */
+  private where(userId: string, propertyId?: string) {
+    return {
+      userId,
+      ...(propertyId ? { propertyId } : {}),
+      property: { memberships: { some: { userId, role: { in: ['OWNER', 'MANAGER'] as Role[] } } } },
+    };
+  }
+
   /** propertyId 가 없으면 내 업장 전부 (여러 업장 통합 알림) — 알림마다 업장 이름을 붙인다 */
   async list(userId: string, propertyId?: string) {
-    const where = { userId, ...(propertyId ? { propertyId } : {}) };
+    const where = this.where(userId, propertyId);
     const [rows, unread] = await Promise.all([
       this.prisma.notification.findMany({
         where,
@@ -80,12 +92,15 @@ export class NotificationsService {
   }
 
   async read(userId: string, id: string) {
-    await this.prisma.notification.updateMany({ where: { id, userId, readAt: null }, data: { readAt: new Date() } });
+    await this.prisma.notification.updateMany({
+      where: { ...this.where(userId), id, readAt: null },
+      data: { readAt: new Date() },
+    });
   }
 
   async readAll(userId: string, propertyId?: string) {
     await this.prisma.notification.updateMany({
-      where: { userId, readAt: null, ...(propertyId ? { propertyId } : {}) },
+      where: { ...this.where(userId, propertyId), readAt: null },
       data: { readAt: new Date() },
     });
   }

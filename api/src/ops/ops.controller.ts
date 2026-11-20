@@ -5,6 +5,7 @@ import { CurrentUser, PropertyRoles, type AuthUser } from '../common/decorators/
 import { Role } from '../generated/prisma/enums.js';
 import { OpsNoteDto, PinDto, RoomDto, RoomStatusDto, RoomsDto } from './ops.dto.js';
 import { OpsService } from './ops.service.js';
+import { EventsService } from '../events/events.service.js';
 
 const PID = 'propertyId';
 const ALL = [Role.OWNER, Role.MANAGER, Role.STAFF];
@@ -15,7 +16,10 @@ type RoleReq = Request & { role: Role };
 @ApiBearerAuth()
 @Controller('properties/:propertyId')
 export class OpsController {
-  constructor(private readonly ops: OpsService) {}
+  constructor(
+    private readonly ops: OpsService,
+    private readonly events: EventsService,
+  ) {}
 
   @Get('ops')
   @PropertyRoles(ALL)
@@ -51,14 +55,16 @@ export class OpsController {
   @Patch('rooms/:roomId/status')
   @PropertyRoles(ALL)
   @ApiOperation({ summary: '객실 상태 바꾸기 — 청소 시작·완료·점검 (판매 중지는 사장님·매니저만)' })
-  setStatus(
+  async setStatus(
     @Param(PID, ParseUUIDPipe) propertyId: string,
     @Param('roomId', ParseUUIDPipe) roomId: string,
     @CurrentUser() user: AuthUser,
     @Req() req: RoleReq,
     @Body() dto: RoomStatusDto,
   ) {
-    return this.ops.setStatus(propertyId, roomId, { id: user.id, role: req.role }, dto);
+    const r = await this.ops.setStatus(propertyId, roomId, { id: user.id, role: req.role }, dto);
+    await this.events.record('ROOM_STATUS', { userId: user.id, propertyId, meta: { roomId, status: dto.status } });
+    return r;
   }
 
   @Get('rooms/:roomId/logs')

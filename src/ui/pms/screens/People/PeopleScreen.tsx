@@ -14,6 +14,7 @@ interface PeopleScreenProps {
 }
 
 type Person = PortfolioPeople["people"][number];
+type Invitation = PortfolioPeople["invitations"][number];
 type Assignable = "manager" | "staff";
 
 const ROLE_LABEL: Record<PeopleRole, string> = { owner: "사장님", manager: "매니저", staff: "직원" };
@@ -39,6 +40,34 @@ export function PeopleScreen({ data: initial, actions }: PeopleScreenProps) {
   }
   const [editing, setEditing] = useState<Person | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [cancelling, setCancelling] = useState<Invitation | null>(null);
+  const [busy, startBusy] = useTransition();
+  /** 묶음 초대 — 업장마다 초대 id 가 있다. 다시 보내기는 한 곳만 부르면 묶음 전체가 연장된다 */
+  const pairs = (i: Invitation) =>
+    (i.invitationIds ?? []).map((id, k) => ({ id, propertyId: i.propertyIds[k] })).filter((x) => x.propertyId);
+  const resend = (i: Invitation) =>
+    startBusy(async () => {
+      const first = pairs(i)[0];
+      if (!actions?.resendInvite || !first) return;
+      const r = await actions.resendInvite(first.id, first.propertyId);
+      setToast(r.ok ? { text: `${i.phone} 로 초대 문자를 다시 보냈어요.` } : { text: r.message, bad: true });
+      if (r.ok) router.refresh();
+    });
+  const cancel = (i: Invitation) =>
+    startBusy(async () => {
+      if (!actions?.cancelInvite) return;
+      for (const p of pairs(i)) {
+        const r = await actions.cancelInvite(p.id, p.propertyId);
+        if (!r.ok) {
+          setToast({ text: r.message, bad: true });
+          router.refresh();
+          return;
+        }
+      }
+      setCancelling(null);
+      setToast({ text: `${i.phone} 초대를 취소했어요.` });
+      router.refresh();
+    });
   const [toast, setToast] = useState<{ text: string; bad?: boolean } | null>(null);
 
   useEffect(() => {
@@ -145,6 +174,40 @@ export function PeopleScreen({ data: initial, actions }: PeopleScreenProps) {
             </table>
           </div>
         )}
+        {/* 휴대폰 — 표 대신 사람 목록. 누르면 업장별 권한 창 (D-07) */}
+        {people.length > 0 && (
+          <ul className="pp-mlist">
+            {people.map((person) => {
+              const roles = Object.values(person.roles);
+              const isOwner = roles.includes("owner");
+              const summary = (["manager", "staff"] as const)
+                .map((r) => [r, roles.filter((x) => x === r).length] as const)
+                .filter(([, n]) => n > 0)
+                .map(([r, n]) => `${ROLE_LABEL[r]} ${n}곳`)
+                .join(", ");
+              const body = (
+                <>
+                  <span className="pp-mlist__who">
+                    <strong>{person.name}</strong>
+                    <small>{isOwner ? `사장님, 업장 ${roles.length}곳` : summary || "권한 없음"}</small>
+                  </span>
+                  {!isOwner && <Icon name="chevron" size={16} />}
+                </>
+              );
+              return (
+                <li key={person.userId}>
+                  {isOwner ? (
+                    <div className="pp-mlist__row">{body}</div>
+                  ) : (
+                    <button type="button" className="pp-mlist__row" onClick={() => setEditing(person)}>
+                      {body}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
       {data.invitations.length > 0 && (
@@ -164,7 +227,19 @@ export function PeopleScreen({ data: initial, actions }: PeopleScreenProps) {
                     .map((p) => p.name)
                     .join(", ")}
                 </span>
-                <small className="num">{i.expiresAt.slice(5).replace("-", ".")}까지</small>
+                <span className="pp-invites__end">
+                  <small className="num">{i.expiresAt.slice(5).replace("-", ".")}까지</small>
+                  {actions?.resendInvite && pairs(i).length > 0 && (
+                    <PmButton size="sm" variant="ghost" disabled={busy} onClick={() => resend(i)}>
+                      다시 보내기
+                    </PmButton>
+                  )}
+                  {actions?.cancelInvite && pairs(i).length > 0 && (
+                    <PmButton size="sm" variant="quiet" disabled={busy} onClick={() => setCancelling(i)}>
+                      초대 취소
+                    </PmButton>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
@@ -204,6 +279,26 @@ export function PeopleScreen({ data: initial, actions }: PeopleScreenProps) {
             return null;
           }}
         />
+      )}
+
+      {cancelling && (
+        <Modal
+          title="초대를 취소할까요?"
+          desc={`${cancelling.phone} 로 보낸 초대 링크를 바로 쓸 수 없게 돼요. 함께 보낸 업장 ${pairs(cancelling).length}곳 모두 취소돼요.`}
+          onClose={() => setCancelling(null)}
+          footer={
+            <>
+              <PmButton variant="ghost" onClick={() => setCancelling(null)}>
+                그대로 두기
+              </PmButton>
+              <PmButton variant="navy" disabled={busy} onClick={() => cancel(cancelling)}>
+                {busy ? "취소하는 중…" : "초대 취소"}
+              </PmButton>
+            </>
+          }
+        >
+          <p className="pp-warn">필요하면 언제든 다시 초대할 수 있어요.</p>
+        </Modal>
       )}
 
       {inviting && (

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { isKorean, josa } from '../common/utils/korean.js';
 import { Tone } from '../generated/prisma/enums.js';
-import { ReplyGenerator, type GeneratedReply, type ReplyContext } from './reply-generator.js';
+import { ReplyGenerator, signatureFor, type GeneratedReply, type ReplyContext } from './reply-generator.js';
 
 /** 리뷰에서 자주 나오는 주제 — 키워드 → (감사 문장, 개선 문장) */
 const TOPICS: { label: string; match: RegExp; thanks: string; fix: string }[] = [
@@ -51,7 +51,7 @@ export class TemplateReplyGenerator extends ReplyGenerator {
     const keywords = hits.map((t) => t.label);
     const v = ctx.variant ?? 0;
     const text = isKorean(ctx.body) ? this.korean(ctx, hits, v) : this.english(ctx, v);
-    return { text: `${text}\n\n${ctx.signature}`.trim(), keywords, generator: 'template' };
+    return { text: `${text}\n\n${signatureFor(ctx)}`.trim(), keywords, generator: 'template' };
   }
 
   private korean(ctx: ReplyContext, hits: typeof TOPICS, v: number): string {

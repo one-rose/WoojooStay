@@ -5,10 +5,11 @@ import { AdminAuthService } from './admin-auth.service.js';
 import { AdminAuthController, AdminController, InquiriesController } from './admin.controller.js';
 import { AdminScheduler } from './admin.scheduler.js';
 import { AdminService } from './admin.service.js';
+import { PilotService } from './pilot.service.js';
 
 @Module({
   imports: [ChannelsModule, NotificationsModule],
   controllers: [AdminAuthController, AdminController, InquiriesController],
-  providers: [AdminAuthService, AdminService, AdminScheduler],
+  providers: [AdminAuthService, AdminService, PilotService, AdminScheduler],
 })
 export class AdminModule {}

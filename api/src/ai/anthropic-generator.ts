@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Injectable, Logger } from '@nestjs/common';
 import { Tone } from '../generated/prisma/enums.js';
-import { findBanned, ReplyGenerator, type GeneratedReply, type ReplyContext } from './reply-generator.js';
+import { findBanned, ReplyGenerator, signatureFor, type GeneratedReply, type ReplyContext } from './reply-generator.js';
 import { TemplateReplyGenerator } from './template-generator.js';
 
 const SYSTEM = `당신은 한국 숙박업소 사장님을 대신해 고객 리뷰에 답글을 쓰는 담당자입니다.
@@ -51,7 +51,7 @@ export class AnthropicReplyGenerator extends ReplyGenerator {
     const prompt = [
       `업장: ${ctx.propertyName} (${ctx.channelName})`,
       `말투: ${ctx.tone === Tone.POLITE ? '정중하게 (합니다체)' : '친근하게 (해요체)'}`,
-      `서명: ${ctx.signature}`,
+      `서명: ${signatureFor(ctx)}`,
       ctx.mustInclude ? `꼭 넣을 문장: ${ctx.mustInclude}` : '',
       ctx.banned.length ? `쓰지 않을 단어: ${ctx.banned.join(', ')}` : '',
       `객실: ${ctx.roomType ?? '-'}`,

@@ -16,7 +16,7 @@ import {
 } from 'class-validator';
 import { ClockMethod, JobRole, PayType, ShiftType } from '../generated/prisma/enums.js';
 import { KOREAN_MOBILE, normalizePhone } from '../common/utils/phone.js';
-import { IsCalendarDate } from '../common/validation/date-fields.js';
+import { IsCalendarDate, IsMonth } from '../common/validation/date-fields.js';
 
 const toPhone = ({ value }: { value: unknown }) => (typeof value === 'string' ? normalizePhone(value) : value);
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -37,16 +37,19 @@ export class EmployeeDto {
   @IsEnum(JobRole)
   jobRole: JobRole;
 
-  @ApiProperty({ enum: PayType })
+  /** 사장님은 꼭 넣는다. 매니저는 넣을 수 없다 (그해 최저시급 시급제로 등록, 사장님이 나중에 정함) */
+  @ApiPropertyOptional({ enum: PayType })
+  @IsOptional()
   @IsEnum(PayType)
-  payType: PayType;
+  payType?: PayType;
 
-  @ApiProperty({ description: '시급 또는 월급 (원)' })
+  @ApiPropertyOptional({ description: '시급 또는 월급 (원)' })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100_000_000)
-  payAmount: number;
+  payAmount?: number;
 
   @ApiProperty({ example: '2026-11-01' })
   @IsCalendarDate()
@@ -90,6 +93,13 @@ export class ShiftDto {
 
 export class StaffQuery {
   @ApiPropertyOptional({ example: '2026-11-10' }) @IsOptional() @IsCalendarDate() date?: string;
+  @ApiPropertyOptional({
+    example: '2026-11-16',
+    description: '근무표를 볼 주 (그 주 월요일, 다른 날이면 그 주 월요일로)',
+  })
+  @IsOptional()
+  @IsCalendarDate()
+  week?: string;
 }
 
 export class SignContractDto {
@@ -100,4 +110,11 @@ export class SignContractDto {
   signerName: string;
 
   @ApiPropertyOptional() @IsOptional() @IsISO8601() agreedAt?: string;
+}
+
+export class AttendanceMonthQuery {
+  @ApiPropertyOptional({ example: '2026-11' })
+  @IsOptional()
+  @IsMonth()
+  month?: string;
 }

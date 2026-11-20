@@ -15,8 +15,17 @@ export interface ExternalReview {
   roomType?: string;
   stayDate?: string;
   postedAt: Date;
-  /** 채널에 이미 답글이 달려 있으면 */
+  /** 채널에 이미 답글이 달려 있으면 (우리 서비스 밖에서 단 답글 — ReplyVia.EXTERNAL 로 저장) */
   existingReply?: string;
+  /** 그 답글을 단 시각 — 채널이 주지 않으면 비운다 */
+  existingReplyAt?: Date;
+}
+
+/** 채널에 보이는 우리 업장 평점 (수집할 때 하루 한 줄 기록 — 실증 평점 변화 KPI) */
+export interface ExternalRating {
+  /** 0~5 (소수 둘째 자리까지) */
+  rating: number;
+  reviewCount: number;
 }
 
 export interface ExternalBooking {
@@ -70,4 +79,6 @@ export abstract class ChannelConnector {
   /** 그 달 광고비. 채널이 주지 않으면 null (직접 입력) */
   abstract fetchAdSpend(channel: Channel, creds: ChannelCredentials, month: string): Promise<number | null>;
   abstract postReply(channel: Channel, creds: ChannelCredentials, externalId: string, text: string): Promise<void>;
+  /** 업장 평점·리뷰 수. 채널이 주지 않으면 null */
+  abstract fetchRating(channel: Channel, creds: ChannelCredentials): Promise<ExternalRating | null>;
 }

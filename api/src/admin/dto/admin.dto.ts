@@ -65,10 +65,15 @@ export class ListPropertiesQuery {
   @MaxLength(50)
   q?: string;
 
-  @ApiPropertyOptional({ enum: ['all', 'issue', 'trial'] })
+  @ApiPropertyOptional({ enum: ['all', 'issue', 'trial', 'pilot'] })
   @IsOptional()
-  @IsIn(['all', 'issue', 'trial'])
-  filter?: 'all' | 'issue' | 'trial';
+  @IsIn(['all', 'issue', 'trial', 'pilot'])
+  filter?: 'all' | 'issue' | 'trial' | 'pilot';
+
+  @ApiPropertyOptional({ description: '이 사장님(사용자 id)의 업장만' })
+  @IsOptional()
+  @IsUUID('all', { message: '사용자 id 형식이 아니에요.' })
+  ownerId?: string;
 }
 
 export class AssignManagerDto {

@@ -23,20 +23,81 @@
   line-height: 1.25;
   letter-spacing: -0.03em;
 }
-.au-brand__list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  font-size: 14px;
-  color: var(--on-deep-muted);
+.au-brand__body {
+  display: grid;
+  gap: 28px;
 }
-.au-brand__list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.au-brand__list svg {
+.au-brand__foot {
+  font-size: 13px;
   color: var(--pm-nav-muted);
+}
+/* 앱 화면 한 조각 — 남색 위에 놓인 흰 패널, 실제 앱과 같은 줄·글자 크기 */
+.au-peek {
+  width: min(380px, 100%);
+  border-radius: var(--pm-r-lg);
+  background: var(--pm-surface);
+  color: var(--pm-ink);
+  overflow: hidden;
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.45);
+  transform: rotate(-1deg);
+}
+.au-peek__head {
+  display: flex;
+  gap: 6px;
+  padding: 12px 16px 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.au-peek ul li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px 52px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  height: 38px;
+  padding: 0 16px;
+  border-top: 1px solid var(--pm-line-soft);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.au-peek ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  background: #c9a033;
+}
+.au-peek ul li.is-bad::before {
+  background: var(--pm-bad);
+}
+.au-peek__kind {
+  font-weight: 600;
+  color: var(--pm-warn);
+}
+.is-bad .au-peek__kind {
+  color: var(--pm-bad);
+}
+.au-peek__place {
+  font-weight: 600;
+}
+.au-peek__what {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--pm-ink-2);
+}
+.au-peek__pay {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--pm-line);
+  background: var(--pm-surface-sunken);
+  font-size: 12px;
+  color: var(--pm-muted);
+}
+.au-peek__pay b {
+  color: var(--pm-ink);
 }
 .au-main {
   display: flex;
@@ -269,6 +330,29 @@
   color: var(--pm-muted);
   font-size: 14px;
 }
+.ob-intro__start.pm-btn {
+  height: 44px;
+  padding: 0 28px;
+}
+.ob-intro__invited {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pm-s4);
+  flex-wrap: wrap;
+  margin-top: var(--pm-s8);
+  padding-top: var(--pm-s5);
+  border-top: 1px solid var(--pm-line);
+  font-size: 14px;
+  color: var(--pm-ink-2);
+}
+.ob-intro__invited p {
+  flex: 1 1 280px;
+}
+.ob-intro__invited strong {
+  color: var(--pm-ink);
+  font-weight: 600;
+}
 .ob-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 120px;
@@ -434,7 +518,8 @@
   .au-brand__title {
     font-size: 26px;
   }
-  .au-brand__list {
+  .au-peek,
+  .au-brand__foot {
     display: none;
   }
 }
@@ -495,4 +580,233 @@
 }
 .au-demo-links a:hover {
   border-color: var(--pm-ink-2);
+}
+/* 함께 받은 초대 — 업장마다 권한 */
+.au-invites {
+  margin: 0 0 var(--pm-s4);
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-md);
+}
+.au-invites li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--pm-s3);
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.au-invites li + li {
+  border-top: 1px solid var(--pm-line);
+}
+.au-invites__role {
+  flex: none;
+  color: var(--pm-muted);
+  font-size: 13px;
+}
+.au-notice .au-invites {
+  margin: 8px 0 0;
+  background: var(--pm-surface);
+  color: var(--pm-ink);
+}
+
+/* 채널 연결 — 펼친 칸은 한 줄 전체를 써서 옆 칸이 늘어나지 않게 */
+.ob-channels {
+  align-items: start;
+}
+.ob-channels li.is-open {
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  border-color: var(--pm-navy);
+}
+.ob-login__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 6px;
+}
+.ob-login__fields .pm-btn {
+  height: 36px;
+}
+.ob-login__close {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-muted);
+}
+.ob-login__safe {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--pm-ink-2);
+}
+.ob-login__safe svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--pm-ok);
+}
+.ob-login__consent {
+  font-size: 12px;
+  color: var(--pm-muted);
+}
+.ob-login__help {
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ob-login__helptext {
+  padding: 10px 12px;
+  border-radius: var(--pm-r-md);
+  background: var(--pm-surface-sunken);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--pm-ink-2);
+}
+.ob-plan__stage.is-pick {
+  color: var(--pm-ink);
+  font-weight: 600;
+}
+
+/* 업장 등록 아래 — 초대받은 직원 안내 (작게) */
+.ob-invited {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-s3);
+  flex-wrap: wrap;
+  margin-top: var(--pm-s6);
+  padding-top: var(--pm-s4);
+  border-top: 1px solid var(--pm-line-soft);
+  font-size: 12.5px;
+  color: var(--pm-muted);
+}
+.ob-invited p {
+  flex: 1 1 260px;
+}
+.ob-invited__link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 채널 연결 직후 첫 가치 — 가져온 리뷰 + 답글 초안 */
+.ob-value {
+  margin-top: var(--pm-s5);
+  padding: var(--pm-s5);
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  background: var(--pm-surface);
+}
+.ob-value h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pm-ink);
+}
+.ob-value__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--pm-s3);
+  margin-top: var(--pm-s4);
+}
+.ob-value__review,
+.ob-value__draft {
+  padding: var(--pm-s4);
+  border-radius: var(--pm-r-md);
+  background: var(--pm-surface-sunken);
+}
+.ob-value__draft {
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+}
+.ob-value__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-s2);
+  font-size: 12.5px;
+  color: var(--pm-ink-2);
+}
+.ob-value__body,
+.ob-value__text {
+  margin-top: var(--pm-s2);
+  font-size: 13.5px;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+.ob-value__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pm-muted);
+}
+.ob-value__foot {
+  margin-top: var(--pm-s3);
+  font-size: 12.5px;
+  color: var(--pm-muted);
+}
+.ob-done__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pm-s3);
+}
+@media (max-width: 720px) {
+  .ob-login__fields,
+  .ob-value__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 비밀번호 보기 */
+.au-pw {
+  position: relative;
+}
+.au-pw .pm-input {
+  width: 100%;
+  padding-right: 64px;
+}
+.au-pw__toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  min-width: 48px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--pm-r-sm, 4px);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+.au-pw__toggle:hover {
+  background: var(--pm-surface-sunken);
+}
+.au-submit-hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--pm-muted);
+  text-align: center;
+}
+
+/* 좁은 화면 — 남색 면은 로고 한 줄만 (폼이 바로 보이게, D-26) */
+@media (max-width: 1100px) {
+  .au {
+    grid-template-rows: auto 1fr;
+  }
+  .au-main {
+    justify-content: flex-start;
+  }
+  .au-brand {
+    flex-direction: row;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 0;
+  }
+  .au-brand__body {
+    display: none;
+  }
+  .au-brand__logo.logo {
+    height: 18px;
+  }
 }

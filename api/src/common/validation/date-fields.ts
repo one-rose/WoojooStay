@@ -1,4 +1,5 @@
 import { ValidateBy, type ValidationOptions } from 'class-validator';
+import { kstDate } from '../utils/dates.js';
 
 /** 월 범위 1990 ~ 2100 — 그 밖은 오타로 본다 */
 const MIN_YEAR = 1990;
@@ -32,6 +33,20 @@ export function IsCalendarDate(options?: ValidationOptions) {
 export function IsMonth(options?: ValidationOptions) {
   return ValidateBy(
     { name: 'isMonth', validator: { validate: isMonth, defaultMessage: () => '월은 YYYY-MM 형식이에요.' } },
+    options,
+  );
+}
+
+/** 오늘(한국 시간)보다 뒤의 날짜는 거절 — 'YYYY-MM-DD' 끼리 비교 */
+export function IsNotFutureDate(options?: ValidationOptions) {
+  return ValidateBy(
+    {
+      name: 'isNotFutureDate',
+      validator: {
+        validate: (value: unknown) => typeof value !== 'string' || value <= kstDate(),
+        defaultMessage: () => '오늘 이후 날짜는 넣을 수 없어요.',
+      },
+    },
     options,
   );
 }

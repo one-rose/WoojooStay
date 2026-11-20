@@ -14,6 +14,8 @@ import {
   type ReplySettings,
   type SettingsData,
   type StaffData,
+  type StaffMonthAttendance,
+  type StaffMonthDay,
 } from "@/core";
 import { addDays, daysBetween } from "@/shared";
 import * as B from "./business-data";
@@ -107,6 +109,70 @@ export class StaticPmsRepository implements PmsRepository {
       monthHours: Object.fromEntries(Object.entries(B.MONTH_HOURS).map(([id, [h]]) => [id, h])),
       week: { dates: Array.from({ length: 7 }, (_, i) => addDays(B.WEEK_START, i)), shifts: B.WEEK_SHIFTS },
       payroll,
+    };
+  }
+
+  /**
+   * 예시 — 직원 한 명의 한 달 출퇴근. 이번 주 근무표 요일 패턴을 그 달에 되풀이해 만든다.
+   * today 를 받아 그 날 기준으로 만든다 (체험 모드 저장소가 실제 오늘을 넘긴다 — 날짜를 다시 옮기지 않음).
+   */
+  async getStaffMonth(staffId: string, month: string, today: string = TODAY): Promise<StaffMonthAttendance> {
+    const member = B.STAFF.find((m) => m.id === staffId);
+    if (!member) throw new Error("직원을 찾을 수 없어요.");
+    const pattern = B.WEEK_SHIFTS[staffId] ?? [];
+    const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+    const days: StaffMonthDay[] = [];
+    let n = 0;
+    for (let d = 1; d <= last; d++) {
+      const date = `${month}-${String(d).padStart(2, "0")}`;
+      if (date > today || date < member.joined) continue;
+      const shift = pattern[(new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7] ?? "unset";
+      if (shift !== "day" && shift !== "night") continue;
+      n += 1;
+      const night = shift === "night";
+      if (date === today) {
+        const t = B.TODAY_ATTENDANCE.find((a) => a.staffId === staffId);
+        const tin = t && "in" in t ? t.in : undefined;
+        const tout = t && "out" in t ? t.out : undefined;
+        days.push({
+          date,
+          shift,
+          in: tin,
+          out: tout,
+          hours: tout ? (night ? 9 : 7) : undefined,
+          edited: false,
+          status: tout ? "done" : tin ? (t?.status === "missing-out" ? "missing-out" : "working") : "scheduled",
+        });
+        continue;
+      }
+      // 몇 날은 기록 없음 · 고친 기록 · 퇴근 누락이 섞이게
+      if (n % 9 === 5) {
+        days.push({ date, shift, edited: false, status: "absent" });
+        continue;
+      }
+      const edited = n % 7 === 3;
+      const late = n % 4 === 1 ? 6 : 0;
+      days.push({
+        date,
+        shift,
+        in: night ? `22:0${late ? 4 : 0}` : `0${late ? 9 : 8}:${late ? "06" : "55"}`,
+        out: night ? "07:02" : edited ? "16:00" : "16:03",
+        hours: night ? 9 : 7,
+        edited,
+        memo: edited ? "퇴근 버튼 누름 깜빡함" : undefined,
+        editedBy: edited ? "정현" : undefined,
+        status: "done",
+      });
+    }
+    const done = days.filter((x) => x.hours !== undefined);
+    return {
+      month,
+      staffId,
+      name: member.name,
+      locked: false,
+      totalHours: done.reduce((s, x) => s + (x.hours ?? 0), 0),
+      workedDays: days.filter((x) => x.in).length,
+      days,
     };
   }
 

@@ -45,17 +45,22 @@
   font-size: 12px;
   font-weight: 700;
 }
+/* 낮·밤은 근무 종류일 뿐 "고른 칸"이 아니다 — 꽉 찬 남색 대신 옅은 면 + 왼쪽 막대 (D-22) */
 .st-shift.is-day {
-  background: var(--pm-info-bg);
-  color: var(--pm-info);
+  background: var(--pm-surface);
+  border: 1px solid var(--pm-line);
+  box-shadow: inset 3px 0 0 #d9b44a;
+  color: var(--pm-ink);
 }
 .st-shift:disabled {
   opacity: 0.6;
   cursor: progress;
 }
 .st-shift.is-night {
-  background: var(--pm-navy);
-  color: #fff;
+  background: #e8ecf4;
+  border: 1px solid #d3d9e6;
+  box-shadow: inset 3px 0 0 var(--pm-navy);
+  color: var(--pm-navy);
 }
 .st-shift.is-off {
   background: var(--pm-neutral-bg);
@@ -70,6 +75,10 @@
 }
 
 .st-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pm-s2) var(--pm-s3);
   margin: var(--pm-s3) 0;
   font-size: 13px;
   color: var(--pm-ok);
@@ -138,4 +147,98 @@
   width: 16px;
   height: 16px;
   accent-color: var(--pm-navy);
+}
+
+/* 교대표 주 이동 */
+.st-week {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.st-week__nav {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-md);
+  background: var(--pm-surface);
+}
+.st-week__nav:hover {
+  border-color: var(--pm-navy);
+}
+.st-week__today {
+  margin-left: 4px;
+  font-size: var(--pm-fs-cap);
+  color: var(--pm-navy);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* 버튼이 막힌 까닭 */
+.st-why {
+  font-size: var(--pm-fs-cap);
+  color: var(--pm-muted);
+}
+/* 근태 — 오늘 출퇴근 아래 퇴근 누락 목록 */
+.st .pm-card + .pm-card {
+  margin-top: var(--pm-s4);
+}
+
+/* 교대표 — 미정은 점선, 칸 안에 시간 */
+.st-shift {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  line-height: 1.2;
+}
+.st-shift__time {
+  font-size: 10.5px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.st-shift.is-unset {
+  background: transparent;
+  border: 1px dashed var(--pm-faint);
+  color: var(--pm-muted);
+  font-weight: 600;
+}
+.st-day {
+  width: 140px;
+  height: 32px;
+  font-size: 13px;
+}
+/* 근태 — 이름을 누르면 이번 달 기록 */
+.st-namelink {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.st-namelink:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.st-monthnav {
+  margin-bottom: 12px;
+}
+.st-monthnav .is-muted {
+  margin-left: 8px;
+  font-size: var(--pm-fs-cap);
+}
+.st-editnote {
+  display: block;
+  margin-top: 2px;
+  color: var(--pm-muted);
+  font-size: var(--pm-fs-cap);
+}
+
+@media (pointer: coarse) {
+  .st-shift {
+    min-height: var(--pm-touch);
+  }
 }

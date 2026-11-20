@@ -78,7 +78,9 @@ describe('템플릿 답글', () => {
     const en = await gen.generate({ ...base, rating: 5, body: 'Great location and very clean room!', tone: 'POLITE' });
     expect(en.text).toMatch(/^Thank you/);
     expect(en.text.split('\n\n')[0]).not.toMatch(/[가-힣]/);
-    expect(en.text.endsWith('오르빗 드림')).toBe(true);
+    // 한글 서명 대신 영어 형태 "— 업장명"
+    expect(en.text.endsWith('— 스테이 오르빗')).toBe(true);
+    expect(en.text).not.toContain('드림');
     expect(en.keywords).toEqual(['청결', '위치']);
     const zh = await gen.generate({ ...base, rating: 2, body: '房间很吵，早餐不好。', tone: 'POLITE' });
     expect(zh.text).toMatch(/sorry|apolog/i);

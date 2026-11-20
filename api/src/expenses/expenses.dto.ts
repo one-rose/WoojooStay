@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
-import { IsCalendarDate, IsMonth } from '../common/validation/date-fields.js';
+import { IsCalendarDate, IsMonth, IsNotFutureDate } from '../common/validation/date-fields.js';
 import { ExpenseCategory } from '../generated/prisma/enums.js';
 
 export class ExpenseQuery {
@@ -12,8 +12,9 @@ export class ExpenseQuery {
 }
 
 export class ExpenseDto {
-  @ApiProperty({ example: '2026-11-10' })
+  @ApiProperty({ example: '2026-11-10', description: '오늘까지만' })
   @IsCalendarDate()
+  @IsNotFutureDate({ message: '지출 날짜는 오늘까지만 넣을 수 있어요.' })
   date: string;
 
   @ApiProperty()

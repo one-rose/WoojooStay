@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check"
+    "lint:copy": "node scripts/lint-copy.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm lint:copy"
   },
   "dependencies": {
     "next": "16.4.1",

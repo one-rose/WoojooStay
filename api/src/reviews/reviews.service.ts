@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { ReplyGenerator } from '../ai/reply-generator.js';
 import { Errors } from '../common/errors/app-error.js';
 import { CHANNEL_CATALOG } from '../connectors/catalog.js';
@@ -6,6 +6,7 @@ import { ChannelConnector } from '../connectors/channel-connector.js';
 import { CredentialVault } from '../connectors/credential-vault.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { ConnectionStatus, ReplyVia, ReviewStatus, Sentiment } from '../generated/prisma/enums.js';
+import { EventsService } from '../events/events.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ListReviewsQuery, ReplySettingsDto, ReviewTab } from './dto/review.dto.js';
 
@@ -21,11 +22,14 @@ const TAB_WHERE: Record<ReviewTab, Prisma.ReviewWhereInput> = {
 
 @Injectable()
 export class ReviewsService {
+  private readonly logger = new Logger('Reviews');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly generator: ReplyGenerator,
     private readonly connector: ChannelConnector,
     private readonly vault: CredentialVault,
+    private readonly events: EventsService,
   ) {}
 
   /** F1-01 통합 목록 + F1-02 분류 탭 건수 */
@@ -54,11 +58,13 @@ export class ReviewsService {
   }
 
   /** F1-03 AI 답글 (다시) 만들기 — 업장 말투 설정(F1-04)을 반영 */
-  async generateDraft(propertyId: string, reviewId: string) {
+  async generateDraft(propertyId: string, reviewId: string, userId: string | null = null) {
     const review = await this.find(propertyId, reviewId);
     if (review.status !== ReviewStatus.UNANSWERED) throw Errors.alreadyAnswered();
     // 다시 만들 때는 앞 초안과 다른 문장이 나오도록 (템플릿 답글은 표현을 돌려 쓴다)
-    await this.draftFor(review, (review.draft?.revision ?? 0) + 1);
+    const revision = (review.draft?.revision ?? 0) + 1;
+    await this.draftFor(review, revision);
+    await this.events.record('DRAFT_REGENERATE', { userId, propertyId, meta: { reviewId, revision } });
     return this.get(propertyId, reviewId);
   }
 
@@ -133,16 +139,21 @@ export class ReviewsService {
           where: { propertyId_channel: { propertyId, channel: review.channel } },
         });
         if (!conn || conn.status === ConnectionStatus.AUTH_EXPIRED) throw Errors.channelNotConnected();
-        await this.connector.postReply(review.channel, this.vault.open(conn.credentials), review.externalId, body);
+        try {
+          await this.connector.postReply(review.channel, this.vault.open(conn.credentials), review.externalId, body);
+        } catch (err) {
+          // 채널 서버 오류는 우리 서버 오류(500)가 아니라 502 — 화면은 '잠시 뒤 다시' 로 안내
+          if (err instanceof HttpException) throw err;
+          this.logger.warn(`답글 게시 실패 ${review.channel}: ${(err as Error).message}`);
+          throw Errors.channelPostFailed(CHANNEL_CATALOG[review.channel].name);
+        }
       }
+      const via = auto ? ReplyVia.AUTO : mode === 'API' ? ReplyVia.API : ReplyVia.COPY;
+      // 초안을 고쳐서 게시했는지 — 공백만 다르면 그대로 쓴 것으로 본다 (실증 KPI 'AI 초안 그대로 쓴 비율')
+      const draftEdited = review.draft ? normalize(review.draft.text) !== normalize(body) : null;
       await this.prisma.$transaction([
         this.prisma.reply.create({
-          data: {
-            reviewId,
-            text: body,
-            via: auto ? ReplyVia.AUTO : mode === 'API' ? ReplyVia.API : ReplyVia.COPY,
-            postedById: userId,
-          },
+          data: { reviewId, text: body, via, postedById: userId, draftEdited },
         }),
         this.prisma.review.update({ where: { id: reviewId }, data: { status: ReviewStatus.POSTED, postingAt: null } }),
       ]);
@@ -154,6 +165,15 @@ export class ReviewsService {
       });
       throw err;
     }
+    await this.events.record('REPLY_POST', {
+      userId,
+      propertyId,
+      meta: {
+        reviewId,
+        via: auto ? 'AUTO' : mode === 'API' ? 'API' : 'COPY',
+        edited: review.draft ? normalize(review.draft.text) !== normalize(body) : null,
+      },
+    });
     return {
       ...(await this.get(propertyId, reviewId)),
       copyTo: mode === 'COPY' ? CHANNEL_CATALOG[review.channel].partnerUrl : null,
@@ -169,20 +189,44 @@ export class ReviewsService {
     });
   }
 
-  updateSettings(propertyId: string, dto: ReplySettingsDto) {
+  /**
+   * 설정 저장. applyTo 가 있으면 그 업장들에도 같은 말투·필수 문구·금지어·자동 응대를 적용한다 (PO-13).
+   * 서명은 업장 이름이 들어가는 경우가 많아 다른 업장에는 복사하지 않는다.
+   * applyTo 에 내가 사장님·매니저가 아닌 업장이 하나라도 있으면 아무것도 바꾸지 않고 403.
+   */
+  async updateSettings(propertyId: string, dto: ReplySettingsDto, userId?: string) {
     const banned = [...new Set(dto.banned.map((w) => w.trim()).filter(Boolean))];
-    return this.prisma.replySettings.update({
-      where: { propertyId },
-      data: {
-        tone: dto.tone,
-        signature: dto.signature.trim(),
-        mustInclude: dto.mustInclude.trim(),
-        banned,
-        autoEnabled: dto.autoEnabled,
-        autoMinRating: dto.autoMinRating,
-        autoHours: dto.autoHours,
-      },
-    });
+    const shared = {
+      tone: dto.tone,
+      mustInclude: dto.mustInclude.trim(),
+      banned,
+      autoEnabled: dto.autoEnabled,
+      autoMinRating: dto.autoMinRating,
+      autoHours: dto.autoHours,
+    };
+    const others = [...new Set(dto.applyTo ?? [])].filter((id) => id !== propertyId);
+    if (others.length) {
+      if (!userId) throw Errors.forbidden();
+      const allowed = await this.prisma.membership.count({
+        where: { userId, propertyId: { in: others }, role: { in: ['OWNER', 'MANAGER'] } },
+      });
+      if (allowed !== others.length) throw Errors.forbidden();
+    }
+    await this.settings(propertyId);
+    const [current] = await this.prisma.$transaction([
+      this.prisma.replySettings.update({
+        where: { propertyId },
+        data: { ...shared, signature: dto.signature.trim() },
+      }),
+      ...others.map((id) =>
+        this.prisma.replySettings.upsert({
+          where: { propertyId: id },
+          create: { propertyId: id, signature: '', ...shared },
+          update: shared,
+        }),
+      ),
+    ]);
+    return { ...current, appliedTo: others };
   }
 
   private async find(propertyId: string, reviewId: string) {
@@ -190,6 +234,11 @@ export class ReviewsService {
     if (!review) throw Errors.notFound('리뷰');
     return review;
   }
+}
+
+/** 초안과 게시 문장 비교용 — 앞뒤·연속 공백만 정리 */
+function normalize(t: string) {
+  return t.trim().replace(/\s+/g, ' ');
 }
 
 export function toView(r: ReviewRow) {

@@ -9,12 +9,19 @@ import { ReviewsScreen } from "./ReviewsScreen";
  * 페이지에서 <Suspense> 로 감싸 쓴다.
  */
 export function LinkedReviewsScreen(
-  props: Omit<ComponentProps<typeof ReviewsScreen>, "initialId" | "initialProperty">,
+  props: Omit<ComponentProps<typeof ReviewsScreen>, "initialId" | "initialProperty" | "initialTab">,
 ) {
   const params = useSearchParams();
   const id = params.get("id");
   const property = params.get("property");
+  const tab = params.get("tab");
   return (
-    <ReviewsScreen key={`${id ?? "none"}:${property ?? "all"}`} {...props} initialId={id} initialProperty={property} />
+    <ReviewsScreen
+      key={`${id ?? "none"}:${property ?? "all"}:${tab ?? ""}`}
+      {...props}
+      initialId={id}
+      initialProperty={property}
+      initialTab={tab}
+    />
   );
 }

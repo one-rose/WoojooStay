@@ -9,6 +9,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   Max,
@@ -92,4 +93,15 @@ export class ReplySettingsDto {
   @ApiProperty({ enum: AutoHours })
   @IsEnum(AutoHours)
   autoHours: AutoHours;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      '같은 설정을 함께 적용할 다른 업장 id (내가 사장님·매니저인 업장만, 아니면 403). 서명은 업장마다 그대로 둔다.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true, message: '업장 id 형식이 아니에요.' })
+  applyTo?: string[];
 }

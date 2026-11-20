@@ -1,4 +1,13 @@
-import type { AdminData, ExpenseData, LedgerData, OpsData, ReplySettings, SettingsData, StaffData } from "./business";
+import type {
+  AdminData,
+  ExpenseData,
+  LedgerData,
+  OpsData,
+  ReplySettings,
+  SettingsData,
+  StaffData,
+  StaffMonthAttendance,
+} from "./business";
 import type { ChannelAccount, ChannelConnection, DashboardData, GuestReview } from "./pms";
 import type { RateGrid } from "./rates";
 
@@ -13,9 +22,12 @@ export interface PmsRepository {
   getRateGrid(): Promise<RateGrid>;
   /** month: "YYYY-MM" (없으면 이번 달) */
   getLedger(month?: string): Promise<LedgerData>;
-  /** date: 이 날짜 기준 (급여는 그 달) — 없으면 오늘 */
-  getStaff(date?: string): Promise<StaffData>;
-  getExpenses(): Promise<ExpenseData>;
+  /** date: 이 날짜 기준 (급여는 그 달) — 없으면 오늘 · week: 교대표를 볼 주(그 날이 속한 월요일 시작 주) */
+  getStaff(date?: string, week?: string): Promise<StaffData>;
+  /** 직원 한 명의 한 달 출퇴근 (month: "YYYY-MM") — 근태 '이번 달 기록' */
+  getStaffMonth(staffId: string, month: string): Promise<StaffMonthAttendance>;
+  /** month: "YYYY-MM" (없으면 이번 달) */
+  getExpenses(month?: string): Promise<ExpenseData>;
   getOps(): Promise<OpsData>;
   getSettings(): Promise<SettingsData>;
   getAdmin(): Promise<AdminData>;

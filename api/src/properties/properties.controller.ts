@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { CurrentUser, PropertyRoles, Public, type AuthUser } from '../common/decorators/auth.decorators.js';
 import { Role } from '../generated/prisma/enums.js';
 import {
@@ -40,8 +41,9 @@ export class PropertiesController {
   }
 
   @Get('properties/:propertyId')
-  get(@Param('propertyId', ParseUUIDPipe) propertyId: string) {
-    return this.properties.get(propertyId);
+  @ApiOperation({ summary: '업장 정보 (직원에게는 사업자번호·대표자·담당 운영자를 빼고)' })
+  get(@Param('propertyId', ParseUUIDPipe) propertyId: string, @Req() req: Request & { role: Role }) {
+    return this.properties.get(propertyId, req.role);
   }
 
   @Patch('properties/:propertyId')
@@ -52,8 +54,9 @@ export class PropertiesController {
 
   @Get('properties/:propertyId/members')
   @PropertyRoles([Role.OWNER, Role.MANAGER])
-  listMembers(@Param('propertyId', ParseUUIDPipe) propertyId: string) {
-    return this.members.list(propertyId);
+  @ApiOperation({ summary: '구성원 · 대기 중 초대 (사장님에게는 번호 전체, 매니저에게는 가린 번호)' })
+  listMembers(@Param('propertyId', ParseUUIDPipe) propertyId: string, @Req() req: Request & { role: Role }) {
+    return this.members.list(propertyId, req.role);
   }
 
   @Post('properties/:propertyId/invitations')
@@ -65,6 +68,29 @@ export class PropertiesController {
     @Body() dto: InviteDto,
   ) {
     return this.members.invite(propertyId, user.id, dto.phone, dto.role);
+  }
+
+  @Delete('properties/:propertyId/invitations/:invitationId')
+  @PropertyRoles([Role.OWNER])
+  @HttpCode(204)
+  @ApiOperation({ summary: '대기 중 초대 취소' })
+  async cancelInvitation(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Param('invitationId', ParseUUIDPipe) invitationId: string,
+  ) {
+    await this.members.cancelInvitation(propertyId, invitationId);
+  }
+
+  @Post('properties/:propertyId/invitations/:invitationId/resend')
+  @PropertyRoles([Role.OWNER])
+  @HttpCode(200)
+  @ApiOperation({ summary: '초대 문자 다시 보내기 (새 링크 · 7일 다시, 예전 링크는 무효)' })
+  resendInvitation(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Param('invitationId', ParseUUIDPipe) invitationId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.members.resendInvitation(propertyId, user.id, invitationId);
   }
 
   @Get('invitations/:token')

@@ -20,4 +20,11 @@ export class BillingScheduler {
     const r = await this.billing.runDaily();
     this.logger.log(`정기결제: 대상 ${r.properties}곳, 결제 ${r.charged}곳`);
   }
+
+  /** 매일 오전 10시(KST) — 체험 종료 3일 전 알림 (앱 알림만이라 개발 중에도 돈다) */
+  @Cron('0 10 * * *', { timeZone: 'Asia/Seoul' })
+  async trialEnding() {
+    const r = await this.billing.notifyTrialEnding();
+    if (r.sent) this.logger.log(`체험 종료 알림: ${r.sent}곳`);
+  }
 }

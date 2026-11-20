@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { isLiveApi } from "@/infrastructure";
-import { ErrorState, InviteScreen, LoginScreen } from "@/ui/pms";
+import { ErrorState, InvitePropertyList, InviteScreen, LoginScreen } from "@/ui/pms";
 import {
   acceptInvitationAction,
   loginAction,
@@ -62,7 +62,13 @@ async function Invite({ searchParams }: { searchParams: PageProps<"/app/invite">
       />
     );
   }
-  const invite = { propertyName: preview.propertyName, role: ROLE[preview.role], phone: preview.phone };
+  const invite = {
+    propertyName: preview.propertyName,
+    role: ROLE[preview.role],
+    phone: preview.phone,
+    properties: preview.properties?.map((p) => ({ name: p.name, role: ROLE[p.role] })),
+  };
+  const many = (invite.properties?.length ?? 0) >= 2;
   const s = await readSession();
   const me = s.accessToken ? await (await serverApi(s.accessToken)).me().catch(() => null) : null;
   if (!me)
@@ -74,6 +80,13 @@ async function Invite({ searchParams }: { searchParams: PageProps<"/app/invite">
           <>
             <strong>{invite.propertyName}에서 초대했어요</strong>
             초대 문자를 받은 번호({invite.phone})로 로그인하거나 가입하면 바로 수락할 수 있어요.
+            {many && (
+              <>
+                {" "}
+                수락하면 {invite.properties!.length}곳에 함께 참여해요.
+                <InvitePropertyList properties={invite.properties!} />
+              </>
+            )}
           </>
         }
       />

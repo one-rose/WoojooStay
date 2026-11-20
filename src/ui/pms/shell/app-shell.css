@@ -15,7 +15,8 @@
   background: var(--pm-nav-bg);
   color: var(--pm-nav-ink);
   padding: var(--pm-s5) var(--pm-s3) var(--pm-s4);
-  overflow-y: auto;
+  /* 메뉴 몸통만 스크롤 — 채널 연동·설정(아래)은 1366×768 에서도 늘 보이게 (D-06) */
+  overflow: hidden;
 }
 .pm-nav__brand {
   display: flex;
@@ -56,9 +57,29 @@
 
 .pm-nav__groups {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--pm-s5);
+  gap: var(--pm-s4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 calc(-1 * var(--pm-s3));
+  padding: 0 var(--pm-s3) var(--pm-s2);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+/* 스크롤되는 메뉴 아래 끝이 잘려 보이도록 — 더 있다는 표시 */
+.pm-nav__groups::-webkit-scrollbar {
+  width: 6px;
+}
+.pm-nav__groups::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+/* 단락(통합 메뉴 · 운영 · 경영) 사이 구분선 — 아래 채널 연동 위 선과 같은 굵기·색 */
+.pm-nav__groups > * + * {
+  border-top: 1px solid var(--pm-navy-line);
+  padding-top: var(--pm-s4);
 }
 .pm-nav__group-label {
   padding: 0 var(--pm-s3) 6px;
@@ -130,9 +151,10 @@ a.pm-nav__item:hover {
   color: var(--pm-nav-ink);
 }
 .pm-nav__foot {
+  flex: none;
   border-top: 1px solid var(--pm-navy-line);
   padding-top: var(--pm-s3);
-  margin-top: var(--pm-s4);
+  margin-top: var(--pm-s2);
 }
 
 /* ── 상단 바 ── */
@@ -155,7 +177,8 @@ a.pm-nav__item:hover {
   border-bottom: 1px solid var(--pm-line-soft);
 }
 .pm-top__menu,
-.pm-top__logo {
+.pm-top__logo,
+.pm-top__property {
   display: none;
 }
 .pm-top__spacer {
@@ -328,6 +351,35 @@ a.pm-nav__item:hover {
   .pm-top__logo-svg.logo {
     height: 18px;
   }
+  .pm-top__property {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 240px;
+    height: 32px;
+    padding: 0 8px;
+    margin-left: var(--pm-s2);
+    border-left: 1px solid var(--pm-line);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--pm-ink);
+  }
+  .pm-top__property > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pm-top__property svg {
+    flex: none;
+    color: var(--pm-muted);
+  }
+  button.pm-top__property {
+    border-radius: 0 var(--pm-r-md) var(--pm-r-md) 0;
+  }
+  button.pm-top__property:hover {
+    background: var(--pm-neutral-bg);
+  }
   .pm-content {
     padding: var(--pm-s5) var(--pm-s5) 96px;
   }
@@ -335,6 +387,17 @@ a.pm-nav__item:hover {
 @media (max-width: 720px) {
   .pm-top__sync > span {
     display: none;
+  }
+  /* 휴대폰: 로고 대신 지금 업장 이름 */
+  .pm-top__logo {
+    display: none;
+  }
+  .pm-top__property {
+    flex: 0 1 auto;
+    max-width: none;
+    margin-left: 0;
+    padding-left: 4px;
+    border-left: 0;
   }
   .pm-content {
     padding: var(--pm-s4) var(--pm-s4) 96px;
@@ -378,9 +441,10 @@ a.pm-nav__item:hover {
   font-size: 13px;
   color: var(--pm-ink-2);
 }
+/* 안 읽은 알림 — 줄 면은 흰색 그대로, 주황 점과 진한 글자로만 (D-30) */
 .pm-bell__item.is-unread {
-  background: #fffaf6;
   color: var(--pm-ink);
+  font-weight: 500;
 }
 .pm-bell__item.is-unread .pm-bell__text::before {
   content: "";
@@ -523,4 +587,99 @@ button.pm-nav__prop:hover {
 }
 .pm-bell__head .pm-bell__scope {
   margin-left: 6px;
+}
+
+/* 알림 창 — 급한 일 / 리뷰 / 그 밖 */
+.pm-bell__scroll {
+  max-height: min(440px, 60vh);
+  overflow-y: auto;
+}
+.pm-bell__section-title {
+  padding: 10px var(--pm-s4) 4px;
+  border-top: 1px solid var(--pm-line);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--pm-muted);
+}
+.pm-bell__section .pm-bell__item:first-child {
+  border-top: 0;
+}
+.pm-bell__overnight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 10px;
+  padding: 8px 10px;
+  border-radius: var(--pm-r-md);
+  background: var(--pm-bad-bg);
+  color: var(--pm-bad);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.pm-bell__group {
+  display: block;
+  font-weight: 600;
+  color: var(--pm-ink);
+}
+.pm-bell__latest {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--pm-ink-2);
+}
+.pm-bell__more {
+  padding: 0 var(--pm-s4) 6px 54px;
+}
+.pm-bell__more button {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 휴대폰: 업장 안 화면 위 "← 전체 업장 N곳" */
+.pm-back-all {
+  display: none;
+}
+@media (max-width: 720px) {
+  .pm-back-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 36px;
+    margin: -6px 0 var(--pm-s2) -4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pm-ink-2);
+  }
+}
+/* 휴대폰: 알림 창이 화면 왼쪽으로 잘리지 않게 화면 폭에 맞춘다 */
+@media (max-width: 720px) {
+  .pm-bell__panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: calc(var(--pm-top-h) + 4px);
+    width: auto;
+  }
+}
+/* 아침 요약 — 업장마다 한 줄 */
+.pm-bell__item.is-summary .pm-bell__text {
+  white-space: pre-line;
+}
+
+/* 손가락 (D-08) — 상단 바 버튼도 44px */
+@media (pointer: coarse) {
+  .pm-top__menu,
+  .pm-top__icon {
+    min-width: var(--pm-touch);
+    min-height: var(--pm-touch);
+  }
+  .pm-top__user {
+    width: var(--pm-touch);
+    height: var(--pm-touch);
+  }
 }

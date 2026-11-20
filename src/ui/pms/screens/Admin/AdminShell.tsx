@@ -20,7 +20,7 @@ export function AdminShell({
       <header className="ad-top">
         <Link href="/admin" className="ad-top__brand">
           <Logo tone="footer" className="ad-top__logo" />
-          <span className="ad-top__tag">BACK OFFICE</span>
+          <span className="ad-top__tag">운영팀 전용</span>
         </Link>
         <div className="ad-top__right">
           {me && (

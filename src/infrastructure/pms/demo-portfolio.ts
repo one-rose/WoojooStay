@@ -8,6 +8,7 @@ import type {
   ReviewInbox,
   PortfolioAlert,
   PortfolioData,
+  PortfolioPeriod,
   PortfolioProperty,
   PropertyOption,
   PropertyType,
@@ -35,6 +36,8 @@ interface DemoProperty {
   /** 판매가능 · 청소 필요 · 청소 중 · 점검 · 투숙 · 판매 중지 · 청소 지연 */
   rooms7: [number, number, number, number, number, number, number];
   staff: [onDuty: number, missingClockOut: number];
+  /** 근무표상 지금 일할 시간인 사람 수 (없으면 근무 중인 사람 수와 같게) */
+  scheduledNow?: number;
   channels: [connected: number, error: number, authExpired: number];
   billing: PortfolioProperty["billing"];
   /** 끊긴 채널 이름 */
@@ -194,6 +197,7 @@ export const DEMO_PROPERTIES: readonly DemoProperty[] = [
     settle7: 1_420_000,
     rooms7: [4, 1, 0, 0, 7, 0, 0],
     staff: [0, 0],
+    scheduledNow: 1,
     channels: [3, 0, 0],
     billing: "active",
   }),
@@ -233,6 +237,12 @@ function alertsOf(d: DemoProperty): PortfolioAlert[] {
       message: `별점 3점 이하 리뷰 ${d.reviews[1]}건이 답글을 기다려요.`,
       link: "/app/reviews",
     });
+  if ((d.scheduledNow ?? 0) > 0 && d.staff[0] === 0)
+    out.push({
+      kind: "no-staff",
+      message: `근무표상 지금 ${d.scheduledNow}명이 일할 시간인데 출근한 사람이 없어요.`,
+      link: "/app/staff",
+    });
   if (d.rooms7[6] > 0)
     out.push({
       kind: "stale-dirty",
@@ -250,7 +260,46 @@ function alertsOf(d: DemoProperty): PortfolioAlert[] {
   return out;
 }
 
-function toPortfolioProperty(d: DemoProperty): PortfolioProperty {
+/** 예시 기간 매출 — 어제는 그제와, 이번 주는 지난주 같은 요일까지와 비교 (업장마다 조금씩 다르게) */
+function demoPeriod(d: DemoProperty, period: PortfolioPeriod, idx: number, today: string) {
+  const [sales, bookings, yesterday] = d.today;
+  const avg = bookings > 0 ? sales / bookings : 0;
+  const r = (v: number) => Math.round(v / 1000) * 1000;
+  if (period === "yesterday") {
+    const prev = r(yesterday * (0.9 + (idx % 4) * 0.05));
+    return { sales: yesterday, bookings: avg ? Math.round(yesterday / avg) : 0, prevSales: prev };
+  }
+  if (period === "week") {
+    const days = ((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7) + 1;
+    const week = days === 1 ? sales : r(sales + yesterday + (yesterday + sales) * 0.48 * (days - 2));
+    return {
+      sales: week,
+      bookings: avg ? Math.round(week / avg) : 0,
+      prevSales: r(week * (0.88 + (idx % 5) * 0.06)),
+    };
+  }
+  return { sales, bookings, prevSales: yesterday };
+}
+
+/** 예시 이번 달 지출 · 인건비 — 매출의 30~45% 쯤, 급여는 아직 계산 중 */
+function demoCosts(sales: number, idx: number) {
+  const r = (v: number) => Math.round(v / 1000) * 1000;
+  const expenses = r(sales * (0.11 + (idx % 4) * 0.02));
+  const payroll = r(sales * (0.19 + (idx % 3) * 0.02));
+  return {
+    expenses,
+    payroll,
+    payrollStatus: payroll > 0 ? ("DRAFT" as const) : null,
+    costRatio: sales > 0 ? Math.round(((expenses + payroll) / sales) * 1000) / 1000 : null,
+  };
+}
+
+function toPortfolioProperty(
+  d: DemoProperty,
+  idx = 0,
+  period: PortfolioPeriod = "today",
+  today = kstToday(),
+): PortfolioProperty {
   const [ready, dirty, cleaning, inspect, occupied, outOfOrder, staleDirty] = d.rooms7;
   return {
     id: d.id,
@@ -259,11 +308,13 @@ function toPortfolioProperty(d: DemoProperty): PortfolioProperty {
     rooms: d.rooms,
     role: "owner",
     today: { sales: d.today[0], bookings: d.today[1], yesterdaySales: d.today[2] },
+    period: demoPeriod(d, period, idx, today),
     month: { sales: d.month[0], prevToDate: d.month[1] },
+    costs: demoCosts(d.month[0], idx),
     reviews: { unanswered: d.reviews[0], lowRated: d.reviews[1] },
     settle7: d.settle7,
     roomStatus: { ready, dirty, cleaning, inspect, occupied, outOfOrder, staleDirty },
-    staff: { onDuty: d.staff[0], missingClockOut: d.staff[1] },
+    staff: { onDuty: d.staff[0], missingClockOut: d.staff[1], scheduledNow: d.scheduledNow ?? d.staff[0] },
     channels: { connected: d.channels[0], error: d.channels[1], authExpired: d.channels[2] },
     billing: d.billing,
     alerts: alertsOf(d),
@@ -271,11 +322,22 @@ function toPortfolioProperty(d: DemoProperty): PortfolioProperty {
 }
 
 /** 체험 모드 통합 현황 — 날짜는 오늘(한국) */
-export function demoPortfolio(today = kstToday()): PortfolioData {
-  const properties = DEMO_PROPERTIES.map(toPortfolioProperty);
+export function demoPortfolio(today = kstToday(), period: PortfolioPeriod = "today"): PortfolioData {
+  const properties = DEMO_PROPERTIES.map((d, i) => toPortfolioProperty(d, i, period, today));
   const sum = (f: (p: PortfolioProperty) => number) => properties.reduce((s, p) => s + f(p), 0);
+  const monday = new Date(
+    Date.parse(`${today}T00:00:00Z`) - ((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7) * 86_400_000,
+  )
+    .toISOString()
+    .slice(0, 10);
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   return {
     date: today,
+    period: {
+      key: period,
+      from: period === "week" ? monday : period === "yesterday" ? yesterday : today,
+      to: period === "yesterday" ? yesterday : today,
+    },
     properties,
     totals: {
       properties: properties.length,
@@ -285,7 +347,18 @@ export function demoPortfolio(today = kstToday()): PortfolioData {
         bookings: sum((p) => p.today.bookings),
         yesterdaySales: sum((p) => p.today.yesterdaySales),
       },
+      period: {
+        sales: sum((p) => p.period?.sales ?? 0),
+        bookings: sum((p) => p.period?.bookings ?? 0),
+        prevSales: sum((p) => p.period?.prevSales ?? 0),
+      },
       month: { sales: sum((p) => p.month.sales), prevToDate: sum((p) => p.month.prevToDate) },
+      costs: {
+        expenses: sum((p) => p.costs?.expenses ?? 0),
+        payroll: sum((p) => p.costs?.payroll ?? 0),
+        payrollStatus: "DRAFT",
+        costRatio: null,
+      },
       reviews: { unanswered: sum((p) => p.reviews.unanswered), lowRated: sum((p) => p.reviews.lowRated) },
       settle7: sum((p) => p.settle7),
     },
@@ -481,6 +554,7 @@ export function demoPortfolioReport(month?: string, today = kstToday()): Portfol
         answered: partial ? Math.max(0, count - d.reviews[0]) : Math.round(count * 0.9),
       },
       trend: months.map(salesOf),
+      costs: demoCosts(sales, idx),
     };
   });
   return { month: m, partial, days, months, properties };

@@ -5,8 +5,14 @@ import type { OpsData, StaffMeData } from "@/core";
 import { connection } from "next/server";
 import { ApiError, demoDates, isLiveApi, pmsApi, pmsRepository, toOps, toStaffMe } from "@/infrastructure";
 import { StaffMeScreen } from "@/ui/pms";
-import { addNoteAction, clockAction, readNoteAction, setRoomStatusAction } from "../../_lib/actions";
-import { readSession } from "../../_lib/session";
+import {
+  addNoteAction,
+  clockAction,
+  readNoteAction,
+  setRoomStatusAction,
+  undoClockOutAction,
+} from "../../_lib/actions";
+import { isMyProperty, readSession, redirectToPick } from "../../_lib/session";
 
 export const metadata: Metadata = { title: "출퇴근" };
 
@@ -19,9 +25,31 @@ const SAMPLE: StaffMeData = {
   today: { shift: "day" },
   week: {
     dates: ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"],
-    shifts: ["day", "day", "off", "day", "day", "off", "day"],
+    shifts: ["day", "day", "off", "day", "day", "off", "unset"],
   },
-  month: { hours: 49, nightHours: 0, estimatedPay: 539_000 },
+  nextWeek: {
+    dates: ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-21", "2026-11-22"],
+    shifts: ["day", "off", "day", "day", "unset", "unset", "unset"],
+  },
+  coworkers: [
+    { name: "한상우", shift: "day", working: true },
+    { name: "이수연", shift: "day", working: false },
+    { name: "박준호", shift: "night", working: false },
+  ],
+  // 사장님 급여 화면과 같은 계산 — 49시간 × 11,000원, 주 15시간 넘긴 주 1주 (40시간 미만이라 비례)
+  month: { hours: 49, nightHours: 0, estimatedPay: 539_000 + 61_600 },
+  pay: {
+    type: "hourly",
+    rate: 11_000,
+    hours: 49,
+    base: 539_000,
+    nightHours: 0,
+    night: 0,
+    weeklyHours: 5.6,
+    weekly: 61_600,
+    total: 539_000 + 61_600,
+    status: null,
+  },
   records: [
     { date: "2026-11-09", in: "08:58", out: "16:02", hours: 7.1, edited: false },
     { date: "2026-11-07", in: "09:00", out: "16:00", hours: 7, edited: true },
@@ -44,7 +72,8 @@ async function Me() {
   }
   const s = await readSession();
   if (!s.accessToken) redirect(s.refreshToken ? "/app/session/refresh" : "/app/login");
-  if (!s.propertyId) redirect("/app/login");
+  // 고른 업장이 없거나 그 업장에서 빠졌으면 남은 업장으로 다시 고른다
+  if (!s.propertyId || !(await isMyProperty(s.accessToken, s.propertyId))) return redirectToPick();
   const api = pmsApi(s.accessToken);
   let data: StaffMeData | null = null;
   let message = "";
@@ -62,6 +91,7 @@ async function Me() {
       data={data}
       message={message}
       clock={clockAction}
+      undoOut={undoClockOutAction}
       logoutPath="/app/session/logout"
       ops={ops}
       opsActions={{ setRoomStatus: setRoomStatusAction, readNote: readNoteAction, addNote: addNoteAction }}

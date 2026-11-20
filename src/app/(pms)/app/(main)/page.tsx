@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { DashboardScreen } from "@/ui/pms";
+import { DashboardScreen, ScreenSkeleton } from "@/ui/pms";
 import { getRepository } from "../_lib/session";
 
 export const metadata: Metadata = { title: "홈" };
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="pm-skeleton" aria-busy="true" aria-label="불러오는 중" />}>
+    <Suspense fallback={<ScreenSkeleton strip={3} rows={4} />}>
       <Dashboard />
     </Suspense>
   );
@@ -20,5 +20,11 @@ async function Dashboard() {
     .filter((r) => r.status === "unanswered")
     .sort((a, b) => a.rating - b.rating || b.postedAt.localeCompare(a.postedAt))
     .slice(0, 5);
-  return <DashboardScreen data={data} pendingReviews={pending} />;
+  return (
+    <DashboardScreen
+      data={data}
+      pendingReviews={pending}
+      hasReplied={reviews.some((r) => r.status === "posted" && !r.replyExternal)}
+    />
+  );
 }

@@ -25,6 +25,8 @@ interface StatProps {
   foot?: ReactNode;
   /** 칸 전체를 링크로 */
   href?: string;
+  /** 숫자 대신 글자 값 ("연결 안 됨") — 큰 숫자 크기 대신 15px/600 (D-23) */
+  text?: boolean;
 }
 
 function formatRate(rate: number) {
@@ -33,14 +35,14 @@ function formatRate(rate: number) {
 }
 
 /** 요약 띠의 한 칸 — 작은 라벨 · 큰 숫자 · 보조 한 줄 */
-export function Stat({ label, value, prefix, suffix, delta, foot, href }: StatProps) {
+export function Stat({ label, value, prefix, suffix, delta, foot, href, text }: StatProps) {
   const showDelta = delta && delta.rate !== null;
   const good = showDelta && (delta.good === "down" ? delta.rate! < 0 : delta.rate! > 0);
   const bad = showDelta && (delta.good === "down" ? delta.rate! > 0 : delta.rate! < 0);
   const body = (
     <>
       <span className="pm-stat__label">{label}</span>
-      <span className="pm-stat__value num">
+      <span className={cx("pm-stat__value", text ? "pm-stat__value--text" : "num")}>
         {prefix && <span className="pm-stat__unit">{prefix}</span>}
         {value}
         {suffix && <span className="pm-stat__unit pm-stat__unit--after">{suffix}</span>}
@@ -71,9 +73,20 @@ export function Stat({ label, value, prefix, suffix, delta, foot, href }: StatPr
 }
 
 /** 요약 띠 — 테두리 있는 패널 하나를 세로선으로 나눈다 */
-export function StatRow({ children, cols = 4, label }: { children: ReactNode; cols?: 2 | 3 | 4; label?: string }) {
+export function StatRow({
+  children,
+  cols = 4,
+  label,
+  slim,
+}: {
+  children: ReactNode;
+  cols?: 2 | 3 | 4;
+  label?: string;
+  /** 얇은 띠 — 할 일 목록 아래에 깔리는 보조 숫자 (전체 현황) */
+  slim?: boolean;
+}) {
   return (
-    <section className={cx("pm-stats", `pm-stats--${cols}`)} aria-label={label ?? "요약"}>
+    <section className={cx("pm-stats", `pm-stats--${cols}`, slim && "pm-stats--slim")} aria-label={label ?? "요약"}>
       {children}
     </section>
   );

@@ -35,15 +35,16 @@ function loadSdk(): Promise<NonNullable<Window["TossPayments"]>> {
   });
 }
 
-export async function openTossCardAuth(clientKey: string, customerKey: string, customerName?: string) {
+/** state: 서버가 등록 시작 때 만든 일회용 확인값 — 돌아오는 주소에 붙어 와서 쿠키와 대조한다 */
+export async function openTossCardAuth(clientKey: string, customerKey: string, state: string, customerName?: string) {
   const TossPayments = await loadSdk();
-  const origin = window.location.origin;
+  const back = `${window.location.origin}/app/billing/card?state=${encodeURIComponent(state)}`;
   await TossPayments(clientKey)
     .payment({ customerKey })
     .requestBillingAuth({
       method: "CARD",
-      successUrl: `${origin}/app/billing/card`,
-      failUrl: `${origin}/app/billing/card?fail=1`,
+      successUrl: back,
+      failUrl: `${back}&fail=1`,
       customerName,
     });
 }

@@ -3,6 +3,7 @@ import { kstHour } from '../common/utils/dates.js';
 import { CHANNEL_CATALOG } from '../connectors/catalog.js';
 import type { ExternalReview } from '../connectors/channel-connector.js';
 import { AutoHours, ReplyVia, ReviewStatus, type Channel } from '../generated/prisma/enums.js';
+import { EventsService } from '../events/events.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ReviewsService } from './reviews.service.js';
@@ -17,6 +18,7 @@ export class ReviewIngestService {
     private readonly prisma: PrismaService,
     private readonly reviews: ReviewsService,
     private readonly notifications: NotificationsService,
+    private readonly events: EventsService,
   ) {}
 
   async ingest(propertyId: string, channel: Channel, items: ExternalReview[]): Promise<{ created: number }> {
@@ -42,13 +44,21 @@ export class ReviewIngestService {
           sentiment: sentimentOf(item.rating),
           needsReview: needsHumanReview(item.body),
           status: item.existingReply ? ReviewStatus.POSTED : ReviewStatus.UNANSWERED,
-          ...(item.existingReply ? { reply: { create: { text: item.existingReply, via: ReplyVia.API } } } : {}),
+          // 채널에 이미 있던 답글 — 우리 서비스로 단 답글이 아니므로 EXTERNAL, 시각은 채널이 준 값(없으면 비움)
+          ...(item.existingReply
+            ? {
+                reply: {
+                  create: { text: item.existingReply, via: ReplyVia.EXTERNAL, postedAt: item.existingReplyAt ?? null },
+                },
+              }
+            : {}),
         },
       });
       created += 1;
       if (review.status === ReviewStatus.POSTED) continue;
       if (review.rating <= 3 || review.needsReview) lowRated.push(review.id);
       await this.reviews.draftFor(review);
+      await this.events.record('DRAFT_CREATE', { propertyId, meta: { reviewId: review.id, auto: true } });
       await this.maybeAutoReply(review.id, propertyId, channel, review.rating, review.needsReview);
     }
     if (created > 0) {

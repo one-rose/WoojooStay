@@ -69,13 +69,18 @@ export interface GuestReview {
   draftGenerator?: "ai" | "template";
   /** 게시된 답글 */
   reply?: string;
+  /** 수집할 때 채널에 이미 있던 답글 (우리 서비스로 단 답글이 아님) */
+  replyExternal?: boolean;
   /** 욕설·개인정보 등 사람 확인이 필요한 리뷰 — 자동 게시 대상에서 제외 */
   needsReview?: boolean;
   /** 통합 리뷰함(F8)에서만 — 이 리뷰가 달린 업장 */
   propertyId?: string;
 }
 
-export type ReviewTab = "all" | "unanswered" | "positive" | "improve";
+export type ReviewTab = "all" | "unanswered" | "low" | "positive" | "improve";
+
+/** 낮은 별점 기준 (이하) — 전체 현황 · 홈의 "별점 3점 이하"와 같은 기준 */
+export const LOW_RATING_MAX = 3;
 
 export function matchesReviewTab(review: GuestReview, tab: ReviewTab): boolean {
   switch (tab) {
@@ -83,6 +88,8 @@ export function matchesReviewTab(review: GuestReview, tab: ReviewTab): boolean {
       return true;
     case "unanswered":
       return review.status === "unanswered";
+    case "low":
+      return review.status === "unanswered" && review.rating <= LOW_RATING_MAX;
     case "positive":
       return review.sentiment === "positive";
     case "improve":
@@ -169,6 +176,8 @@ export interface OnboardingActions {
   setPlan: (planId: string, enabled: boolean) => Promise<ActionResult>;
   /** 온보딩 끝 — 이어하기 표시를 지운다 */
   finish?: () => Promise<void>;
+  /** 채널 연결 뒤 첫 가치 — 답글 기다리는 리뷰 수와 초안 한 건 미리보기 */
+  previewDrafts?: () => Promise<ActionResult<{ count: number; sample: GuestReview | null }>>;
 }
 
 /** propertyId: 통합 리뷰함에서 다른 업장 리뷰에 답글을 달 때 (없으면 지금 업장) */
@@ -179,6 +188,8 @@ export interface ReviewActions {
     propertyId?: string,
   ) => Promise<ActionResult<{ review: GuestReview; copyTo: string | null }>>;
   redraft: (reviewId: string, propertyId?: string) => Promise<ActionResult<{ review: GuestReview }>>;
+  /** 리뷰 내용을 현장(인수인계)으로 넘기기 — 연락 요청·시설 불만처럼 현장이 챙길 일 */
+  forward?: (body: string, propertyId?: string) => Promise<ActionResult>;
 }
 
 /** 운영자 로그인 (F0-14) */
@@ -199,8 +210,9 @@ export interface StaffActions {
     name: string;
     phone: string;
     role: "front" | "housekeeping" | "night" | "manager";
-    payType: "hourly" | "monthly";
-    payAmount: number;
+    /** 사장님만 넣는다 — 매니저가 등록하면 비우고, 그해 최저시급 시급제로 등록된다 */
+    payType?: "hourly" | "monthly";
+    payAmount?: number;
     hiredDate: string;
   }) => Promise<ActionResult<{ belowMinimumWage: boolean }>>;
   sendContract: (staffId: string) => Promise<ActionResult>;
@@ -268,21 +280,37 @@ export interface SettingsActions {
   setPlan: (planId: string, enabled: boolean) => Promise<ActionResult>;
   /** 개발용 PG — 실제로는 PG 결제창이 authKey 를 준다 */
   registerCard: () => Promise<ActionResult>;
+  /** 결제 실패한 구독료를 등록된 카드로 다시 결제 (사장님, 실증 업장 제외) — amount: 결제한 금액 */
+  retryPayment?: () => Promise<ActionResult<{ amount: number }>>;
+  /**
+   * 토스 카드 등록 창을 열기 전 — 서버가 일회용 확인값을 만들어 httpOnly 쿠키에 두고 돌려준다.
+   * 창이 돌아올 때 주소의 확인값과 쿠키를 맞춰 본다 (남이 만든 등록 결과 주소를 막는다).
+   */
+  startCardAuth?: () => Promise<ActionResult<{ state: string }>>;
   /** 채널 연동 (F0-04) — 연결·다시 로그인 · 지금 수집 · 연결 끊기 */
   connectChannel: OnboardingActions["connectChannel"];
   syncChannel: (channel: ChannelId) => Promise<ActionResult>;
   disconnectChannel?: (channel: ChannelId) => Promise<ActionResult>;
   /** 직원 계정 권한 바꾸기 */
   changeRole: (memberId: string, role: "manager" | "staff") => Promise<ActionResult>;
+  /** 업장에서 빼기 (사장님만, 사장님 계정은 뺄 수 없음) */
+  removeMember?: (memberId: string) => Promise<ActionResult>;
+  /** 대기 중인 초대 취소 · 다시 보내기 (사장님만) */
+  cancelInvite?: (invitationId: string) => Promise<ActionResult>;
+  resendInvite?: (invitationId: string) => Promise<ActionResult>;
+  /** applyTo: 같은 알림 설정을 함께 저장할 다른 업장 (사장님·매니저인 업장만) */
   saveNotices: (
     items: {
-      kind: "review" | "settle" | "sync" | "billing" | "staff";
+      kind: "review" | "settle" | "sync" | "billing" | "staff" | "summary";
       alimtalk: boolean;
       push: boolean;
       email: boolean;
     }[],
+    applyTo?: string[],
   ) => Promise<ActionResult>;
 }
 
 /** 직원 본인 출퇴근 */
 export type ClockAction = (employeeId: string, action: "in" | "out") => Promise<ActionResult>;
+/** 직원 본인 — 방금 누른 퇴근 되돌리기 (퇴근 후 5분 안, 급여 확정 전) */
+export type UndoClockOutAction = () => Promise<ActionResult>;

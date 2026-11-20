@@ -5,6 +5,7 @@ import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
 import { isValidBizNo } from '../src/common/utils/biz-no.js';
 import { addDaysIso, addMonths, dateOnly, kstDate } from '../src/common/utils/dates.js';
+import { PortfolioService } from '../src/portfolio/portfolio.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { setupApp } from '../src/setup-app.js';
 
@@ -482,5 +483,60 @@ describe('여러 업장 통합 현황 (e2e)', () => {
     const res = await http.get(api('/portfolio')).set(lone.auth).expect(200);
     expect(res.body.properties).toEqual([]);
     expect(res.body.totals).toMatchObject({ properties: 0, today: { sales: 0 } });
+  });
+
+  it('?period= — 어제 · 이번 주 매출(입실일 기준)과 앞 기간, 잘못된 값은 400', async () => {
+    const y = await http.get(api('/portfolio?period=yesterday')).set(owner.auth).expect(200);
+    expect(y.body.period).toEqual({ key: 'yesterday', from: addDaysIso(today, -1), to: addDaysIso(today, -1) });
+    const yb = y.body.properties.find((p: { id: string }) => p.id === busy);
+    expect(yb.period).toEqual({ sales: 2_000_000, bookings: 1, prevSales: 0 });
+    // 기본(오늘) — 앞 기간은 어제
+    const t = await http.get(api('/portfolio')).set(owner.auth).expect(200);
+    expect(t.body.period.key).toBe('today');
+    expect(t.body.properties.find((p: { id: string }) => p.id === busy).period).toEqual({
+      sales: 3_000_000,
+      bookings: 2,
+      prevSales: 2_000_000,
+    });
+    expect(t.body.totals.period).toEqual({ sales: 3_500_000, bookings: 3, prevSales: 2_000_000 });
+    // 이번 주 = 월요일 ~ 오늘 (오늘이 월요일이면 어제 예약은 지난주)
+    const w = await http.get(api('/portfolio?period=week')).set(owner.auth).expect(200);
+    const monday = addDaysIso(today, -((dateOnly(today).getUTCDay() + 6) % 7));
+    expect(w.body.period).toEqual({ key: 'week', from: monday, to: today });
+    const wb = w.body.properties.find((p: { id: string }) => p.id === busy);
+    expect(wb.period.sales).toBe(monday === today ? 3_000_000 : 5_000_000);
+    await http.get(api('/portfolio?period=month')).set(owner.auth).expect(400);
+  });
+
+  it('근무자 없음 — 근무표상 지금 일할 시간인데 출근 0명이면 확인할 일 (NO_STAFF)', async () => {
+    const e = await prisma.employee.create({
+      data: {
+        propertyId: quiet,
+        name: '주간 근무자',
+        phone: '01084100102',
+        jobRole: 'FRONT',
+        payType: 'HOURLY',
+        payAmount: 10_500,
+        hiredDate: dateOnly(addDaysIso(today, -30)),
+      },
+    });
+    await prisma.workShift.create({ data: { employeeId: e.id, workDate: dateOnly(today), shiftType: 'DAY' } });
+    const service = app.get(PortfolioService);
+    const at = (hhmm: string) => new Date(`${today}T${hhmm}:00+09:00`);
+    // 주간(09~16시) 안 — 출근 0명
+    const noon = await service.get(owner.userId, today, at('11:00'));
+    const q = noon.properties.find((p) => p.id === quiet)!;
+    expect(q.staff).toMatchObject({ onDuty: 0, scheduledNow: 1 });
+    expect(q.alerts.map((a) => a.kind)).toContain('NO_STAFF');
+    expect(q.alerts.find((a) => a.kind === 'NO_STAFF')!.link).toBe('/app/staff');
+    // 근무 시간 밖(20시)이면 경고 없음
+    const evening = await service.get(owner.userId, today, at('20:00'));
+    expect(evening.properties.find((p) => p.id === quiet)!.alerts.map((a) => a.kind)).not.toContain('NO_STAFF');
+    // 출근하면 경고 없음
+    await prisma.attendance.create({
+      data: { employeeId: e.id, workDate: dateOnly(today), clockInAt: new Date(at('10:55').getTime()) },
+    });
+    const after = await service.get(owner.userId, today, at('11:00'));
+    expect(after.properties.find((p) => p.id === quiet)!.alerts.map((a) => a.kind)).not.toContain('NO_STAFF');
   });
 });

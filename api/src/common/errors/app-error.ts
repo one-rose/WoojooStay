@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { josa } from '../utils/korean.js';
 
 /**
  * 화면에서 분기할 수 있도록 errorCode 를 함께 내려준다.
@@ -35,7 +36,7 @@ export const Errors = {
     new AppError(HttpStatus.UNAUTHORIZED, 'BAD_CREDENTIALS', '휴대폰 번호 또는 비밀번호가 맞지 않아요.'),
   tokenInvalid: () => new AppError(HttpStatus.UNAUTHORIZED, 'TOKEN_INVALID', '다시 로그인해 주세요.'),
   forbidden: () => new AppError(HttpStatus.FORBIDDEN, 'FORBIDDEN', '이 업장에서 할 수 없는 작업이에요.'),
-  notFound: (what: string) => new AppError(HttpStatus.NOT_FOUND, 'NOT_FOUND', `${what}을(를) 찾을 수 없어요.`),
+  notFound: (what: string) => new AppError(HttpStatus.NOT_FOUND, 'NOT_FOUND', `${josa(what, '을/를')} 찾을 수 없어요.`),
   bizNoInvalid: () =>
     new AppError(HttpStatus.BAD_REQUEST, 'BIZ_NO_INVALID', '사업자등록번호가 올바르지 않아요. 다시 확인해 주세요.'),
   bizClosed: () => new AppError(HttpStatus.BAD_REQUEST, 'BIZ_CLOSED', '휴업 또는 폐업한 사업자예요.'),
@@ -64,6 +65,15 @@ export const Errors = {
     new AppError(HttpStatus.BAD_REQUEST, 'CONTRACT_NAME_MISMATCH', '계약서에 적힌 이름과 같게 입력해 주세요.'),
   alreadyClockedIn: () => new AppError(HttpStatus.CONFLICT, 'ALREADY_CLOCKED_IN', '오늘은 이미 출근을 기록했어요.'),
   notClockedIn: () => new AppError(HttpStatus.BAD_REQUEST, 'NOT_CLOCKED_IN', '출근 기록이 없어요.'),
+  undoExpired: () =>
+    new AppError(
+      HttpStatus.CONFLICT,
+      'UNDO_EXPIRED',
+      '퇴근한 지 5분이 지나 되돌릴 수 없어요. 사장님이나 매니저에게 고쳐 달라고 해 주세요.',
+    ),
+  nothingToRetry: () =>
+    new AppError(HttpStatus.CONFLICT, 'NO_FAILED_PAYMENT', '다시 결제할 구독료가 없어요. 새로고침해 주세요.'),
+  pilotBillingHeld: () => new AppError(HttpStatus.BAD_REQUEST, 'PILOT_BILLING_HELD', '실증 기간에는 결제하지 않아요.'),
   payrollNotConfirmed: () =>
     new AppError(HttpStatus.BAD_REQUEST, 'PAYROLL_NOT_CONFIRMED', '급여를 먼저 확정해 주세요.'),
   badMonth: () => new AppError(HttpStatus.BAD_REQUEST, 'BAD_MONTH', '월은 YYYY-MM 형식이에요.'),
@@ -97,12 +107,48 @@ export const Errors = {
   monthNotEnded: () =>
     new AppError(HttpStatus.BAD_REQUEST, 'MONTH_NOT_ENDED', '아직 끝나지 않은 달의 급여는 확정할 수 없어요.'),
   payrollSent: () => new AppError(HttpStatus.CONFLICT, 'PAYROLL_SENT', '이미 명세를 보낸 급여는 확정을 풀 수 없어요.'),
+  payOwnerOnly: () =>
+    new AppError(HttpStatus.FORBIDDEN, 'PAY_OWNER_ONLY', '급여(시급·월급)는 사장님만 정하거나 바꿀 수 있어요.'),
+  payRequired: () => new AppError(HttpStatus.BAD_REQUEST, 'VALIDATION', '급여 기준(시급·월급)을 넣어 주세요.'),
   selfEditForbidden: () =>
     new AppError(HttpStatus.FORBIDDEN, 'SELF_EDIT_FORBIDDEN', '내 급여와 출퇴근 기록은 사장님만 고칠 수 있어요.'),
   adminSelf: () =>
     new AppError(HttpStatus.FORBIDDEN, 'ADMIN_SELF', '내 계정의 사용 여부는 다른 최고 관리자가 바꿔야 해요.'),
   conflict: () => new AppError(HttpStatus.CONFLICT, 'CONFLICT', '이미 처리된 요청이에요. 새로고침해 주세요.'),
   badInput: () => new AppError(HttpStatus.BAD_REQUEST, 'BAD_INPUT', '보낸 값이 올바르지 않아요. 다시 확인해 주세요.'),
+  payrollLocked: () =>
+    new AppError(HttpStatus.CONFLICT, 'PAYROLL_LOCKED', '이 달 급여가 확정됐어요. 급여 확정을 풀고 고쳐 주세요.'),
+  missingClockOut: (count: number) =>
+    new AppError(
+      HttpStatus.BAD_REQUEST,
+      'MISSING_CLOCK_OUT',
+      `퇴근 기록이 빠진 근무가 ${count}건 있어요. 출퇴근 기록을 고친 뒤 확정해 주세요.`,
+    ),
+  futureMonth: () => new AppError(HttpStatus.BAD_REQUEST, 'FUTURE_MONTH', '아직 오지 않은 달은 볼 수 없어요.'),
+  workDateFuture: () => new AppError(HttpStatus.BAD_REQUEST, 'WORK_DATE_FUTURE', '근무일은 오늘까지만 넣을 수 있어요.'),
+  workDateBeforeHired: () =>
+    new AppError(HttpStatus.BAD_REQUEST, 'WORK_DATE_BEFORE_HIRED', '입사일보다 앞선 날에는 근무를 넣을 수 없어요.'),
+  clockSame: () => new AppError(HttpStatus.BAD_REQUEST, 'CLOCK_SAME', '출근과 퇴근 시각이 같아요. 다시 확인해 주세요.'),
+  shiftTooLong: (hours: number) =>
+    new AppError(HttpStatus.BAD_REQUEST, 'SHIFT_TOO_LONG', `한 번 근무는 ${hours}시간을 넘길 수 없어요.`),
+  channelPostFailed: (name: string) =>
+    new AppError(
+      HttpStatus.BAD_GATEWAY,
+      'CHANNEL_POST_FAILED',
+      `${name}에 답글을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.`,
+    ),
+  inviteSmsDailyLimit: () =>
+    new AppError(HttpStatus.TOO_MANY_REQUESTS, 'INVITE_SMS_DAILY_LIMIT', '오늘 보낼 수 있는 초대 문자를 다 썼어요.'),
+  bizNoTaken: () =>
+    new AppError(
+      HttpStatus.CONFLICT,
+      'BIZ_NO_TAKEN',
+      '이미 다른 계정에 등록된 사업자등록번호예요. 운영팀에 문의해 주세요.',
+    ),
+  duplicateProperty: () =>
+    new AppError(HttpStatus.BAD_REQUEST, 'DUPLICATE_PROPERTY', '같은 업장이 두 번 들어 있어요. 다시 확인해 주세요.'),
+  validation: (message: string) => new AppError(HttpStatus.BAD_REQUEST, 'VALIDATION', message),
+  badJson: () => new AppError(HttpStatus.BAD_REQUEST, 'BAD_JSON', '보낸 내용을 읽지 못했어요. 다시 시도해 주세요.'),
   roomLocked: () =>
     new AppError(HttpStatus.FORBIDDEN, 'ROOM_LOCKED', '판매 중지 객실은 사장님·매니저만 상태를 바꿀 수 있어요.'),
 };

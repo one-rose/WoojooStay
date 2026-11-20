@@ -12,7 +12,7 @@ import "@/ui/pms/components/Table/table.css";
  * 운영자 계정(이메일 + 비밀번호)으로만 들어온다. 검색 노출 막음.
  */
 export const metadata: Metadata = {
-  title: { default: "운영 백오피스", template: "%s · 우주스테이 운영" },
+  title: { default: "운영 백오피스", template: "%s · 우주스테이 운영" }, // copy-ok 탭 제목
   icons: { icon: "/favicon.svg" },
   robots: { index: false, follow: false },
 };

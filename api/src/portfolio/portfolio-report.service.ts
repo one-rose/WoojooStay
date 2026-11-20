@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import { Errors } from '../common/errors/app-error.js';
 import { addDaysIso, addMonths, dateOnly, kstDate, monthStart, prevToDateEnd } from '../common/utils/dates.js';
 import { CHANNEL_CATALOG } from '../connectors/catalog.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Channel, PropertyType, Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { monthCosts, withRatio } from './portfolio-costs.js';
 
 /** 월별 추이 — 고른 달까지 이만큼 */
 export const REPORT_TREND_MONTHS = 6;
@@ -21,7 +23,8 @@ export class PortfolioReportService {
 
   async get(userId: string, month?: string, today = kstDate()) {
     const thisMonth = today.slice(0, 7);
-    const m = month && month <= thisMonth ? month : thisMonth;
+    if (month && month > thisMonth) throw Errors.futureMonth();
+    const m = month ?? thisMonth;
     const partial = m === thisMonth;
     const from = monthStart(m);
     // 끝(미포함): 이번 달은 내일, 지난 달은 다음 달 1일
@@ -64,17 +67,23 @@ export class PortfolioReportService {
           AND checkin_date >= ${trendFrom} AND checkin_date < ${to}
         GROUP BY property_id, to_char(checkin_date, 'YYYY-MM')`),
       // 리뷰 — 이 달에 올라온 것 (한국 시간 기준)
-      this.prisma.$queryRaw<{ property_id: string; count: bigint; rating_sum: bigint; answered: bigint }[]>(Prisma.sql`
-        SELECT property_id::text AS property_id, COUNT(*) AS count, SUM(rating) AS rating_sum,
-          COUNT(*) FILTER (WHERE status = 'POSTED') AS answered
-        FROM wj_review
-        WHERE property_id IN (${idList})
-          AND (posted_at AT TIME ZONE 'Asia/Seoul')::date >= ${from}
-          AND (posted_at AT TIME ZONE 'Asia/Seoul')::date < ${to}
-        GROUP BY property_id`),
+      // answered = 우리 서비스로 단 답글만 (채널에 이미 있던 EXTERNAL 답글은 빼고, 답글률 분모에서도 뺀다)
+      this.prisma.$queryRaw<
+        { property_id: string; count: bigint; rating_sum: bigint; answered: bigint; external: bigint }[]
+      >(Prisma.sql`
+        SELECT v.property_id::text AS property_id, COUNT(*) AS count, SUM(v.rating) AS rating_sum,
+          COUNT(*) FILTER (WHERE v.status = 'POSTED' AND r.post_method IS DISTINCT FROM 'EXTERNAL') AS answered,
+          COUNT(*) FILTER (WHERE r.post_method = 'EXTERNAL') AS external
+        FROM wj_review v LEFT JOIN wj_review_reply r ON r.review_id = v.id
+        WHERE v.property_id IN (${idList})
+          AND (v.posted_at AT TIME ZONE 'Asia/Seoul')::date >= ${from}
+          AND (v.posted_at AT TIME ZONE 'Asia/Seoul')::date < ${to}
+        GROUP BY v.property_id`),
     ]);
 
     const prevBy = new Map(prev.map((r) => [r.property_id, n(r.sales)]));
+    // 그 달 지출 · 인건비 (PO-21)
+    const costsBy = await monthCosts(this.prisma, ids, m);
     const reviewsBy = new Map(reviews.map((r) => [r.property_id, r]));
     const days = daysIn(m, partial ? today : null);
 
@@ -102,7 +111,11 @@ export class PortfolioReportService {
           count: reviewCount,
           avgRating: reviewCount ? Math.round((n(rv?.rating_sum) / reviewCount) * 10) / 10 : null,
           answered: n(rv?.answered),
+          /** 답글률 분모 = count − external (채널에 이미 답글이 있던 리뷰 제외) */
+          replyBase: reviewCount - n(rv?.external),
         },
+        /** 그 달 지출 · 인건비(확정, 없으면 계산 중) · 매출 대비 비율 */
+        costs: withRatio(costsBy.get(p.id), sales),
         trend: months.map((mm) => n(trend.find((t) => t.property_id === p.id && t.month === mm)?.sales)),
       };
     });

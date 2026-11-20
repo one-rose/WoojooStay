@@ -23,3 +23,11 @@ export function needsSpaceBetween(before: string, after: string): boolean {
   const first = after.at(0) ?? "";
   return !(CJK.test(last) || CJK.test(first));
 }
+
+/**
+ * 데이터에 가운뎃점으로 이어 붙인 목록을 쉼표로 — "리뷰 통합 · AI 답글" → "리뷰 통합, AI 답글".
+ * 화면 문구에는 가운뎃점으로 메타를 잇지 않는다 (docs/PMS-DESIGN-SYSTEM.md "말과 숫자").
+ */
+export function plainList(text: string): string {
+  return text.replace(/\s+·\s+/g, ", ");
+}

@@ -110,9 +110,32 @@ describe('우주스테이 API (e2e)', () => {
         .expect(200);
       const r1 = await http.post(api('/auth/refresh')).send({ refreshToken: login.body.refreshToken }).expect(200);
       expect(r1.body.accessToken).toBeTruthy();
-      // 이미 쓴 리프레시 토큰을 다시 쓰면 거절되고, 새 토큰까지 모두 끊긴다
+      // 이미 쓴 리프레시 토큰을 30초 안에 다시 쓰면(동시 갱신) 그 요청만 거절 — 새 토큰은 살아 있다
       await http.post(api('/auth/refresh')).send({ refreshToken: login.body.refreshToken }).expect(401);
-      await http.post(api('/auth/refresh')).send({ refreshToken: r1.body.refreshToken }).expect(401);
+      const r2 = await http.post(api('/auth/refresh')).send({ refreshToken: r1.body.refreshToken }).expect(200);
+      // 30초가 지나 다시 쓰면 탈취로 보고 새 토큰까지 모두 끊긴다
+      const prisma = app.get(PrismaService);
+      await prisma.refreshToken.updateMany({
+        where: { userId: owner.user.id, isRotated: true },
+        data: { revokedAt: new Date(Date.now() - 60_000) },
+      });
+      await http.post(api('/auth/refresh')).send({ refreshToken: login.body.refreshToken }).expect(401);
+      await http.post(api('/auth/refresh')).send({ refreshToken: r2.body.refreshToken }).expect(401);
+    });
+
+    it('로그아웃한 토큰을 다시 쓰면 그 토큰만 거절 — 다른 기기 세션은 그대로', async () => {
+      const a = await http
+        .post(api('/auth/login'))
+        .send({ phone: '010-1234-5678', password: 'woojoo1234' })
+        .expect(200);
+      const b = await http
+        .post(api('/auth/login'))
+        .send({ phone: '010-1234-5678', password: 'woojoo1234' })
+        .expect(200);
+      await http.post(api('/auth/logout')).send({ refreshToken: a.body.refreshToken }).expect(204);
+      const reuse = await http.post(api('/auth/refresh')).send({ refreshToken: a.body.refreshToken }).expect(401);
+      expect(reuse.body.errorCode).toBe('TOKEN_INVALID');
+      await http.post(api('/auth/refresh')).send({ refreshToken: b.body.refreshToken }).expect(200);
     });
 
     it('토큰 없이는 401', async () => {
@@ -989,7 +1012,7 @@ describe('우주스테이 API (e2e)', () => {
         .get(api(`/properties/${propertyId}/notification-settings`))
         .set(auth())
         .expect(200);
-      expect(d.body).toHaveLength(5);
+      expect(d.body).toHaveLength(6);
       const u = await http
         .put(api(`/properties/${propertyId}/notification-settings`))
         .set(auth())

@@ -23,6 +23,8 @@ export interface InvitePreview {
   propertyName: string;
   role: string;
   phone: string;
+  /** 수락하면 함께 합류할 업장과 업장별 권한 (첫 줄이 이 링크 업장) — 2곳 이상일 때 목록으로 */
+  properties?: readonly { name: string; role: string }[];
 }
 
 /** 직원 초대 수락 — 문자 링크 /app/invite?token=… 로 들어와 로그인한 뒤 */
@@ -31,6 +33,7 @@ export function InviteScreen({ token, me, accept, logoutPath, invite }: InviteSc
   const [pending, start] = useTransition();
   const [error, setError] = useState<{ message: string; mismatch: boolean } | null>(null);
   const [joined, setJoined] = useState<string | null>(null);
+  const many = (invite?.properties?.length ?? 0) >= 2;
 
   const onAccept = () =>
     start(async () => {
@@ -58,10 +61,14 @@ export function InviteScreen({ token, me, accept, logoutPath, invite }: InviteSc
             <h2>{invite ? `${invite.propertyName}에서 초대했어요` : "직원 초대를 받으셨어요"}</h2>
             <p>
               {invite
-                ? `${josa(invite.role, "으로/로")} 참여하게 돼요. 초대받은 번호(${invite.phone})로 로그인한 상태여야 수락할 수 있어요.`
+                ? many
+                  ? `수락하면 아래 ${invite.properties!.length}곳에 함께 참여해요. 초대받은 번호(${invite.phone})로 로그인한 상태여야 수락할 수 있어요.`
+                  : `${josa(invite.role, "으로/로")} 참여하게 돼요. 초대받은 번호(${invite.phone})로 로그인한 상태여야 수락할 수 있어요.`
                 : "문자로 받은 초대를 수락하면 그 업장의 구성원으로 참여해요."}
             </p>
           </header>
+
+          {many && <InvitePropertyList properties={invite!.properties!} />}
 
           <div className="au-notice">
             <strong>{me.name}님으로 로그인되어 있어요</strong>
@@ -97,5 +104,19 @@ export function InviteScreen({ token, me, accept, logoutPath, invite }: InviteSc
         </div>
       </main>
     </div>
+  );
+}
+
+/** 함께 받은 초대 — 업장마다 권한 */
+export function InvitePropertyList({ properties }: { properties: readonly { name: string; role: string }[] }) {
+  return (
+    <ul className="au-invites" aria-label="참여할 업장">
+      {properties.map((p, i) => (
+        <li key={`${p.name}${i}`}>
+          <span>{p.name}</span>
+          <span className="au-invites__role">{p.role}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

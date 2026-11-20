@@ -74,12 +74,25 @@ model RefreshToken {
   tokenHash String    @unique @map("token_hash")
   expiresAt DateTime  @map("expires_at") @db.Timestamptz
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  /// 새 토큰으로 바꿔 줘서 폐기됨 (로그아웃·비밀번호 재설정 폐기와 구분 — 재사용 감지용)
+  isRotated Boolean   @default(false) @map("is_rotated")
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("wj_refresh_token")
+}
+
+/// 사장님이 보내는 문자(초대·초대 다시 보내기·근로계약서) 기록 — 계정별 하루 한도
+model SmsSendLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  kind      String   @map("sms_kind") // INVITE · INVITE_RESEND · CONTRACT
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId, createdAt])
+  @@map("wj_sms_send_log")
 }
 
 // ═══ 운영자 (F0-14, F0-16) ════════════════════════════════════
@@ -104,6 +117,7 @@ model AdminUser {
 
   managedProperties Property[]
   handledInquiries  Inquiry[]
+  supportNotes      SupportNote[]
 
   @@map("wj_admin_user")
 }
@@ -166,18 +180,22 @@ enum Role {
 }
 
 model Property {
-  id          String       @id @default(uuid()) @db.Uuid
-  name        String       @map("property_name")
-  type        PropertyType @map("property_type")
-  address     String
-  rooms       Int          @map("room_count")
-  bizNo       String       @map("biz_reg_no") // 사업자등록번호 숫자 10자리
-  bizVerified Boolean      @default(false) @map("is_biz_verified")
-  ownerName   String       @map("owner_name")
-  phone       String?      @map("phone_no")
-  managerId   String?      @map("manager_admin_id") @db.Uuid // 담당 운영 매니저
-  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  id             String       @id @default(uuid()) @db.Uuid
+  name           String       @map("property_name")
+  type           PropertyType @map("property_type")
+  address        String
+  rooms          Int          @map("room_count")
+  bizNo          String       @map("biz_reg_no") // 사업자등록번호 숫자 10자리
+  bizVerified    Boolean      @default(false) @map("is_biz_verified")
+  ownerName      String       @map("owner_name")
+  phone          String?      @map("phone_no")
+  managerId      String?      @map("manager_admin_id") @db.Uuid // 담당 운영 매니저
+  /// 실증(파일럿) 묶음 이름 — 예 "대전 1차". null 이면 실증 업장 아님
+  pilotGroup     String?      @map("pilot_group")
+  /// 실증 시작일 — 1~8주 KPI 와 결제 유예(시작일 + 8주 전까지)의 기준
+  pilotStartedAt DateTime?    @map("pilot_start_date") @db.Date
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   manager        AdminUser?            @relation(fields: [managerId], references: [id], onDelete: SetNull)
   memberships    Membership[]
@@ -201,7 +219,11 @@ model Property {
   orders         PurchaseOrder[]
   roomUnits      Room[]
   opsNotes       OpsNote[]
+  ratings        RatingSnapshot[]
+  supportNotes   SupportNote[]
+  pilotSurvey    PilotSurvey?
 
+  @@index([pilotGroup])
   @@map("wj_property")
 }
 
@@ -227,6 +249,8 @@ model Invitation {
   role        Role      @map("member_role")
   tokenHash   String    @unique @map("token_hash")
   invitedById String    @map("invited_by") @db.Uuid
+  /// 여러 업장에 함께 보낸 초대 묶음 — 같은 값끼리 링크 하나로 함께 수락 (단건 초대는 null)
+  batchId     String?   @map("batch_id") @db.Uuid
   expiresAt   DateTime  @map("expires_at") @db.Timestamptz
   acceptedAt  DateTime? @map("accepted_at") @db.Timestamptz
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -234,6 +258,7 @@ model Invitation {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@index([propertyId])
+  @@index([batchId])
   @@map("wj_member_invitation")
 }
 
@@ -417,6 +442,8 @@ enum ReplyVia {
   API
   COPY
   AUTO
+  /// 수집할 때 채널에 이미 달려 있던 답글 (우리 서비스로 단 답글이 아님 — 응답률·소요시간 KPI 에서 뺀다)
+  EXTERNAL
 
   @@map("wj_reply_method")
 }
@@ -467,12 +494,15 @@ model ReplyDraft {
 }
 
 model Reply {
-  id         String   @id @default(uuid()) @db.Uuid
-  reviewId   String   @unique @map("review_id") @db.Uuid
-  text       String   @map("content")
-  via        ReplyVia @map("post_method")
-  postedById String?  @map("posted_by") @db.Uuid
-  postedAt   DateTime @default(now()) @map("posted_at") @db.Timestamptz
+  id          String    @id @default(uuid()) @db.Uuid
+  reviewId    String    @unique @map("review_id") @db.Uuid
+  text        String    @map("content")
+  via         ReplyVia  @map("post_method")
+  postedById  String?   @map("posted_by") @db.Uuid
+  /// 게시 시각. EXTERNAL 은 채널이 준 답글 시각 (채널이 안 주면 null)
+  postedAt    DateTime? @default(now()) @map("posted_at") @db.Timestamptz
+  /// 게시한 문장이 AI 초안과 달랐는지 (초안 없이 게시·EXTERNAL 이면 null)
+  draftEdited Boolean?  @map("is_draft_edited")
 
   review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   postedBy User?  @relation(fields: [postedById], references: [id], onDelete: SetNull)
@@ -518,6 +548,8 @@ enum NotificationKind {
   SYNC
   BILLING
   STAFF
+  /// 아침 8시 일일 요약 (앱 알림만, 문자 없음)
+  SUMMARY
 
   @@map("wj_notice_type")
 }
@@ -593,15 +625,17 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id          String             @id @default(uuid()) @db.Uuid
-  propertyId  String             @map("property_id") @db.Uuid
-  planCode    PlanCode           @map("plan_code")
-  status      SubscriptionStatus @default(TRIAL)
-  trialEndsAt DateTime           @map("trial_end_date") @db.Date
-  startedAt   DateTime           @default(now()) @map("started_at") @db.Timestamptz
-  cancelledAt DateTime?          @map("cancelled_at") @db.Timestamptz
+  id            String             @id @default(uuid()) @db.Uuid
+  propertyId    String             @map("property_id") @db.Uuid
+  planCode      PlanCode           @map("plan_code")
+  status        SubscriptionStatus @default(TRIAL)
+  trialEndsAt   DateTime           @map("trial_end_date") @db.Date
+  startedAt     DateTime           @default(now()) @map("started_at") @db.Timestamptz
+  cancelledAt   DateTime?          @map("cancelled_at") @db.Timestamptz
   /// 마지막으로 결제를 마친 달 (그 달 1일) — 같은 달 두 번 결제하지 않는다
-  paidMonth   DateTime?          @map("paid_month") @db.Date
+  paidMonth     DateTime?          @map("paid_month") @db.Date
+  /// 체험 종료 3일 전 알림을 보낸 시각 — 한 번만 보낸다
+  trialNoticeAt DateTime?          @map("trial_notice_at") @db.Timestamptz
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   plan     Plan     @relation(fields: [planCode], references: [code])
@@ -987,4 +1021,88 @@ model OpsNoteRead {
 
   @@id([noteId, userId])
   @@map("wj_ops_note_read")
+}
+
+// ═══ 실증 측정 · 운영 도구 (2차 PO) ═══════════════════════════
+
+/**
+ * 사용 기록 — 실증 KPI(주간 사용일·장부 조회일·AI 답글 사용량)용. 서버가 남기고, 실패해도 본 요청에는 영향 없다.
+ * kind: APP_OPEN · OVERVIEW_VIEW · LEDGER_VIEW · REPORT_VIEW · DRAFT_CREATE · DRAFT_REGENERATE · REPLY_POST ·
+ * CHANNEL_CONNECT · RECEIPT_REGISTER · PAYROLL_CONFIRM · CLOCK_IN · ROOM_STATUS
+ * propertyId 가 없으면 사용자 단위(앱 열기·통합 현황) — 그 사용자가 사장님·매니저인 업장 전부의 사용으로 센다.
+ */
+model UsageEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  propertyId String?  @map("property_id") @db.Uuid
+  kind       String   @map("event_kind")
+  meta       Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([propertyId, kind, createdAt])
+  @@index([userId, kind, createdAt])
+  @@map("wj_usage_event")
+}
+
+/// 채널별 업장 평점 — 수집할 때 하루 한 줄 (같은 날 다시 수집하면 덮어쓴다)
+model RatingSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  propertyId  String   @map("property_id") @db.Uuid
+  channel     Channel  @map("channel_code")
+  date        DateTime @map("snapshot_date") @db.Date
+  rating      Decimal  @db.Decimal(3, 2)
+  reviewCount Int      @map("review_count")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, channel, date])
+  @@map("wj_rating_snapshot")
+}
+
+/// 운영팀 지원 메모 — 통화·방문 기록
+model SupportNote {
+  id         String   @id @default(uuid()) @db.Uuid
+  propertyId String   @map("property_id") @db.Uuid
+  adminId    String?  @map("admin_id") @db.Uuid
+  kind       String   @map("note_kind") // CALL · VISIT · ETC
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  property Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  admin    AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, createdAt])
+  @@map("wj_support_note")
+}
+
+/// 실증 설문 값 — 기준선(시작 전) · 만족도(4주·8주) · 지불의사. 설문 자체는 외부 폼, 운영팀이 옮겨 적는다
+model PilotSurvey {
+  propertyId          String   @id @map("property_id") @db.Uuid
+  /// 하루 채널 확인에 쓰는 시간(분)
+  channelCheckMinutes Int?     @map("channel_check_min")
+  /// 급여 계산 방식 (예: 엑셀, 수기)
+  payrollMethod       String?  @map("payroll_method")
+  /// 한 달 급여 계산에 드는 시간(분)
+  payrollMinutes      Int?     @map("payroll_min")
+  staffCount          Int?     @map("staff_count")
+  /// 한 달 지출 건수
+  monthlyExpenseCount Int?     @map("monthly_expense_count")
+  /// 지출·장부 기록 방식
+  recordMethod        String?  @map("record_method")
+  baselineMemo        String?  @map("baseline_memo")
+  satisfaction4w      Int?     @map("satisfaction_4w") // 1~5
+  satisfaction8w      Int?     @map("satisfaction_8w") // 1~5
+  satisfactionMemo    String?  @map("satisfaction_memo")
+  /// 지불의사 — 고른 요금제 이름
+  wtpPlan             String?  @map("wtp_plan")
+  wtpProperties       Int?     @map("wtp_property_count")
+  wtpMemo             String?  @map("wtp_memo")
+  updatedById         String?  @map("updated_by") @db.Uuid
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("wj_pilot_survey")
 }

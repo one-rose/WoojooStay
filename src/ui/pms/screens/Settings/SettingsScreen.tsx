@@ -15,8 +15,20 @@ import type {
   SettingsActions,
   SettingsData,
 } from "@/core";
-import { cx, formatNumber, josa } from "@/shared";
-import { Badge, Card, ChannelChip, Field, Icon, Modal, PageHead, PmButton, Switch, TableWrap } from "../../components";
+import { cx, formatWon, josa, plainList } from "@/shared";
+import {
+  ApplyToDialog,
+  Badge,
+  Card,
+  ChannelChip,
+  Field,
+  Icon,
+  Modal,
+  PageHead,
+  PmButton,
+  Switch,
+  TableWrap,
+} from "../../components";
 import { SETTINGS_SECTIONS, type SettingsSection } from "./sections";
 import { openTossCardAuth } from "./toss-billing";
 import "./settings.css";
@@ -32,6 +44,12 @@ interface SettingsScreenProps {
   cardAuth?: { clientKey: string; customerKey: string };
   /** 카드 등록 창에서 돌아온 결과 (?card=ok · ?cardError=…) */
   cardResult?: { ok: boolean; message: string };
+  /** 지금 업장에서 내 역할 — 매니저는 업장 정보 읽기 전용 · 채널 연결/끊기 · 초대/권한 · 구독·결제 불가 */
+  role?: "owner" | "manager";
+  /** 채널 연동에서 강조할 채널 (?channel=) */
+  focusChannel?: string;
+  /** 알림 설정을 함께 적용할 수 있는 다른 업장 (사장님·매니저인 업장) */
+  otherProperties?: readonly { id: string; name: string }[];
 }
 
 /** 저장 동작 + 결과 문구 (예시 화면이면 저장하지 않고 안내만) */
@@ -57,7 +75,17 @@ function useAction(actions?: SettingsActions) {
   return { run, pending, message, setNote };
 }
 
-export function SettingsScreen({ section, data, channels, actions, cardAuth, cardResult }: SettingsScreenProps) {
+export function SettingsScreen({
+  section,
+  data,
+  channels,
+  actions,
+  cardAuth,
+  cardResult,
+  role = "owner",
+  focusChannel,
+  otherProperties = [],
+}: SettingsScreenProps) {
   // 모바일에서 메뉴가 가로로 스크롤되므로 지금 메뉴가 보이게 맞춘다
   const nav = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -84,13 +112,37 @@ export function SettingsScreen({ section, data, channels, actions, cardAuth, car
           ))}
         </nav>
         <div className="se-body">
-          {section === "property" && <PropertySection data={data} actions={actions} />}
-          {section === "channels" && <ChannelsSection channels={channels} actions={actions} />}
-          {section === "accounts" && <AccountsSection data={data} actions={actions} />}
-          {section === "notifications" && <NotificationsSection data={data} actions={actions} />}
-          {section === "billing" && (
-            <BillingSection data={data} actions={actions} cardAuth={cardAuth} cardResult={cardResult} />
+          {section === "property" && <PropertySection data={data} actions={actions} owner={role === "owner"} />}
+          {section === "property" && role === "owner" && (
+            <div className="se-addprop">
+              <p>
+                <strong>운영하는 업장이 더 있으세요?</strong> 업장을 추가하면 업장마다 따로 관리하고, 전체 현황에서 함께
+                볼 수 있어요.
+              </p>
+              <PmButton icon="plus" href="/app/onboarding?add=1">
+                업장 추가
+              </PmButton>
+            </div>
           )}
+          {section === "channels" && (
+            <ChannelsSection channels={channels} actions={actions} owner={role === "owner"} focus={focusChannel} />
+          )}
+          {section === "accounts" && <AccountsSection data={data} actions={actions} owner={role === "owner"} />}
+          {section === "notifications" && (
+            <NotificationsSection data={data} actions={actions} otherProperties={otherProperties} />
+          )}
+          {section === "billing" &&
+            (role !== "owner" ? (
+              <Card title="구독·결제">
+                <p className="se-sub">구독·결제는 사장님만 볼 수 있어요.</p>
+              </Card>
+            ) : data.billingVisible === false ? (
+              <Card title="구독·결제">
+                <p className="se-sub">구독 정보를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.</p>
+              </Card>
+            ) : (
+              <BillingSection data={data} actions={actions} cardAuth={cardAuth} cardResult={cardResult} />
+            ))}
         </div>
       </div>
     </div>
@@ -105,8 +157,10 @@ const TYPES: { id: PropertyType; label: string }[] = [
   { id: "guesthouse", label: "게스트하우스" },
 ];
 
-function PropertySection({ data, actions }: { data: SettingsData; actions?: SettingsActions }) {
+/** owner false(매니저): 읽기 전용 — 저장 버튼 없음 */
+function PropertySection({ data, actions, owner }: { data: SettingsData; actions?: SettingsActions; owner: boolean }) {
   const p = data.profile;
+  const ro = !owner;
   const { run, pending, message } = useAction(actions);
   const [f, setF] = useState({ name: p.name, address: p.address, rooms: String(p.rooms), phone: p.phone });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -114,7 +168,7 @@ function PropertySection({ data, actions }: { data: SettingsData; actions?: Sett
   return (
     <Card title="업장 정보">
       <Field layout="row" label="업장 이름">
-        <input className="pm-input" value={f.name} onChange={set("name")} />
+        <input className="pm-input" value={f.name} onChange={set("name")} readOnly={ro} />
       </Field>
       <Field layout="row" label="숙박 유형">
         <div className="pm-choice">
@@ -127,10 +181,16 @@ function PropertySection({ data, actions }: { data: SettingsData; actions?: Sett
         </div>
       </Field>
       <Field layout="row" label="주소">
-        <input className="pm-input" value={f.address} onChange={set("address")} />
+        <input className="pm-input" value={f.address} onChange={set("address")} readOnly={ro} />
       </Field>
       <Field layout="row" label="객실 수">
-        <input className="pm-input num se-short" inputMode="numeric" value={f.rooms} onChange={set("rooms")} />
+        <input
+          className="pm-input num se-short"
+          inputMode="numeric"
+          value={f.rooms}
+          onChange={set("rooms")}
+          readOnly={ro}
+        />
       </Field>
       <Field layout="row" label="사업자등록번호" hint="바꾸려면 고객센터에 문의해 주세요.">
         <input className="pm-input num se-short" defaultValue={p.bizNo} readOnly />
@@ -139,29 +199,33 @@ function PropertySection({ data, actions }: { data: SettingsData; actions?: Sett
         <input className="pm-input se-short" defaultValue={p.owner} readOnly />
       </Field>
       <Field layout="row" label="업장 연락처">
-        <input className="pm-input se-short" inputMode="tel" value={f.phone} onChange={set("phone")} />
+        <input className="pm-input se-short" inputMode="tel" value={f.phone} onChange={set("phone")} readOnly={ro} />
       </Field>
       {message}
-      <div className="se-actions">
-        <PmButton
-          variant="primary"
-          disabled={pending || !f.name.trim() || !Number(f.rooms)}
-          onClick={() =>
-            run(
-              (a) =>
-                a.saveProperty({
-                  name: f.name.trim(),
-                  address: f.address.trim(),
-                  rooms: Number(f.rooms),
-                  phone: f.phone.trim(),
-                }),
-              "업장 정보를 저장했어요.",
-            )
-          }
-        >
-          {pending ? "저장 중…" : "변경 저장"}
-        </PmButton>
-      </div>
+      {ro ? (
+        <p className="se-sub se-owner-only">업장 정보는 사장님만 바꿀 수 있어요.</p>
+      ) : (
+        <div className="se-actions">
+          <PmButton
+            variant="primary"
+            disabled={pending || !f.name.trim() || !Number(f.rooms)}
+            onClick={() =>
+              run(
+                (a) =>
+                  a.saveProperty({
+                    name: f.name.trim(),
+                    address: f.address.trim(),
+                    rooms: Number(f.rooms),
+                    phone: f.phone.trim(),
+                  }),
+                "업장 정보를 저장했어요.",
+              )
+            }
+          >
+            {pending ? "저장 중…" : "변경 저장"}
+          </PmButton>
+        </div>
+      )}
     </Card>
   );
 }
@@ -169,14 +233,34 @@ function PropertySection({ data, actions }: { data: SettingsData; actions?: Sett
 /* F0-04 채널 연동 */
 function channelState(c: ChannelAccount): { tone: "ok" | "info" | "bad" | "neutral"; label: string } {
   if (!c.connected) return { tone: "neutral", label: "연결 안 됨" };
-  if (c.authExpired) return { tone: "bad", label: "다시 로그인 필요" };
-  if (c.status === "error") return { tone: "bad", label: "수집 오류" };
+  // 정상은 배지 없이 회색 글자 (D-02) — 아래 표에서 tone "ok" 면 글자만
+  // 끊긴 이유(로그인 만료 · 수집 실패)와 상관없이 한 이름으로 — 할 일은 오른쪽 버튼이 알려 준다
+  if (c.authExpired || c.status === "error") return { tone: "bad", label: "연동 끊김" };
   if (c.status === "syncing") return { tone: "info", label: "수집 중" };
   return { tone: "ok", label: "정상" };
 }
 
-function ChannelsSection({ channels, actions }: { channels: readonly ChannelAccount[]; actions?: SettingsActions }) {
+/** owner false(매니저): 지금 수집만 — 연결·다시 로그인·연결 끊기는 사장님만 */
+function ChannelsSection({
+  channels: all,
+  actions,
+  owner,
+  focus,
+}: {
+  channels: readonly ChannelAccount[];
+  actions?: SettingsActions;
+  owner: boolean;
+  /** ?channel= — 이 채널 줄을 강조하고 그 줄로 */
+  focus?: string;
+}) {
   const { run, pending, message, setNote } = useAction(actions);
+  const broken = (c: ChannelAccount) => c.connected && (c.authExpired || c.status === "error");
+  // 끊긴 채널을 맨 위로 (휴대폰에서 스크롤하지 않아도 보이게), 나머지는 원래 순서
+  const channels = [...all].sort((a, b) => Number(broken(b)) - Number(broken(a)));
+  const focusRow = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    focusRow.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focus]);
   const [login, setLogin] = useState<ChannelAccount | null>(null);
   const [unlink, setUnlink] = useState<ChannelAccount | null>(null);
   const [busy, setBusy] = useState<ChannelId | null>(null);
@@ -191,14 +275,32 @@ function ChannelsSection({ channels, actions }: { channels: readonly ChannelAcco
   };
   return (
     <Card title="채널 연동" meta={`${channels.length}곳 중 ${connected}곳 연결됨`} flush>
+      {/* 끊긴 채널은 표 위에 한 줄씩 — 휴대폰에서 표를 옆으로 밀지 않아도 바로 다시 로그인 */}
+      {channels.filter(broken).length > 0 && (
+        <ul className="se-broken">
+          {channels.filter(broken).map((c) => (
+            <li key={c.channel} className={cx(focus === c.channel && "is-focus")}>
+              <ChannelChip channel={c.channel} name={c.name} />
+              <span>{c.authExpired ? "로그인이 풀려 연동이 끊겼어요." : "예약·리뷰를 가져오지 못하고 있어요."}</span>
+              {owner ? (
+                <PmButton size="sm" variant="alert" icon="sync" onClick={() => setLogin(c)}>
+                  다시 로그인
+                </PmButton>
+              ) : (
+                <span className="is-muted se-owner-note">사장님만 다시 연결할 수 있어요</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <TableWrap>
-        <table className="pm-table se-channels">
+        <table className="pm-table pm-rtable se-channels">
           <thead>
             <tr>
               <th>채널</th>
               <th>상태</th>
               <th>마지막 수집</th>
-              <th>답글 게시</th>
+              <th>답글 달기</th>
               <th>
                 <span className="pm-sr">동작</span>
               </th>
@@ -207,28 +309,44 @@ function ChannelsSection({ channels, actions }: { channels: readonly ChannelAcco
           <tbody>
             {channels.map((c) => {
               const st = channelState(c);
-              const needLogin = c.connected && (c.authExpired || c.status === "error");
+              const needLogin = broken(c);
+              const focused = focus === c.channel;
               return (
-                <tr key={c.channel}>
-                  <td>
+                <tr
+                  key={c.channel}
+                  ref={focused ? focusRow : undefined}
+                  className={cx(needLogin && "is-problem", focused && "is-focus")}
+                >
+                  <td className="pm-rtable__main">
                     <ChannelChip channel={c.channel} name={c.name} />
                   </td>
-                  <td>
-                    <Badge tone={st.tone} dot>
-                      {st.label}
-                    </Badge>
+                  <td className="pm-rtable__state">
+                    {st.tone === "ok" || st.tone === "neutral" ? (
+                      <span className="is-muted">{st.tone === "ok" ? "연결됨" : st.label}</span>
+                    ) : (
+                      <Badge tone={st.tone} dot>
+                        {st.label}
+                      </Badge>
+                    )}
                   </td>
-                  <td className="num is-muted">{c.connected ? c.lastSyncedAt : "–"}</td>
-                  <td>{c.replyMode === "api" ? "자동 게시" : <span className="is-muted">복사 후 붙여넣기</span>}</td>
-                  <td className="is-num">
+                  <td className="num is-muted" data-label="마지막 수집">
+                    {c.connected ? c.lastSyncedAt : "–"}
+                  </td>
+                  <td data-label="답글">
+                    {c.replyMode === "api" ? "자동 등록" : <span className="is-muted">직접 붙여넣기</span>}
+                  </td>
+                  <td className="is-num pm-rtable__act">
                     <span className="se-row-actions">
-                      {!c.connected && (
+                      {!owner && (!c.connected || needLogin) && (
+                        <span className="is-muted se-owner-note">사장님만 바꿀 수 있어요</span>
+                      )}
+                      {owner && !c.connected && (
                         <PmButton size="sm" variant="ghost" icon="link" onClick={() => setLogin(c)}>
                           연결
                         </PmButton>
                       )}
-                      {needLogin && (
-                        <PmButton size="sm" variant="navy" icon="sync" onClick={() => setLogin(c)}>
+                      {owner && needLogin && (
+                        <PmButton size="sm" variant="alert" icon="sync" onClick={() => setLogin(c)}>
                           다시 로그인
                         </PmButton>
                       )}
@@ -237,7 +355,7 @@ function ChannelsSection({ channels, actions }: { channels: readonly ChannelAcco
                           {pending && busy === c.channel ? "요청 중…" : "지금 수집"}
                         </PmButton>
                       )}
-                      {c.connected && actions?.disconnectChannel && (
+                      {owner && c.connected && actions?.disconnectChannel && (
                         <PmButton size="sm" variant="quiet" disabled={pending} onClick={() => setUnlink(c)}>
                           연결 끊기
                         </PmButton>
@@ -254,6 +372,7 @@ function ChannelsSection({ channels, actions }: { channels: readonly ChannelAcco
       <p className="se-foot">
         30분마다 새 예약·리뷰·정산을 가져와요. 로그인이 실패하거나 2차 인증을 요구하면 알림으로 다시 로그인을
         부탁드려요.
+        {!owner && " 채널 연결과 연결 끊기는 사장님만 바꿀 수 있어요."}
       </p>
       {login && (
         <ChannelLoginDialog
@@ -399,7 +518,9 @@ const PERMS: { menu: string; owner: boolean; manager: boolean; staff: boolean }[
   { menu: "홈, 매출장부 조회", owner: true, manager: true, staff: false },
   { menu: "리뷰 답글 게시", owner: true, manager: true, staff: false },
   { menu: "요금·재고 변경", owner: true, manager: true, staff: false },
-  { menu: "알바관리, 급여", owner: true, manager: false, staff: false },
+  { menu: "알바관리 직원, 근태, 교대표", owner: true, manager: true, staff: false },
+  { menu: "급여, 근로계약서 발송", owner: true, manager: false, staff: false },
+  { menu: "업장 정보, 채널 연결, 직원 초대", owner: true, manager: false, staff: false },
   { menu: "본인 출퇴근, 스케줄", owner: true, manager: true, staff: true },
   { menu: "선정산, 선지급, 구독 결제", owner: true, manager: false, staff: false },
 ];
@@ -447,83 +568,193 @@ function RoleSelect({
   );
 }
 
-function AccountsSection({ data, actions }: { data: SettingsData; actions?: SettingsActions }) {
+/** owner false(매니저): 보기만 — 초대·권한 바꾸기·업장에서 빼기는 사장님만 */
+function AccountsSection({ data, actions, owner }: { data: SettingsData; actions?: SettingsActions; owner: boolean }) {
   const { run, pending, message } = useAction(actions);
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<"manager" | "staff">("manager");
+  const [confirm, setConfirm] = useState<{ kind: "remove" | "cancel"; member: AccountMember } | null>(null);
+  const edit = owner ? actions : undefined;
   return (
     <>
       <Card title="직원 계정" meta={`${data.accounts.length}명`} flush>
         <TableWrap>
-          <table className="pm-table">
+          <table className="pm-table pm-rtable">
             <thead>
               <tr>
                 <th>이름</th>
                 <th>휴대폰</th>
                 <th>권한</th>
                 <th>상태</th>
+                {owner && (
+                  <th>
+                    <span className="pm-sr">동작</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {data.accounts.map((a) => (
                 <tr key={a.id ?? `${a.status}${a.phone}`}>
-                  <td>
+                  <td className="pm-rtable__main">
                     <strong>{a.name}</strong>
                   </td>
-                  <td className="num is-muted">{a.phone}</td>
-                  <td>
+                  <td className="num is-muted" data-label="휴대폰">
+                    {a.phone}
+                  </td>
+                  <td data-label="권한">
                     {a.role === "owner" ? (
-                      <Badge tone="neutral">사장님</Badge>
+                      <span className="is-muted">사장님</span>
                     ) : (
-                      <RoleSelect member={a} actions={actions} run={run} pending={pending} />
+                      <RoleSelect member={a} actions={edit} run={run} pending={pending} />
                     )}
                   </td>
-                  <td>
+                  <td className="pm-rtable__state">
+                    {/* 사용 중은 평소 상태 — 글자 없이 비워 두고, 초대 대기만 표시 (D-02) */}
                     {a.status === "active" ? (
-                      <Badge tone="ok">사용 중</Badge>
+                      <span className="is-muted">사용 중</span>
                     ) : (
                       <Badge tone="info">초대 보냄, 7일 유효</Badge>
                     )}
                   </td>
+                  {owner && (
+                    <td className="is-num pm-rtable__act">
+                      <span className="se-row-actions">
+                        {a.status === "invited" && a.id && actions?.resendInvite && (
+                          <PmButton
+                            size="sm"
+                            variant="ghost"
+                            disabled={pending}
+                            onClick={() =>
+                              run(
+                                (x) => x.resendInvite!(a.id!),
+                                `${a.phone} 로 초대 문자를 다시 보냈어요. 7일 동안 쓸 수 있어요.`,
+                              )
+                            }
+                          >
+                            다시 보내기
+                          </PmButton>
+                        )}
+                        {a.status === "invited" && a.id && actions?.cancelInvite && (
+                          <PmButton
+                            size="sm"
+                            variant="quiet"
+                            disabled={pending}
+                            onClick={() => setConfirm({ kind: "cancel", member: a })}
+                          >
+                            초대 취소
+                          </PmButton>
+                        )}
+                        {a.status === "active" && a.role !== "owner" && a.id && actions?.removeMember && (
+                          <PmButton
+                            size="sm"
+                            variant="quiet"
+                            disabled={pending}
+                            onClick={() => setConfirm({ kind: "remove", member: a })}
+                          >
+                            업장에서 빼기
+                          </PmButton>
+                        )}
+                      </span>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </TableWrap>
-        <div className="se-invite">
-          <input
-            className="pm-input"
-            placeholder="초대할 휴대폰 번호"
-            aria-label="초대할 휴대폰 번호"
-            inputMode="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-          <select
-            className="pm-input se-select"
-            aria-label="초대할 권한"
-            value={role}
-            onChange={(e) => setRole(e.target.value as "manager" | "staff")}
-          >
-            <option value="manager">매니저</option>
-            <option value="staff">직원</option>
-          </select>
-          <PmButton
-            variant="navy"
-            disabled={pending || phone.replace(/\D/g, "").length < 10}
-            onClick={() =>
-              run(
-                (a) => a.invite(phone, role),
-                `${phone} 로 초대 문자를 보냈어요.`,
-                () => setPhone(""),
-              )
-            }
-          >
-            초대 문자 보내기
-          </PmButton>
-        </div>
+        {owner ? (
+          <div className="se-invite">
+            <input
+              className="pm-input"
+              placeholder="초대할 휴대폰 번호"
+              aria-label="초대할 휴대폰 번호"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <select
+              className="pm-input se-select"
+              aria-label="초대할 권한"
+              value={role}
+              onChange={(e) => setRole(e.target.value as "manager" | "staff")}
+            >
+              <option value="manager">매니저</option>
+              <option value="staff">직원</option>
+            </select>
+            <PmButton
+              variant="primary"
+              disabled={pending || phone.replace(/\D/g, "").length < 10}
+              onClick={() =>
+                run(
+                  (a) => a.invite(phone, role),
+                  `${phone} 로 초대 문자를 보냈어요.`,
+                  () => setPhone(""),
+                )
+              }
+            >
+              초대 문자 보내기
+            </PmButton>
+          </div>
+        ) : (
+          <p className="se-foot">직원 초대와 권한 바꾸기는 사장님만 할 수 있어요.</p>
+        )}
         {message && <div className="se-invite__msg">{message}</div>}
       </Card>
+      {confirm?.kind === "remove" && (
+        <Modal
+          title={`${confirm.member.name}님을 업장에서 뺄까요?`}
+          desc="이 업장 화면과 알림을 더 이상 볼 수 없어요. 알바관리의 직원 명단과 근무 기록은 그대로 남아요."
+          onClose={() => setConfirm(null)}
+          footer={
+            <>
+              <PmButton variant="ghost" onClick={() => setConfirm(null)}>
+                취소
+              </PmButton>
+              <PmButton
+                variant="navy"
+                disabled={pending}
+                onClick={() => {
+                  const m = confirm.member;
+                  setConfirm(null);
+                  run((a) => a.removeMember!(m.id!), `${m.name}님을 업장에서 뺐어요.`);
+                }}
+              >
+                업장에서 빼기
+              </PmButton>
+            </>
+          }
+        >
+          <p className="se-sub">다시 함께하려면 초대 문자를 새로 보내면 돼요.</p>
+        </Modal>
+      )}
+      {confirm?.kind === "cancel" && (
+        <Modal
+          title="초대를 취소할까요?"
+          desc={`${confirm.member.phone} 로 보낸 초대 링크를 바로 쓸 수 없게 돼요.`}
+          onClose={() => setConfirm(null)}
+          footer={
+            <>
+              <PmButton variant="ghost" onClick={() => setConfirm(null)}>
+                그대로 두기
+              </PmButton>
+              <PmButton
+                variant="navy"
+                disabled={pending}
+                onClick={() => {
+                  const m = confirm.member;
+                  setConfirm(null);
+                  run((a) => a.cancelInvite!(m.id!), `${m.phone} 초대를 취소했어요.`);
+                }}
+              >
+                초대 취소
+              </PmButton>
+            </>
+          }
+        >
+          <p className="se-sub">필요하면 언제든 다시 초대할 수 있어요.</p>
+        </Modal>
+      )}
       <Card title="권한별로 할 수 있는 일" flush>
         <TableWrap>
           <table className="pm-table se-perm">
@@ -567,6 +798,11 @@ const NOTI_ROWS: { kind: NoticeKind; label: string; desc: string }[] = [
   { kind: "sync", label: "채널 연동 오류", desc: "바로 알림" },
   { kind: "billing", label: "구독 결제, 결제 실패", desc: "결제 3일 전, 실패하면 바로" },
   { kind: "staff", label: "직원 지각, 퇴근 누락", desc: "다음 날 오전" },
+  {
+    kind: "summary",
+    label: "아침 요약",
+    desc: "매일 8시, 업장별 어제 매출과 미답변·청소 지연·퇴근 누락을 한 건으로 (앱 알림만)",
+  },
 ];
 const NOTI_CH = [
   { key: "alimtalk", label: "문자·알림톡" },
@@ -574,13 +810,36 @@ const NOTI_CH = [
   { key: "email", label: "이메일" },
 ] as const;
 
-function NotificationsSection({ data, actions }: { data: SettingsData; actions?: SettingsActions }) {
+function NotificationsSection({
+  data,
+  actions,
+  otherProperties,
+}: {
+  data: SettingsData;
+  actions?: SettingsActions;
+  otherProperties: readonly { id: string; name: string }[];
+}) {
   const { run, pending, message } = useAction(actions);
   const [rows, setRows] = useState<NoticeSetting[]>(
     () =>
       data.noticeSettings?.slice() ??
-      NOTI_ROWS.map((r) => ({ kind: r.kind, alimtalk: true, push: r.kind !== "billing", email: r.kind === "billing" })),
+      NOTI_ROWS.map((r) => ({
+        kind: r.kind,
+        alimtalk: r.kind !== "summary",
+        push: r.kind !== "billing",
+        email: r.kind === "billing",
+      })),
   );
+  /** 서버가 아침 요약을 아직 모르면(예전 서버) 그 줄은 숨긴다 */
+  const visibleRows = NOTI_ROWS.filter((r) => r.kind !== "summary" || rows.some((x) => x.kind === "summary"));
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyIds, setApplyIds] = useState<string[]>([]);
+  const applyAll = () =>
+    run(
+      (a) => a.saveNotices(rows, applyIds),
+      `알림 설정을 업장 ${applyIds.length}곳에도 똑같이 저장했어요.`,
+      () => setApplyOpen(false),
+    );
   const toggle = (kind: NoticeKind, key: (typeof NOTI_CH)[number]["key"], v: boolean) => {
     const prev = rows;
     const next = rows.map((r) => (r.kind === kind ? { ...r, [key]: v } : r));
@@ -607,7 +866,7 @@ function NotificationsSection({ data, actions }: { data: SettingsData; actions?:
             </tr>
           </thead>
           <tbody>
-            {NOTI_ROWS.map((r) => {
+            {visibleRows.map((r) => {
               const row = rows.find((x) => x.kind === r.kind);
               return (
                 <tr key={r.kind}>
@@ -617,12 +876,17 @@ function NotificationsSection({ data, actions }: { data: SettingsData; actions?:
                   </td>
                   {NOTI_CH.map((c) => (
                     <td key={c.key}>
-                      <Switch
-                        checked={row?.[c.key] ?? false}
-                        label={`${r.label} ${c.label}`}
-                        disabled={pending}
-                        onChange={(v) => toggle(r.kind, c.key, v)}
-                      />
+                      {/* 아침 요약은 앱 알림으로만 보낸다 */}
+                      {r.kind === "summary" && c.key !== "push" ? (
+                        <span className="is-muted">–</span>
+                      ) : (
+                        <Switch
+                          checked={row?.[c.key] ?? false}
+                          label={`${r.label} ${c.label}`}
+                          disabled={pending}
+                          onChange={(v) => toggle(r.kind, c.key, v)}
+                        />
+                      )}
                     </td>
                   ))}
                 </tr>
@@ -632,6 +896,32 @@ function NotificationsSection({ data, actions }: { data: SettingsData; actions?:
         </table>
       </TableWrap>
       {message && <div className="se-invite__msg">{message}</div>}
+      {otherProperties.length > 0 && (
+        <div className="se-apply">
+          <p>업장이 여러 곳이면 이 설정을 다른 업장에도 똑같이 쓸 수 있어요.</p>
+          <PmButton
+            size="sm"
+            onClick={() => {
+              setApplyIds(otherProperties.map((p) => p.id));
+              setApplyOpen(true);
+            }}
+          >
+            다른 업장에도 적용
+          </PmButton>
+        </div>
+      )}
+      {applyOpen && (
+        <ApplyToDialog
+          title="알림 설정을 다른 업장에도 적용"
+          desc="지금 보이는 알림 받기 설정을 고른 업장에도 똑같이 저장해요."
+          properties={otherProperties}
+          selected={applyIds}
+          onChange={setApplyIds}
+          pending={pending}
+          onClose={() => setApplyOpen(false)}
+          onApply={applyAll}
+        />
+      )}
     </Card>
   );
 }
@@ -653,12 +943,21 @@ function BillingSection({
   const registerCard = () => {
     if (!cardAuth) return run((a) => a.registerCard(), "결제 카드를 등록했어요. (개발용 테스트 카드)");
     setCardError(null);
-    openTossCardAuth(cardAuth.clientKey, cardAuth.customerKey).catch((e: Error) => setCardError(e.message));
+    const begin = actions?.startCardAuth;
+    if (!begin) return setCardError("카드 등록을 시작하지 못했어요. 새로고침한 뒤 다시 시도해 주세요.");
+    void begin().then((r) => {
+      if (!r.ok) return setCardError(r.message);
+      openTossCardAuth(cardAuth.clientKey, cardAuth.customerKey, r.data.state).catch((e: Error) =>
+        setCardError(e.message),
+      );
+    });
   };
   const [subs, setSubs] = useState<string[]>([...data.subscribed]);
   const sum = data.plans.filter((p) => subs.includes(p.id)).reduce((s, p) => s + p.price, 0);
   const inTrial = data.inTrial ?? true;
   const hasCard = data.hasCard ?? true;
+  /** 해지는 한 번 더 묻는다 (스위치를 잘못 건드려도 바로 빠지지 않게) */
+  const [cancelling, setCancelling] = useState<{ id: string; name: string } | null>(null);
   const toggle = (id: string, name: string, v: boolean) => {
     const prev = subs;
     setSubs((s) => (v ? [...s, id] : s.filter((x) => x !== id)));
@@ -671,23 +970,70 @@ function BillingSection({
       v ? `${josa(name, "을/를")} 켰어요.` : `${name} 구독을 해지했어요.`,
     );
   };
+  // 가장 최근 결제가 실패면 맨 위에 빨간 띠 — [다시 결제] 등록된 카드로 바로 · [카드 바꾸기] 새 카드로 (바꾸면 바로 다시 결제)
+  const latest = [...data.billing].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const failed = latest?.status === "failed" ? latest : null;
+  // 다시 결제를 누른 뒤 끝날 때까지만 "결제 중…" (다른 저장이 진행 중일 때는 버튼만 잠근다)
+  const [retrying, setRetrying] = useState(false);
+  if (retrying && !pending) setRetrying(false);
+  const retry = () => {
+    setRetrying(true);
+    run(
+      async (a) =>
+        a.retryPayment
+          ? a.retryPayment()
+          : { ok: false as const, message: "지금은 다시 결제할 수 없어요. 카드를 바꿔 주세요." },
+      failed ? `${formatWon(failed.amount)} 다시 결제했어요. 구독이 정상으로 돌아왔어요.` : "다시 결제했어요.",
+    );
+  };
+  const pilotEnds = data.pilot?.endsAt;
+  const md = (d: string) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
   return (
     <>
-      <div className="se-trial">
-        <Icon name="calendar" size={18} />
-        {inTrial ? (
+      {failed && (
+        <div className="se-failed" role="alert">
+          <Icon name="alert" size={18} />
           <p>
-            <strong className="num">{data.trialEnds.replaceAll("-", ".")}</strong> 까지 무료 체험 중이에요. 다음 결제일{" "}
-            <strong className="num">{data.nextBilling.replaceAll("-", ".")}</strong> 에{" "}
-            <strong className="num">₩{formatNumber(sum)}</strong> 이 결제돼요.
+            <strong>
+              {Number(failed.date.slice(5, 7))}월 결제 실패 <span className="num">{formatWon(failed.amount)}</span>
+            </strong>
+            카드 한도나 유효기간을 확인한 뒤 다시 결제해 주세요. 카드를 바꾸면 새 카드로 바로 결제해요.
           </p>
-        ) : (
+          {!data.billingHeld && (
+            <PmButton size="sm" variant="primary" disabled={pending} onClick={retry}>
+              {retrying ? "결제 중…" : "다시 결제"}
+            </PmButton>
+          )}
+          <PmButton size="sm" variant="ghost" disabled={pending} onClick={registerCard}>
+            카드 바꾸기
+          </PmButton>
+        </div>
+      )}
+      {data.billingHeld && pilotEnds ? (
+        <div className="se-trial">
+          <Icon name="calendar" size={18} />
           <p>
-            다음 결제일 <strong className="num">{data.nextBilling.replaceAll("-", ".")}</strong>, 월{" "}
-            <strong className="num">₩{formatNumber(sum)}</strong>
+            <strong>실증 기간 무료</strong> ({md(pilotEnds)}까지). 이 기간에는 결제하지 않고, 금액은 실증이 끝난 뒤
+            확정해요.
           </p>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="se-trial">
+          <Icon name="calendar" size={18} />
+          {inTrial ? (
+            <p>
+              <strong className="num">{data.trialEnds.replaceAll("-", ".")}</strong>까지 무료 체험 중이에요. 다음 결제일{" "}
+              <strong className="num">{data.nextBilling.replaceAll("-", ".")}</strong>에{" "}
+              <strong className="num">{formatWon(sum)}</strong>이 결제돼요.
+            </p>
+          ) : (
+            <p>
+              다음 결제일 <strong className="num">{data.nextBilling.replaceAll("-", ".")}</strong>, 월{" "}
+              <strong className="num">{formatWon(sum)}</strong>
+            </p>
+          )}
+        </div>
+      )}
       {message}
       {(cardError || cardResult) && (
         <p className={cx("se-msg", (cardError || !cardResult?.ok) && "is-bad")} role="status">
@@ -700,22 +1046,49 @@ function BillingSection({
             <li key={p.id} className={cx(!p.available && "is-off")}>
               <span>
                 <strong>{p.name}</strong>
-                <small>{p.desc}</small>
+                <small>{plainList(p.desc)}</small>
               </span>
-              <span className="se-plans__price num">{p.available ? `₩${formatNumber(p.price)}/월` : "준비 중"}</span>
+              <span className="se-plans__price num">{p.available ? `${formatWon(p.price)}/월` : "준비 중"}</span>
               <Switch
                 checked={subs.includes(p.id)}
                 label={`${p.name} 구독`}
                 disabled={!p.available || pending}
-                onChange={(v) => toggle(p.id, p.name, v)}
+                onChange={(v) => (v ? toggle(p.id, p.name, true) : setCancelling({ id: p.id, name: p.name }))}
               />
             </li>
           ))}
         </ul>
         <p className="se-total">
-          월 합계 <strong className="num">₩{formatNumber(sum)}</strong>
+          월 합계 <strong className="num">{formatWon(sum)}</strong>
         </p>
       </Card>
+      {cancelling && (
+        <Modal
+          title={`${cancelling.name} 구독을 해지할까요?`}
+          desc="다음 결제부터 빠져요."
+          onClose={() => setCancelling(null)}
+          footer={
+            <>
+              <PmButton variant="ghost" onClick={() => setCancelling(null)}>
+                계속 쓰기
+              </PmButton>
+              <PmButton
+                variant="navy"
+                disabled={pending}
+                onClick={() => {
+                  const c = cancelling;
+                  setCancelling(null);
+                  toggle(c.id, c.name, false);
+                }}
+              >
+                해지
+              </PmButton>
+            </>
+          }
+        >
+          <p className="se-sub">필요하면 언제든 이 화면에서 다시 켤 수 있어요.</p>
+        </Modal>
+      )}
       <Card
         title="결제 수단"
         action={
@@ -758,8 +1131,8 @@ function BillingSection({
               {data.billing.map((b, i) => (
                 <tr key={`${b.date}${i}`}>
                   <td className="num">{b.date.replaceAll("-", ".")}</td>
-                  <td>{b.item}</td>
-                  <td className="is-num">{b.amount === 0 ? "₩0 (무료 체험)" : `₩${formatNumber(b.amount)}`}</td>
+                  <td>{plainList(b.item)}</td>
+                  <td className="is-num">{b.amount === 0 ? "₩0 (무료 체험)" : `${formatWon(b.amount)}`}</td>
                   <td>
                     {b.status === "paid" ? <Badge tone="ok">결제 완료</Badge> : <Badge tone="bad">결제 실패</Badge>}
                   </td>

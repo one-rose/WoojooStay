@@ -11,6 +11,7 @@ import {
   type OpsActions,
   type OpsData,
   type OpsNote,
+  type RoomInput,
   type RoomLog,
   type RoomStatus,
   type RoomUnit,
@@ -35,7 +36,10 @@ export function OpsScreen({ data, actions }: { data: OpsData; actions?: OpsActio
   const [rooms, setRooms] = useState(data.rooms);
   const [filter, setFilter] = useState<RoomStatus | "all">("all");
   const [open, setOpen] = useState<RoomUnit | null>(null);
-  const [dialog, setDialog] = useState<"rooms" | "notice" | null>(null);
+  const [dialog, setDialog] = useState<"rooms" | "bulk" | "notice" | null>(null);
+  /** 호수·타입 고치기 · 삭제 확인 (사장님·매니저) */
+  const [editing, setEditing] = useState<RoomUnit | null>(null);
+  const [removing, setRemoving] = useState<RoomUnit | null>(null);
   const [note, setNote] = useState<{ bad: boolean; text: string } | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [pending, start] = useTransition();
@@ -165,9 +169,14 @@ export function OpsScreen({ data, actions }: { data: OpsData; actions?: OpsActio
               <strong>아직 등록한 객실이 없어요</strong>
               <p>호수를 등록하면 청소 필요 → 청소 중 → 점검 대기 → 판매 가능 순서로 상태를 관리할 수 있어요.</p>
               {lead && (
-                <PmButton variant="navy" icon="door" onClick={() => setDialog("rooms")}>
-                  객실 등록
-                </PmButton>
+                <div className="op-empty__actions">
+                  <PmButton variant="navy" icon="door" onClick={() => setDialog("bulk")}>
+                    객실 한 번에 등록
+                  </PmButton>
+                  <PmButton variant="ghost" onClick={() => setDialog("rooms")}>
+                    호수 직접 입력
+                  </PmButton>
+                </div>
               )}
             </div>
           ) : (
@@ -246,6 +255,92 @@ export function OpsScreen({ data, actions }: { data: OpsData; actions?: OpsActio
           roomLogs={actions?.roomLogs}
           onClose={() => setOpen(null)}
           onSave={(status, memo) => changeStatus(open, status, memo, () => setOpen(null))}
+          onEdit={
+            lead
+              ? () => {
+                  setEditing(open);
+                  setOpen(null);
+                }
+              : undefined
+          }
+          onRemove={
+            lead
+              ? () => {
+                  setRemoving(open);
+                  setOpen(null);
+                }
+              : undefined
+          }
+        />
+      )}
+      {editing && (
+        <EditRoomDialog
+          room={editing}
+          existing={rooms.filter((r) => r.id !== editing.id).map((r) => r.number)}
+          pending={pending}
+          onClose={() => setEditing(null)}
+          onSubmit={(input) =>
+            run(
+              () => actions!.updateRoom(editing.id, input),
+              `${input.number}호 정보를 고쳤어요.`,
+              () => {
+                setRooms((prev) =>
+                  prev.map((r) =>
+                    r.id === editing.id
+                      ? { ...r, number: input.number, floor: input.floor ?? null, roomType: input.roomType ?? null }
+                      : r,
+                  ),
+                );
+                setEditing(null);
+              },
+            )
+          }
+        />
+      )}
+      {removing && (
+        <Modal
+          title={`${removing.number}호를 지울까요?`}
+          desc="상태판에서 빠지고, 이 객실의 청소·점검 기록도 함께 지워져요. 되돌릴 수 없어요."
+          onClose={() => setRemoving(null)}
+          footer={
+            <>
+              <PmButton variant="ghost" onClick={() => setRemoving(null)}>
+                취소
+              </PmButton>
+              <PmButton
+                variant="navy"
+                disabled={pending}
+                onClick={() => {
+                  const room = removing;
+                  run(
+                    () => actions!.removeRoom(room.id),
+                    `${room.number}호를 지웠어요.`,
+                    () => {
+                      setRooms((prev) => prev.filter((r) => r.id !== room.id));
+                      setRemoving(null);
+                    },
+                  );
+                }}
+              >
+                {pending ? "지우는 중…" : "객실 삭제"}
+              </PmButton>
+            </>
+          }
+        >
+          <p className="op-dlg__warn">객실을 없앤 게 아니라 호수만 바뀌었다면 삭제 대신 정보 고치기를 써 주세요.</p>
+        </Modal>
+      )}
+      {dialog === "bulk" && (
+        <BulkRoomsDialog
+          pending={pending}
+          onClose={() => setDialog(null)}
+          onSubmit={(list) =>
+            run(
+              () => actions!.addRooms(list),
+              `객실 ${list.length}개를 등록했어요.`,
+              () => setDialog(null),
+            )
+          }
         />
       )}
       {dialog === "rooms" && (
@@ -502,6 +597,8 @@ function RoomDialog({
   roomLogs,
   onClose,
   onSave,
+  onEdit,
+  onRemove,
 }: {
   room: RoomUnit;
   lead: boolean;
@@ -511,6 +608,10 @@ function RoomDialog({
   roomLogs?: OpsActions["roomLogs"];
   onClose: () => void;
   onSave: (status: RoomStatus, memo: string | null) => void;
+  /** 호수·타입 고치기 (사장님·매니저만) */
+  onEdit?: () => void;
+  /** 객실 삭제 (사장님·매니저만) */
+  onRemove?: () => void;
 }) {
   const [status, setStatus] = useState(room.status);
   const [memo, setMemo] = useState(room.memo ?? "");
@@ -541,8 +642,9 @@ function RoomDialog({
           <PmButton variant="ghost" onClick={onClose}>
             닫기
           </PmButton>
+          {/* 큰 다음 단계 버튼이 주 동작 — 저장은 보조 (D-04) */}
           <PmButton
-            variant="navy"
+            variant="ghost"
             disabled={pending || !changed || locked}
             onClick={() => onSave(status, memo.trim() || null)}
           >
@@ -616,8 +718,222 @@ function RoomDialog({
           )}
         </div>
       )}
+      {(onEdit || onRemove) && (
+        <div className="op-dlg__manage">
+          <span>객실 정보</span>
+          {onEdit && (
+            <PmButton variant="quiet" size="sm" icon="edit" onClick={onEdit}>
+              호수와 타입 고치기
+            </PmButton>
+          )}
+          {onRemove && (
+            <PmButton variant="quiet" size="sm" className="op-dlg__remove" onClick={onRemove}>
+              객실 삭제
+            </PmButton>
+          )}
+        </div>
+      )}
     </Modal>
   );
+}
+
+/** 호수 · 층 · 객실 타입 고치기 */
+function EditRoomDialog({
+  room,
+  existing,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  room: RoomUnit;
+  /** 다른 객실 호수 (겹치면 저장 막음) */
+  existing: readonly string[];
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (room: RoomInput) => void;
+}) {
+  const [number, setNumber] = useState(room.number);
+  const [floor, setFloor] = useState(room.floor === null ? "" : String(room.floor));
+  const [type, setType] = useState(room.roomType ?? "");
+  const no = number.trim();
+  const floorNum = floor.trim() === "" ? undefined : Number(floor);
+  const floorOk = floorNum === undefined || (Number.isInteger(floorNum) && floorNum >= -5 && floorNum <= 200);
+  const dup = existing.includes(no);
+  const changed =
+    no !== room.number || (floorNum ?? null) !== room.floor || (type.trim() || null) !== (room.roomType ?? null);
+  return (
+    <Modal
+      title={`${room.number}호 정보 고치기`}
+      desc="상태와 메모, 지난 기록은 그대로 남아요."
+      onClose={onClose}
+      footer={
+        <>
+          <PmButton variant="ghost" onClick={onClose}>
+            취소
+          </PmButton>
+          <PmButton
+            variant="primary"
+            disabled={pending || !no || dup || !floorOk || !changed}
+            onClick={() => onSubmit({ number: no, floor: floorNum, roomType: type.trim() || undefined })}
+          >
+            {pending ? "저장 중…" : "저장"}
+          </PmButton>
+        </>
+      }
+    >
+      <div className="op-dlg__row">
+        <Field label="호수">
+          <input
+            className="pm-input num"
+            maxLength={20}
+            value={number}
+            onChange={(e) => {
+              const v = e.target.value;
+              // 층을 호수에서 정했던 객실이면 호수를 바꿀 때 층도 따라 바꾼다
+              if (room.floor !== null && String(floorOf(number.trim()) ?? "") === floor)
+                setFloor(String(floorOf(v.trim()) ?? floor));
+              setNumber(v);
+            }}
+          />
+        </Field>
+        <Field label="층 (선택)">
+          <input
+            className="pm-input num"
+            inputMode="numeric"
+            value={floor}
+            onChange={(e) => setFloor(e.target.value.replace(/[^\d-]/g, ""))}
+          />
+        </Field>
+      </div>
+      <Field label="객실 타입 (선택)">
+        <input
+          className="pm-input"
+          maxLength={40}
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          placeholder="예: 스탠다드 더블"
+        />
+      </Field>
+      {dup && <p className="pm-error">이미 등록된 호수예요: {no}</p>}
+      {!floorOk && <p className="pm-error">층은 -5부터 200 사이 숫자로 적어 주세요.</p>}
+    </Modal>
+  );
+}
+
+/** 층 범위 × 층마다 호수 범위로 한 번에 — 2~6층, 01~08호 → 201…208, 301…, 601…608 */
+function BulkRoomsDialog({
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (rooms: RoomInput[]) => void;
+}) {
+  const [f, setF] = useState({ floorFrom: "2", floorTo: "6", noFrom: "1", noTo: "8", type: "" });
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setF((x) => ({ ...x, [k]: k === "type" ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 3) }));
+  const plan = bulkRooms(f);
+  return (
+    <Modal
+      title="객실 한 번에 등록"
+      desc="층 범위와 층마다 호수 범위를 적으면 호수를 만들어 드려요. 등록 전에 아래에서 확인해 주세요."
+      wide
+      onClose={onClose}
+      footer={
+        <>
+          <PmButton variant="ghost" onClick={onClose}>
+            취소
+          </PmButton>
+          <PmButton
+            variant="primary"
+            disabled={pending || !plan.ok}
+            onClick={() =>
+              plan.ok &&
+              onSubmit(
+                plan.floors.flatMap(({ floor, numbers }) =>
+                  numbers.map((number) => ({ number, floor, roomType: f.type.trim() || undefined })),
+                ),
+              )
+            }
+          >
+            {pending ? "저장 중…" : plan.ok ? `${plan.count}개 등록` : "등록"}
+          </PmButton>
+        </>
+      }
+    >
+      <div className="op-bulk">
+        <Field label="층">
+          <div className="op-bulk__range">
+            <input className="pm-input num" inputMode="numeric" value={f.floorFrom} onChange={set("floorFrom")} />
+            <span>층부터</span>
+            <input className="pm-input num" inputMode="numeric" value={f.floorTo} onChange={set("floorTo")} />
+            <span>층까지</span>
+          </div>
+        </Field>
+        <Field label="층마다 호수">
+          <div className="op-bulk__range">
+            <input className="pm-input num" inputMode="numeric" value={f.noFrom} onChange={set("noFrom")} />
+            <span>호부터</span>
+            <input className="pm-input num" inputMode="numeric" value={f.noTo} onChange={set("noTo")} />
+            <span>호까지</span>
+          </div>
+        </Field>
+      </div>
+      <Field
+        label="객실 타입 (선택)"
+        hint="타입이 여러 가지면 같은 타입끼리 나눠서 등록하고, 나중에 객실마다 고칠 수 있어요."
+      >
+        <input
+          className="pm-input"
+          maxLength={40}
+          value={f.type}
+          onChange={set("type")}
+          placeholder="예: 스탠다드 더블"
+        />
+      </Field>
+      {plan.ok ? (
+        <div className="op-dlg__preview">
+          <p>
+            <strong className="num">{plan.count}</strong>개 객실
+          </p>
+          <dl className="op-bulk__preview">
+            {plan.floors.map(({ floor, numbers }) => (
+              <div key={floor}>
+                <dt className="num">{floor}층</dt>
+                <dd className="num">{numbers.join(" ")}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : (
+        plan.message && <p className="pm-error">{plan.message}</p>
+      )}
+    </Modal>
+  );
+}
+
+/** 한 번에 등록할 호수 계산 — 층 1~200, 호 1~999, 모두 300개까지 (API 한도) */
+function bulkRooms(f: {
+  floorFrom: string;
+  floorTo: string;
+  noFrom: string;
+  noTo: string;
+}): { ok: true; count: number; floors: { floor: number; numbers: string[] }[] } | { ok: false; message: string } {
+  const [a, b, c, d] = [f.floorFrom, f.floorTo, f.noFrom, f.noTo].map((v) => (v === "" ? NaN : Number(v)));
+  if ([a, b, c, d].some(Number.isNaN)) return { ok: false, message: "" };
+  if (a < 1 || b > 200 || a > b) return { ok: false, message: "층은 1층부터 200층 사이에서 낮은 층부터 적어 주세요." };
+  if (c < 1 || d > 999 || c > d) return { ok: false, message: "호수는 1부터 적고, 앞 칸이 뒤 칸보다 작아야 해요." };
+  const count = (b - a + 1) * (d - c + 1);
+  if (count > 300) return { ok: false, message: `한 번에 300개까지 등록할 수 있어요. 지금 ${count}개예요.` };
+  const width = Math.max(2, String(d).length);
+  const floors = [];
+  for (let floor = a; floor <= b; floor++) {
+    const numbers = [];
+    for (let n = c; n <= d; n++) numbers.push(`${floor}${String(n).padStart(width, "0")}`);
+    floors.push({ floor, numbers });
+  }
+  return { ok: true, count, floors };
 }
 
 function AddRoomsDialog({

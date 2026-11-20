@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   matchesReviewTab,
@@ -13,6 +13,7 @@ import {
 import { cx, josa } from "@/shared";
 import { ReviewPhoto } from "@/ui/media";
 import { Badge, ChannelChip, Icon, PageHead, PmButton, Stars, Tag } from "../../components";
+import { clearReplyDraft, loadReplyDraft, saveReplyDraft } from "./reply-drafts";
 import "./reviews.css";
 
 interface ReviewsScreenProps {
@@ -29,11 +30,14 @@ interface ReviewsScreenProps {
   inbox?: { properties: readonly { id: string; name: string }[]; truncated?: boolean };
   /** 통합 리뷰함을 이 업장으로 걸러서 연다 (?property=) */
   initialProperty?: string | null;
+  /** 처음 열 분류 (?tab=low — 전체 현황·홈·알림의 "낮은 별점 리뷰 보기") */
+  initialTab?: string | null;
 }
 
 const TABS: readonly { id: ReviewTab; label: string }[] = [
   { id: "all", label: "전체" },
   { id: "unanswered", label: "미답변" },
+  { id: "low", label: "낮은 별점" },
   { id: "positive", label: "긍정" },
   { id: "improve", label: "개선요청" },
 ];
@@ -42,8 +46,14 @@ type Sort = "latest" | "low";
 
 interface LocalState {
   draft: string;
-  posted?: { text: string; via: "api" | "copy" };
+  /** copyTo: 복사 게시면 파트너센터 주소 (창이 안 열렸을 때 다시 열기) */
+  posted?: { text: string; via: "api" | "copy"; copyTo?: string | null };
 }
+
+const isTab = (v: string | null | undefined): v is ReviewTab => !!v && TABS.some((t) => t.id === v);
+
+/** 첫 답글 안내를 닫았는지 (이 브라우저) */
+const GUIDE_KEY = "uz:review-guide-closed";
 
 /** 연결이 끊긴 채널의 리뷰도 보이도록 — 채널 정보가 없으면 복사 게시로 본다 */
 const fallbackChannel = (id: ChannelId): ChannelConnection => ({
@@ -56,7 +66,15 @@ const fallbackChannel = (id: ChannelId): ChannelConnection => ({
 
 type Toast = { text: string; bad: boolean };
 
-export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, initialProperty }: ReviewsScreenProps) {
+export function ReviewsScreen({
+  reviews,
+  channels,
+  initialId,
+  actions,
+  inbox,
+  initialProperty,
+  initialTab,
+}: ReviewsScreenProps) {
   const router = useRouter();
   // 서버 목록이 새로 오면(router.refresh) 그것으로 바꾼다
   const [base, setBase] = useState(reviews);
@@ -72,7 +90,10 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
     [channels],
   );
   const conn = (id: ChannelId) => channelMap[id] ?? fallbackChannel(id);
-  const [tab, setTab] = useState<ReviewTab>(linked ? "all" : "unanswered");
+  const startTab: ReviewTab = isTab(initialTab) ? initialTab : linked ? "all" : "unanswered";
+  const [tab, setTabState] = useState<ReviewTab>(startTab);
+  /** 방금 답글을 단 리뷰 — 분류에서 빠져도 사장님이 다음으로 넘길 때까지 그 자리에 둔다 */
+  const [stickyId, setStickyId] = useState<string | null>(null);
   const [channel, setChannel] = useState<ChannelId | "all">("all");
   const propertyNames = useMemo(
     () => new Map((inbox?.properties ?? []).map((p) => [p.id, p.name])),
@@ -83,13 +104,43 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
   );
   const inProperty = (r: GuestReview) => propertyFilter === "all" || r.propertyId === propertyFilter;
   const propertyOf = (r: GuestReview) => (inbox && r.propertyId ? propertyNames.get(r.propertyId) : undefined);
-  const [sort, setSort] = useState<Sort>("latest");
+  // 낮은 별점으로 열면 별점 낮은 것부터
+  const [sort, setSort] = useState<Sort>(startTab === "low" ? "low" : "latest");
+  const setTab = (t: ReviewTab) => {
+    setTabState(t);
+    setStickyId(null);
+    if (t === "low") setSort("low");
+  };
   const [selectedId, setSelectedId] = useState<string | null>(linked);
   const [mobileDetail, setMobileDetail] = useState(!!linked);
   const [local, setLocal] = useState<Record<string, LocalState>>(() =>
     Object.fromEntries(items.map((r) => [r.id, { draft: r.aiDraft }])),
   );
   const stateOf = (r: GuestReview): LocalState => local[r.id] ?? { draft: r.aiDraft };
+
+  // 고치던 답글을 이 브라우저에서 다시 불러온다 (게시 전 리뷰만) — 저장소는 그린 뒤에 읽는다
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const saved: Record<string, LocalState> = {};
+      for (const r of items) {
+        if (r.status === "posted") continue;
+        const text = loadReplyDraft(r.id);
+        if (text !== null && text !== r.aiDraft) saved[r.id] = { draft: text };
+      }
+      if (Object.keys(saved).length > 0)
+        setLocal((prev) => {
+          const next = { ...prev };
+          for (const [id, st] of Object.entries(saved)) if (!prev[id]?.posted) next[id] = st;
+          return next;
+        });
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [items]);
+
+  const editDraft = (review: GuestReview, draft: string) => {
+    setLocal((prev) => ({ ...prev, [review.id]: { ...(prev[review.id] ?? { draft: review.aiDraft }), draft } }));
+    saveReplyDraft(review.id, draft, review.aiDraft);
+  };
   const [toast, setToastState] = useState<Toast | null>(null);
   const setToast = (text: string, bad = false) => setToastState({ text, bad });
 
@@ -112,7 +163,7 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
 
   const list = useMemo(() => {
     const filtered = items
-      .filter((r) => matchesReviewTab(effective(r), tab))
+      .filter((r) => r.id === stickyId || matchesReviewTab(effective(r), tab))
       .filter(inProperty)
       .filter((r) => channel === "all" || r.channel === channel);
     return [...filtered].sort((a, b) =>
@@ -121,14 +172,66 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
         : b.postedAt.localeCompare(a.postedAt),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- local · 업장 필터가 바뀌면 다시 계산
-  }, [items, tab, channel, sort, local, propertyFilter]);
+  }, [items, tab, channel, sort, local, propertyFilter, stickyId]);
 
   const selected = list.find((r) => r.id === selectedId) ?? list[0] ?? null;
 
   const select = (id: string) => {
+    if (id !== stickyId) setStickyId(null);
     setSelectedId(id);
     setMobileDetail(true);
   };
+
+  /** 지금 분류·정렬 그대로 다음 리뷰 (방금 답한 리뷰는 목록에서 뺀다) */
+  const nextOf = (id: string): GuestReview | null => {
+    const i = list.findIndex((r) => r.id === id);
+    const rest = list.filter((r) => r.id !== id && !isAnswered(r));
+    if (rest.length === 0) return null;
+    return rest.find((r) => list.indexOf(r) > i) ?? rest[0];
+  };
+  const goNext = (id: string) => {
+    const n = nextOf(id);
+    setStickyId(null);
+    setSelectedId(n?.id ?? null);
+    if (!n) setMobileDetail(false);
+  };
+
+  /** 처음 열었을 때 답글을 기다리던 리뷰 — "N건 중 M건 답했어요" (S2) */
+  const [startPending] = useState(() => new Set(reviews.filter((r) => r.status !== "posted").map((r) => r.id)));
+  const scopePending = items.filter((r) => startPending.has(r.id) && inProperty(r));
+  const doneCount = scopePending.filter((r) => !!local[r.id]?.posted).length;
+
+  // 첫 답글 안내 — 아직 답글을 단 리뷰가 하나도 없고, 닫은 적이 없을 때 한 번
+  const [guideClosed, setGuideClosed] = useState(true);
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        setGuideClosed(window.localStorage.getItem(GUIDE_KEY) === "1");
+      } catch {
+        setGuideClosed(false);
+      }
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+  // 채널에 이미 있던 답글은 우리 서비스로 단 답글이 아니므로 빼고 센다
+  const neverReplied = !items.some((r) => isAnswered(r) && !r.replyExternal);
+  const closeGuide = () => {
+    setGuideClosed(true);
+    try {
+      window.localStorage.setItem(GUIDE_KEY, "1");
+    } catch {
+      /* 저장 못 해도 이번에는 닫힌다 */
+    }
+  };
+
+  const forward = (review: GuestReview) =>
+    actions?.forward &&
+    start(async () => {
+      const body = `[리뷰 전달] ${conn(review.channel).name} ★${review.rating} ${review.author}\n${review.body}`;
+      const r = await actions.forward!(body, review.propertyId);
+      if (!r.ok) return setToast(r.message, true);
+      setToast("현장 업무 인수인계에 남겼어요. 다음 근무자가 확인해요.");
+    });
 
   const replace = (r: GuestReview) => setItems((list) => list.map((x) => (x.id === r.id ? r : x)));
 
@@ -139,10 +242,16 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
       if (!r.ok) return setToast(r.message, true);
       replace(r.data.review);
       setLocal((prev) => ({ ...prev, [review.id]: { draft: r.data.review.aiDraft } }));
+      clearReplyDraft(review.id);
     });
 
-  const markPosted = (review: GuestReview, text: string, via: "api" | "copy") =>
-    setLocal((prev) => ({ ...prev, [review.id]: { draft: text, posted: { text, via } } }));
+  const markPosted = (review: GuestReview, text: string, via: "api" | "copy", copyTo?: string | null) => {
+    setLocal((prev) => ({ ...prev, [review.id]: { draft: text, posted: { text, via, copyTo } } }));
+    clearReplyDraft(review.id);
+    // 답한 리뷰에 그대로 머문다 — 다음 리뷰는 사장님이 "다음 리뷰"로 넘긴다
+    setStickyId(review.id);
+    setSelectedId(review.id);
+  };
 
   const post = (review: GuestReview) => {
     const draft = stateOf(review).draft;
@@ -166,24 +275,52 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
           win.opener = null;
           win.location.href = r.data.copyTo;
         } else win?.close();
-        setToast(
-          c.replyMode === "copy"
-            ? `답글을 복사했어요. 열린 ${c.name} 파트너센터에 붙여넣어 주세요.`
-            : `${c.name}에 답글을 게시했어요.`,
-        );
-        markPosted(review, draft, c.replyMode);
+        // 복사 게시는 안내를 리뷰 상세 안에 — 토스트는 바로 게시만
+        if (c.replyMode === "api") setToast(`${c.name}에 답글을 게시했어요.`);
+        markPosted(review, draft, c.replyMode, r.data.copyTo);
         // 사이드바 미답변 수 · 홈 숫자도 새로
         router.refresh();
       });
       return;
     }
-    setToast(
-      c.replyMode === "copy"
-        ? `답글을 복사했어요. ${c.name} 파트너센터에 붙여넣으면 게시 완료로 표시돼요.`
-        : `${c.name}에 답글을 게시했어요.`,
-    );
+    if (c.replyMode === "api") setToast(`${c.name}에 답글을 게시했어요.`);
     markPosted(review, draft, c.replyMode);
   };
+
+  /*
+   * 키보드로 빠르게 (S2, Linear·Gmail 방식): J 다음 · K 이전 · Enter 게시(복사), 답한 리뷰에서 Enter 는 다음 리뷰.
+   * 입력칸·선택칸 안에서는 동작하지 않는다.
+   */
+  const keyRef = useRef<(e: KeyboardEvent) => void>(() => undefined);
+  const handleKey = (e: KeyboardEvent) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.closest("input, textarea, select, [contenteditable=true]") || t.closest("[role=dialog]"))) return;
+    if (!selected || list.length === 0) return;
+    const i = list.findIndex((r) => r.id === selected.id);
+    const key = e.key.toLowerCase();
+    if (key === "j" || key === "k") {
+      e.preventDefault();
+      const n = list[Math.min(list.length - 1, Math.max(0, i + (key === "j" ? 1 : -1)))];
+      if (n) {
+        if (n.id !== stickyId) setStickyId(null);
+        setSelectedId(n.id);
+        document.getElementById(`rv-item-${n.id}`)?.scrollIntoView({ block: "nearest" });
+      }
+    } else if (e.key === "Enter" && t?.tagName !== "BUTTON" && t?.tagName !== "A") {
+      e.preventDefault();
+      if (isAnswered(selected)) goNext(selected.id);
+      else if (!pending) post(selected);
+    }
+  };
+  useEffect(() => {
+    keyRef.current = handleKey;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="rv">
@@ -202,6 +339,27 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
             </PmButton>
           }
         />
+      )}
+      {!guideClosed && neverReplied && items.length > 0 && (
+        <section className="rv-guide" aria-label="첫 답글 안내">
+          <div>
+            <h2>첫 답글은 낮은 별점부터 달아 보세요</h2>
+            <p>
+              리뷰마다 답글 초안을 미리 써 뒀어요. 읽어 보고 고칠 곳만 고친 뒤 게시하면 돼요. 자동 등록이 안 되는 채널은
+              답글을 복사해 파트너센터에 직접 붙여넣어요.
+            </p>
+          </div>
+          <div className="rv-guide__actions">
+            {counts.low > 0 && (
+              <PmButton size="sm" onClick={() => setTab("low")}>
+                낮은 별점 {counts.low}건 보기
+              </PmButton>
+            )}
+            <PmButton size="sm" variant="quiet" onClick={closeGuide}>
+              닫기
+            </PmButton>
+          </div>
+        </section>
       )}
       {inbox?.truncated && (
         <p className="rv-note">
@@ -234,6 +392,7 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
                 onChange={(e) => {
                   setPropertyFilter(e.target.value);
                   setSelectedId(null);
+                  setStickyId(null);
                 }}
               >
                 <option value="all">전체 업장 {inbox.properties.length}곳</option>
@@ -248,7 +407,13 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
           )}
           <label className="rv-select">
             <span className="pm-sr">채널</span>
-            <select value={channel} onChange={(e) => setChannel(e.target.value as ChannelId | "all")}>
+            <select
+              value={channel}
+              onChange={(e) => {
+                setChannel(e.target.value as ChannelId | "all");
+                setStickyId(null);
+              }}
+            >
               <option value="all">전체 채널</option>
               {channels.map((c) => (
                 <option key={c.channel} value={c.channel}>
@@ -269,12 +434,29 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
         </div>
       </div>
 
+      {scopePending.length > 0 && (
+        <div className="rv-progress">
+          <p>
+            답글 기다리던 <b className="num">{scopePending.length}</b>건 중 <b className="num">{doneCount}</b>건
+            답했어요
+          </p>
+          <span className="rv-progress__bar" aria-hidden>
+            <span style={{ width: `${(doneCount / scopePending.length) * 100}%` }} />
+          </span>
+          <p className="rv-progress__keys" aria-label="단축키: J 다음 리뷰, K 이전 리뷰, Enter 게시하고 다음">
+            <kbd>J</kbd>
+            <kbd>K</kbd> 이동
+            <kbd>Enter</kbd> 게시, 한 번 더 누르면 다음
+          </p>
+        </div>
+      )}
+
       <div className={cx("rv-panes", mobileDetail && "show-detail")}>
         <ul className="rv-list" aria-label="리뷰 목록">
           {list.length === 0 && (
             <li className="rv-empty">
               <Icon name="check" size={22} />
-              <p>이 분류에는 리뷰가 없어요.</p>
+              <p>{tab === "low" ? "답글을 기다리는 낮은 별점 리뷰가 없어요." : "이 분류에는 리뷰가 없어요."}</p>
             </li>
           )}
           {list.map((r) => {
@@ -283,6 +465,7 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
               <li key={r.id}>
                 <button
                   type="button"
+                  id={`rv-item-${r.id}`}
                   className={cx("rv-item", selected?.id === r.id && "is-on")}
                   onClick={() => select(r.id)}
                 >
@@ -321,9 +504,12 @@ export function ReviewsScreen({ reviews, channels, initialId, actions, inbox, in
             state={stateOf(selected)}
             answered={isAnswered(selected)}
             onBack={() => setMobileDetail(false)}
-            onDraft={(draft) => setLocal((prev) => ({ ...prev, [selected.id]: { ...stateOf(selected), draft } }))}
+            onDraft={(draft) => editDraft(selected, draft)}
             onPost={() => post(selected)}
             onRedraft={actions ? () => redraft(selected) : undefined}
+            onForward={actions?.forward ? () => forward(selected) : undefined}
+            onNext={isAnswered(selected) ? () => goNext(selected.id) : undefined}
+            nextLabel={nextOf(selected.id) ? "다음 리뷰" : "목록으로"}
             pending={pending}
           />
         )}
@@ -350,6 +536,11 @@ interface ReviewDetailProps {
   onDraft: (draft: string) => void;
   onPost: () => void;
   onRedraft?: () => void;
+  /** 현장에 전달 (인수인계) */
+  onForward?: () => void;
+  /** 답한 뒤 — 지금 분류 그대로 다음 리뷰 */
+  onNext?: () => void;
+  nextLabel?: string;
   pending?: boolean;
 }
 
@@ -363,6 +554,9 @@ function ReviewDetail({
   onDraft,
   onPost,
   onRedraft,
+  onForward,
+  onNext,
+  nextLabel,
   pending,
 }: ReviewDetailProps) {
   const reply = state.posted?.text ?? review.reply;
@@ -401,11 +595,49 @@ function ReviewDetail({
 
       {answered && reply ? (
         <section className="rv-reply rv-reply--done">
+          {state.posted?.via === "copy" && (
+            <div className="rv-copied" role="status">
+              <p>
+                <strong>답글을 복사했어요.</strong> {channel.name} 파트너센터에 붙여넣어 주세요. 붙여넣기 전까지는
+                손님에게 보이지 않아요.
+              </p>
+              <div className="rv-copied__actions">
+                <PmButton
+                  size="sm"
+                  icon="copy"
+                  onClick={() => void navigator.clipboard?.writeText(reply).catch(() => undefined)}
+                >
+                  다시 복사
+                </PmButton>
+                {state.posted.copyTo && (
+                  <a className="rv-copied__open" href={state.posted.copyTo} target="_blank" rel="noopener noreferrer">
+                    파트너센터 열기
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
           <p className="rv-reply__label">
-            <Badge tone="ok">{state.posted?.via === "copy" ? "복사해서 게시함" : "게시 완료"}</Badge>
-            <span>사장님 답글</span>
+            {review.replyExternal && !state.posted ? (
+              <>
+                <Badge tone="neutral">채널에 이미 있던 답글</Badge>
+                <span>우주스테이를 쓰기 전에 단 답글</span>
+              </>
+            ) : (
+              <>
+                <Badge tone="ok">{state.posted?.via === "copy" ? "직접 붙여넣기로 답함" : "자동 등록함"}</Badge>
+                <span>사장님 답글</span>
+              </>
+            )}
           </p>
           <p className="rv-reply__text">{reply}</p>
+          {onNext && (
+            <div className="rv-reply__next">
+              <PmButton size="sm" onClick={onNext} icon="chevron">
+                {nextLabel ?? "다음 리뷰"}
+              </PmButton>
+            </div>
+          )}
         </section>
       ) : (
         <section className="rv-reply">
@@ -416,10 +648,20 @@ function ReviewDetail({
           </div>
 
           {review.needsReview && (
-            <p className="rv-reply__warn">
+            <div className="rv-reply__warn">
               <Icon name="alert" size={15} />
-              실명·연락처가 들어 있는 리뷰라 자동 게시에서 빠졌어요. 내용을 확인하고 직접 게시해 주세요.
-            </p>
+              <div>
+                <p>
+                  리뷰에 이름이나 전화번호가 들어 있어요. 답글에는 옮겨 적지 말고, 연락 요청은 현장에서 챙기게 전달해
+                  주세요. 이 리뷰는 자동 등록하지 않아요.
+                </p>
+                {onForward && (
+                  <PmButton size="sm" icon="door" onClick={onForward} disabled={pending} className="rv-reply__fwd">
+                    현장에 전달
+                  </PmButton>
+                )}
+              </div>
+            </div>
           )}
 
           {review.aiKeywords.length > 0 && (
@@ -461,13 +703,13 @@ function ReviewDetail({
               </PmButton>
             ) : (
               <PmButton variant="primary" icon="copy" onClick={onPost} disabled={!state.draft.trim() || pending}>
-                복사하고 게시 완료로 표시
+                복사하고 답한 것으로 표시
               </PmButton>
             )}
           </div>
           {channel.replyMode === "copy" && (
             <p className="rv-reply__hint">
-              {josa(channel.name, "은/는")} 아직 자동 게시를 지원하지 않아 파트너센터에 붙여넣어야 해요. 누르면 답글을
+              {josa(channel.name, "은/는")} 아직 자동 등록이 안 돼서 파트너센터에 직접 붙여넣어야 해요. 누르면 답글을
               복사하고 파트너센터를 새 창으로 열어요.
             </p>
           )}

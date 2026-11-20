@@ -512,6 +512,87 @@
   border-color: var(--pm-bad);
   color: var(--pm-bad);
 }
+.op-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+/* 객실 상세 맨 아래 — 호수·타입 고치기 · 삭제 */
+.op-dlg__manage {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--pm-s4);
+  padding-top: var(--pm-s3);
+  border-top: 1px solid var(--pm-line-soft);
+  font-size: var(--pm-fs-table);
+  color: var(--pm-muted);
+}
+.op-dlg__manage > span {
+  margin-right: auto;
+}
+.op-dlg__remove.pm-btn {
+  color: var(--pm-bad);
+}
+.op-dlg__warn {
+  font-size: var(--pm-fs-table);
+  color: var(--pm-ink-2);
+}
+.op-dlg__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: var(--pm-s3);
+}
+.op-dlg__row .pm-field + .pm-field {
+  margin-top: 0;
+}
+/* 객실 한 번에 등록 */
+.op-bulk {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--pm-s4);
+}
+.op-bulk .pm-field + .pm-field {
+  margin-top: 0;
+}
+.op-bulk__range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--pm-fs-table);
+  color: var(--pm-ink-2);
+  white-space: nowrap;
+}
+.op-bulk__range .pm-input {
+  width: 64px;
+  text-align: right;
+}
+.op-bulk__preview {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.op-bulk__preview > div {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 8px;
+}
+.op-bulk__preview dt {
+  font-weight: 600;
+  color: var(--pm-ink);
+}
+.op-bulk__preview dd {
+  color: var(--pm-ink-2);
+  word-spacing: 4px;
+}
+@media (max-width: 720px) {
+  .op-bulk {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .op-check {
   display: inline-flex;
   align-items: center;
@@ -565,5 +646,39 @@
   }
   .op-dlg__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.op-bulk + .pm-field {
+  margin-top: var(--pm-s4);
+}
+
+/* 객실 칸 (S4) — 호수가 먼저, 상태가 둘째. 누가 언제 바꿨는지는 마우스를 올리거나 포커스했을 때만 */
+.op-room__no {
+  font-size: 22px;
+  line-height: 1.15;
+}
+@media (hover: hover) {
+  .op-room__meta {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .op-room:hover .op-room__meta,
+  .op-room:focus-visible .op-room__meta {
+    opacity: 1;
+  }
+}
+@media (hover: none) {
+  .op-room__meta {
+    display: none;
+  }
+}
+
+/* 손가락 (D-08) */
+@media (pointer: coarse) {
+  .op-filter__btn,
+  .op-note__tools button,
+  .op-note button,
+  .op-seg__btn {
+    min-height: var(--pm-touch);
   }
 }

@@ -1,3 +1,4 @@
+import type { AdminActivation, AdminAttention, AdminPilotKpi, AdminPropertyPilotDetail } from "./admin-pilot";
 import type { ActionResult, ChannelId, PropertyType } from "./pms";
 
 /* ── 디지털매출장부 (F2-01 · F2-03 · F2-05 · F2-06) ─────────── */
@@ -18,6 +19,10 @@ export interface LedgerData {
   prevSales: number;
   /** 지난달 같은 날짜까지의 매출 (있으면 "전월 대비"에 이 값을 쓴다) */
   prevSalesToDate?: number;
+  /** 실서버: 진행 중인 달이면 true — sales·fees·channels 는 오늘 체크인까지(확정) */
+  partial?: boolean;
+  /** 실서버: 내일 ~ 말일 체크인 예정 (sales 에 넣지 않음, 지난 달은 0) */
+  upcoming?: UpcomingSales;
   adSpend: number;
   fees: number;
   /** 14일 이내 정산 예정 */
@@ -28,6 +33,18 @@ export interface LedgerData {
   calendar: { month: string; days: readonly SettlementDay[] };
   priceCompare: PriceCompare;
   stayMix: StayMix;
+}
+
+/** 아직 투숙 전인 예약 — 진행 중인 달의 내일 ~ 말일 체크인 */
+export interface UpcomingSales {
+  sales: number;
+  bookings: number;
+  commission: number;
+}
+
+/** 매출장부 동작 — 채널 광고비 직접 입력 (사장님·매니저) */
+export interface LedgerActions {
+  setAdSpend: (channel: ChannelId, month: string, amount: number) => Promise<ActionResult>;
 }
 
 export interface SettlementDay {
@@ -72,10 +89,28 @@ export interface AttendanceRow {
   /** "HH:mm" — 없으면 미기록 */
   in?: string;
   out?: string;
-  status: "working" | "done" | "missing-out" | "off" | "late";
+  /** scheduled: 오늘 근무인데 아직 시작 시각(주간 9시 · 야간 22시) 전 */
+  status: "working" | "done" | "missing-out" | "off" | "late" | "scheduled";
 }
 
-export type ShiftKind = "day" | "night" | "off";
+/** 퇴근 기록이 빠진 근무 (최근 31일, 퇴사자 포함) — 기록 수정으로 고친다 */
+export interface MissingClockOut {
+  staffId: string;
+  name: string;
+  /** 근무일 YYYY-MM-DD */
+  date: string;
+  /** 출근 HH:mm */
+  in: string;
+}
+
+/** unset: 근무표를 아직 안 짠 날 (미정 — 휴무와 다름) */
+export type ShiftKind = "day" | "night" | "off" | "unset";
+
+/** 근무표 기본 시간 (한국 시간) — 주간 09~16시 · 야간 22~다음 날 07시. 업장별 설정은 아직 없음 */
+export const SHIFT_TIME: Readonly<Record<"day" | "night", { label: string; hours: string }>> = {
+  day: { label: "낮", hours: "09–16시" },
+  night: { label: "밤", hours: "22–07시" },
+};
 
 export interface PayrollRow {
   staffId: string;
@@ -99,6 +134,8 @@ export interface StaffData {
   monthHours: Readonly<Record<string, number>>;
   week: { dates: readonly string[]; shifts: Readonly<Record<string, readonly ShiftKind[]>> };
   payroll: readonly PayrollRow[];
+  /** 실서버: 퇴근 기록이 빠진 근무 */
+  missingClockOut?: readonly MissingClockOut[];
 }
 
 /* ── 지출관리 (F6-01 · F6-03 · F6-04) ───────────────────────── */
@@ -113,6 +150,8 @@ export interface ExpenseItem {
   amount: number;
   source: "card" | "receipt" | "order" | "manual";
   memo?: string | null;
+  /** 실서버: 영수증으로 등록한 지출이면 그 영수증 id (영수증 보기) */
+  receiptId?: string | null;
 }
 
 export interface PurchaseOrder {
@@ -132,6 +171,8 @@ export interface ExpenseData {
   /** 지난달 같은 날짜까지의 지출 */
   prevTotalToDate?: number;
   sales: number;
+  /** 실서버: 내일 ~ 말일 체크인 예정 매출 (sales 에 넣지 않음) */
+  upcoming?: UpcomingSales;
   items: readonly ExpenseItem[];
   orders: readonly PurchaseOrder[];
   /** 영수증 인식 예시 (F6-03) */
@@ -149,7 +190,8 @@ export interface ReceiptScan {
   category: ExpenseCategory | null;
 }
 
-export type NoticeKind = "review" | "settle" | "sync" | "billing" | "staff";
+/** summary: 매일 아침 8시 요약 (앱 알림만) */
+export type NoticeKind = "review" | "settle" | "sync" | "billing" | "staff" | "summary";
 
 export interface NoticeSetting {
   kind: NoticeKind;
@@ -169,6 +211,8 @@ export interface AccountMember {
   phone: string;
   role: AccountRole;
   status: "active" | "invited";
+  /** 초대 보낸 날 YYYY-MM-DD (초대 중일 때) */
+  invitedAt?: string;
 }
 
 export interface PlanOption {
@@ -199,7 +243,8 @@ export interface PropertyProfile {
 
 export interface NotificationItem {
   id: string;
-  kind: "review" | "settle" | "sync" | "billing" | "staff";
+  /** summary: 아침 요약 — 여러 줄 */
+  kind: "review" | "settle" | "sync" | "billing" | "staff" | "summary";
   text: string;
   at: string;
   unread: boolean;
@@ -227,6 +272,17 @@ export interface SettingsData {
   inTrial?: boolean;
   hasCard?: boolean;
   noticeSettings?: readonly NoticeSetting[];
+  /** 실서버: 새 업장 무료 체험 일수 */
+  trialDays?: number;
+  /** 실서버: 실증 업장 (endsAt 마지막 날) */
+  pilot?: { group: string; endsAt: string; active: boolean } | null;
+  /** 실서버: 실증 기간이라 결제하지 않음 */
+  billingHeld?: boolean;
+  /**
+   * 구독·결제를 볼 수 있는지 — 실서버에서 결제 정보를 못 받으면(매니저 등) false.
+   * false 면 plans·billing 등은 빈 값이고 화면은 예시 대신 안내만 보인다.
+   */
+  billingVisible?: boolean;
 }
 
 /* ── 운영자 백오피스 · 문의 (F0-14 · F0-16) ─────────────────── */
@@ -241,6 +297,65 @@ export interface AdminProperty {
   syncErrors: number;
   joined: string;
   manager: string;
+  /** 사장님 이름 · 휴대폰 (검색용 — 실서버에서만) */
+  owner?: string;
+  ownerPhone?: string;
+  /** 사장님 계정 id — 사장님 단위로 묶어 보기 */
+  ownerId?: string;
+  /** 최근 접속 (YYYY-MM-DD HH:mm) — 사장님 · 매니저 중 가장 최근 */
+  lastLoginOwner?: string | null;
+  lastLoginManager?: string | null;
+  /** 실증 묶음 (예: 대전 1차) */
+  pilotGroup?: string | null;
+  activation?: AdminActivation | null;
+}
+
+/** 운영자가 보는 업장 상세 (GET /admin/properties/:id) */
+export interface AdminPropertyDetail extends Partial<AdminPropertyPilotDetail> {
+  id: string;
+  name: string;
+  type: PropertyType;
+  address: string;
+  rooms: number;
+  bizNo: string;
+  bizVerified: boolean;
+  ownerName: string;
+  joined: string;
+  manager: { id: string; name: string } | null;
+  subscriptions: readonly { name: string; monthlyPrice: number; status: string; trialEndsAt: string | null }[];
+  channels: readonly {
+    channel: ChannelId;
+    name: string;
+    status: string;
+    lastSyncedAt: string | null;
+    lastError: string | null;
+    fails: number;
+  }[];
+  members: readonly { role: "owner" | "manager" | "staff"; name: string; phone: string; lastLoginAt: string | null }[];
+  payments: readonly {
+    id: string;
+    month: string;
+    description: string;
+    amount: number;
+    status: string;
+    paidAt: string;
+  }[];
+}
+
+/** 담당 운영자로 고를 수 있는 운영자 계정 */
+export interface AdminOperator {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+}
+
+/** 운영자 업장 상세 · 담당 운영자 지정 */
+export interface AdminPropertyActions {
+  propertyDetail: (propertyId: string) => Promise<ActionResult<AdminPropertyDetail>>;
+  /** managerId null: 담당 해제 */
+  assignManager: (propertyId: string, managerId: string | null) => Promise<ActionResult<AdminPropertyDetail>>;
+  operators: () => Promise<ActionResult<AdminOperator[]>>;
 }
 
 export interface Inquiry {
@@ -283,6 +398,9 @@ export interface AdminData {
   overview?: AdminOverview;
   /** 로그인한 운영자 */
   me?: { name: string; email: string; role: "SUPER" | "OPERATOR" };
+  /** 실증 KPI (첫 묶음) · 연락할 곳 */
+  pilot?: AdminPilotKpi;
+  attention?: AdminAttention;
 }
 
 /* ── 리뷰 답글 설정 (F1-04 · F1-08) ────────────────────────── */
@@ -334,6 +452,61 @@ export interface StaffMeData {
   week: { dates: readonly string[]; shifts: readonly ShiftKind[] };
   month: { hours: number; nightHours: number; estimatedPay: number };
   records: readonly { date: string; in: string; out?: string; hours?: number; edited: boolean }[];
+  /** 다음 주 내 근무 (근무표 없는 날은 unset) */
+  nextWeek?: { dates: readonly string[]; shifts: readonly ShiftKind[] };
+  /** 오늘 같이 일하는 사람 — 오늘 낮·밤 근무이거나 출근한 동료 (shift null: 근무표 없이 출근) */
+  coworkers?: readonly { name: string; shift: "day" | "night" | null; working: boolean }[];
+  /** 이번 달 급여 내역 — 사장님 급여 화면과 같은 계산 */
+  pay?: StaffMePay;
+  /** 방금 누른 퇴근을 되돌릴 수 있는 마감 시각 (ISO, 퇴근 후 5분) — 없으면 되돌릴 수 없음 */
+  undoOutUntil?: string | null;
+}
+
+/** 직원 본인 이번 달 급여 내역 — 시급제: 기본(시간 × 시급) + 야간 가산 + 주휴. 월급제: base = 그 달 월급(일할) */
+export interface StaffMePay {
+  type: "hourly" | "monthly";
+  /** 시급 (시급제) */
+  rate?: number;
+  /** 월급 (월급제) */
+  monthly?: number;
+  hours: number;
+  base: number;
+  nightHours: number;
+  night: number;
+  /** 주휴 시간 (시급제) */
+  weeklyHours?: number;
+  weekly: number;
+  total: number;
+  /** null: 계산만 · draft 확정 전 · confirmed 확정 · sent 명세 받음 */
+  status: "draft" | "confirmed" | "sent" | null;
+}
+
+/** 직원 한 명의 한 달 출퇴근 (알바관리 근태 '이번 달 기록', P-11) */
+export interface StaffMonthAttendance {
+  month: string;
+  staffId: string;
+  name: string;
+  /** 그 달 급여가 확정돼 고칠 수 없음 */
+  locked: boolean;
+  totalHours: number;
+  workedDays: number;
+  days: readonly StaffMonthDay[];
+}
+
+export interface StaffMonthDay {
+  date: string;
+  /** 근무표 (없으면 unset) */
+  shift: ShiftKind;
+  in?: string;
+  out?: string;
+  hours?: number;
+  /** 고친 사유 */
+  memo?: string;
+  edited: boolean;
+  /** 고친 사람 이름 */
+  editedBy?: string;
+  /** done 퇴근 · working 근무 중 · missing-out 퇴근 누락 · absent 근무일인데 기록 없음 · scheduled 오늘·앞으로 근무 */
+  status: "done" | "working" | "missing-out" | "absent" | "scheduled";
 }
 
 /* ── 현장 업무 (F7-01 객실 상태 · F7-02 인수인계 · F7-03 공지) ─── */
@@ -410,6 +583,10 @@ export interface RoomInput {
 export interface OpsActions {
   setRoomStatus: (roomId: string, status: RoomStatus, memo?: string) => Promise<ActionResult>;
   addRooms: (rooms: readonly RoomInput[]) => Promise<ActionResult>;
+  /** 호수·층·객실 타입 고치기 (사장님·매니저) */
+  updateRoom: (roomId: string, room: RoomInput) => Promise<ActionResult>;
+  /** 객실 삭제 — 상태 기록도 함께 (사장님·매니저) */
+  removeRoom: (roomId: string) => Promise<ActionResult>;
   roomLogs: (roomId: string) => Promise<ActionResult<RoomLog[]>>;
   addNote: (input: {
     kind: OpsNote["kind"];

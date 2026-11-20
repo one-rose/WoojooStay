@@ -4,12 +4,21 @@ import { Errors } from '../common/errors/app-error.js';
 import { addDaysIso, addMonths, dateOnly, isoDay, kstDate, kstHour, monthStart } from '../common/utils/dates.js';
 import { randomToken, sha256 } from '../common/utils/crypto.js';
 import { exposeDevSecrets, webOrigin, type Env } from '../config/env.js';
-import { Prisma, type Employee } from '../generated/prisma/client.js';
-import type { ClockMethod, Role, ShiftType } from '../generated/prisma/enums.js';
+import { Prisma, type Employee, type Payroll } from '../generated/prisma/client.js';
+import type { ClockMethod, PayType, Role, ShiftType } from '../generated/prisma/enums.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SmsSender } from '../sms/sms-sender.js';
-import { computeMonthlyPay, isBelowMinimumWage, MINIMUM_WAGE, monthWeekRange, sumHours } from './payroll.js';
+import { SmsQuota, smsSafeName } from '../sms/sms-quota.js';
+import {
+  computeMonthlyPay,
+  currentMinimumWage,
+  isBelowMinimumWage,
+  minimumWageFor,
+  monthWeekRange,
+  sumHours,
+  weekMonday,
+} from './payroll.js';
 import type { EditAttendanceDto, EmployeeDto, UpdateEmployeeDto } from './staff.dto.js';
 
 const KST_OFFSET = '+09:00';
@@ -20,6 +29,14 @@ const CONTRACT_DAYS = 7;
 /** 출근 후 이 시간이 지나도 퇴근 기록이 없으면 '퇴근 누락'으로 보고, 지금 근무 중으로 치지 않는다 */
 export const OPEN_SHIFT_HOURS = 16;
 const openSince = (now = new Date()) => new Date(now.getTime() - OPEN_SHIFT_HOURS * 3_600_000);
+/** 퇴근을 누른 뒤 이 시간 안에는 본인이 되돌릴 수 있다 (P-12) */
+export const UNDO_OUT_MS = 5 * 60_000;
+/** 퇴근 누락을 찾는 기간 — 전체 현황(/portfolio)과 같게 */
+export const MISSING_LOOKBACK_DAYS = 31;
+/** 근무 시작 시각 (KST 시) — 이 시각 전이면 '근무 예정', 지나도 출근이 없으면 '지각' */
+const SHIFT_START_HOUR: Record<'DAY' | 'NIGHT', number> = { DAY: 9, NIGHT: 22 };
+/** 그 날 재직 중인지 — 퇴사일 당일까지는 재직 */
+const employedOn = (iso: string) => ({ OR: [{ resignedAt: null }, { resignedAt: { gte: dateOnly(iso) } }] });
 type AttendanceRow = { employeeId: string; workDate: Date; clockInAt: Date; clockOutAt: Date | null };
 type Actor = { userId: string; role: Role };
 
@@ -29,6 +46,7 @@ export class StaffService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sms: SmsSender,
+    private readonly quota: SmsQuota,
     private readonly config: ConfigService<Env, true>,
     private readonly notifications: NotificationsService,
   ) {}
@@ -39,11 +57,15 @@ export class StaffService {
     return e;
   }
 
-  /** 화면 한 장 — 직원·오늘 출퇴근·이번 주 근무표·이번 달 급여 */
-  async overview(propertyId: string, date = kstDate()) {
+  /**
+   * 화면 한 장 — 직원·오늘 출퇴근·이번 주 근무표·이번 달 급여.
+   * week('YYYY-MM-DD', 그 주의 아무 날 — 보통 월요일)를 주면 근무표는 그 주로 (교대표 주 이동).
+   */
+  async overview(propertyId: string, date = kstDate(), week?: string) {
     const month = date.slice(0, 7);
-    const monday = addDaysIso(date, -((dateOnly(date).getUTCDay() + 6) % 7));
+    const monday = weekMonday(week ?? date);
     const weekDates = Array.from({ length: 7 }, (_, i) => addDaysIso(monday, i));
+    const today = kstDate();
     const members = await this.prisma.employee.findMany({
       where: {
         propertyId,
@@ -53,35 +75,38 @@ export class StaffService {
       include: { contracts: { orderBy: { sentAt: 'desc' }, take: 1 } },
     });
     const ids = members.map((m) => m.id);
-    const [today, monthRows, shifts, saved, missing] = await Promise.all([
+    const [dayRows, overnight, monthRows, shifts, todayShifts, saved, missing] = await Promise.all([
       this.prisma.attendance.findMany({ where: { employeeId: { in: ids }, workDate: dateOnly(date) } }),
+      // 어젯밤 출근해 자정을 넘겨 아직 근무 중인 기록 (16시간 안)
+      date === today
+        ? this.prisma.attendance.findMany({
+            where: {
+              employeeId: { in: ids },
+              workDate: dateOnly(addDaysIso(date, -1)),
+              clockOutAt: null,
+              clockInAt: { gt: openSince() },
+            },
+          })
+        : Promise.resolve([]),
       this.payrollRows(ids, month),
       this.prisma.workShift.findMany({
         where: { employeeId: { in: ids }, workDate: { gte: dateOnly(weekDates[0]), lte: dateOnly(weekDates[6]) } },
       }),
+      this.prisma.workShift.findMany({ where: { employeeId: { in: ids }, workDate: dateOnly(date) } }),
       this.prisma.payroll.findMany({ where: { employeeId: { in: ids }, month: monthStart(month) } }),
-      // 퇴근을 안 찍고 16시간 넘게 열린 기록 (최근 31일) — 사장님이 고쳐 줘야 한다
-      this.prisma.attendance.findMany({
-        where: {
-          employeeId: { in: ids },
-          clockOutAt: null,
-          clockInAt: { lte: openSince() },
-          workDate: { gte: dateOnly(addDaysIso(kstDate(), -31)) },
-        },
-        orderBy: { workDate: 'desc' },
-      }),
+      this.missingClockOuts(propertyId),
     ]);
 
-    const isToday = date === kstDate();
+    const isToday = date === today;
     const stale = openSince();
     const hour = kstHour();
-    const todayShift = (id: string) =>
-      shifts.find((s) => s.employeeId === id && isoDay(s.workDate) === date)?.shiftType;
+    const todayShift = (id: string) => todayShifts.find((s) => s.employeeId === id)?.shiftType;
 
     return {
       date,
       month,
-      minimumWage: MINIMUM_WAGE,
+      /** 이 달(month)의 해 최저시급 */
+      minimumWage: minimumWageFor(month),
       members: members.map((m) => ({
         id: m.id,
         name: m.name,
@@ -94,13 +119,17 @@ export class StaffService {
         contract: m.contracts[0]?.status ?? null,
         linked: m.userId !== null,
       })),
+      /**
+       * 오늘 상태 — working 근무 중(어젯밤부터 이어진 야간 포함) · done 퇴근 · missing-out 퇴근 누락 ·
+       * late 시작 시각이 지났는데 출근 없음 · scheduled 오늘 근무인데 아직 시작 전 · off 휴무(근무표 없음)
+       */
       today: members.map((m) => {
-        const a = today.find((x) => x.employeeId === m.id);
+        const a = dayRows.find((x) => x.employeeId === m.id) ?? overnight.find((x) => x.employeeId === m.id);
         const shift = todayShift(m.id);
-        let status: 'working' | 'done' | 'missing-out' | 'late' | 'off';
+        let status: 'working' | 'done' | 'missing-out' | 'late' | 'scheduled' | 'off';
         if (a) status = a.clockOutAt ? 'done' : isToday && a.clockInAt > stale ? 'working' : 'missing-out';
-        else if (shift === 'DAY' && (!isToday || hour >= 9)) status = 'late';
-        else if (shift === 'NIGHT' && (!isToday || hour >= 22)) status = 'late';
+        else if (shift === 'DAY' || shift === 'NIGHT')
+          status = !isToday || hour >= SHIFT_START_HOUR[shift] ? 'late' : 'scheduled';
         else status = 'off';
         return {
           employeeId: m.id,
@@ -121,43 +150,53 @@ export class StaffService {
           ).hours,
         ]),
       ),
+      /** 근무표 — 근무표를 짜지 않은 날은 null (미정 · 휴무 OFF 와 다름) */
       week: {
         dates: weekDates,
         shifts: Object.fromEntries(
           members.map((m) => [
             m.id,
             weekDates.map(
-              (d) =>
-                shifts.find((s) => s.employeeId === m.id && isoDay(s.workDate) === d)?.shiftType ??
-                ('OFF' as ShiftType),
+              (d) => shifts.find((s) => s.employeeId === m.id && isoDay(s.workDate) === d)?.shiftType ?? null,
             ),
           ]),
         ),
       },
-      payroll: members.map((m) => {
-        const row = saved.find((p) => p.employeeId === m.id);
-        if (row)
-          return {
-            employeeId: m.id,
-            hours: Number(row.workHours),
-            nightHours: Number(row.nightHours),
-            base: row.baseAmount,
-            night: row.nightAmount,
-            weekly: row.weeklyAmount,
-            total: row.totalAmount,
-            status: row.status,
-          };
-        return { employeeId: m.id, ...this.calc(m, month, monthRows), status: null };
-      }),
-      /** 퇴근 누락 — 출근 후 16시간 넘게 퇴근 기록이 없음. 기록 수정(PUT attendance)으로 고친다 */
+      payroll: members.map((m) => ({
+        employeeId: m.id,
+        ...this.payFor(
+          m,
+          month,
+          monthRows,
+          saved.find((p) => p.employeeId === m.id),
+        ),
+      })),
+      /**
+       * 퇴근 누락 — 출근 후 16시간 넘게 퇴근 기록이 없음 (최근 31일, 퇴사자 포함 · /portfolio 와 같은 기준).
+       * 기록 수정(PUT attendance)으로 고친다
+       */
       missingClockOut: missing.map((a) => ({
         employeeId: a.employeeId,
-        name: members.find((m) => m.id === a.employeeId)?.name ?? '',
+        name: a.employee.name,
         attendanceId: a.id,
         date: isoDay(a.workDate),
         in: hhmm(a.clockInAt),
       })),
     };
+  }
+
+  /** 퇴근 누락 — 이 업장 직원(퇴사자 포함) 기록 중 퇴근 없이 16시간 넘게 열린 것 (최근 31일) */
+  private missingClockOuts(propertyId: string, now = new Date()) {
+    return this.prisma.attendance.findMany({
+      where: {
+        employee: { propertyId },
+        clockOutAt: null,
+        clockInAt: { lte: openSince(now) },
+        workDate: { gte: dateOnly(addDaysIso(kstDate(now), -MISSING_LOOKBACK_DAYS)) },
+      },
+      include: { employee: { select: { name: true } } },
+      orderBy: { workDate: 'desc' },
+    });
   }
 
   /** 급여 계산용 출퇴근 — 그 달 첫 주 월요일 ~ 마지막 주 일요일 (주휴수당이 달을 넘는 주) */
@@ -180,34 +219,70 @@ export class StaffService {
     return { hours: r.hours, nightHours: r.nightHours, base: r.base, night: r.night, weekly: r.weekly, total: r.total };
   }
 
+  /**
+   * 한 직원의 그 달 급여 — 확정·발송된 급여는 저장값, 확정 전(DRAFT)·계산 전은 출퇴근 기록으로 다시 계산.
+   * 사장님 알바관리 급여 칸과 직원 본인 화면(/staff/me)이 같은 숫자를 보도록 둘 다 이것을 쓴다.
+   */
+  private payFor(m: Employee, month: string, rows: AttendanceRow[], row?: Payroll) {
+    if (row && row.status !== 'DRAFT')
+      return {
+        hours: Number(row.workHours),
+        nightHours: Number(row.nightHours),
+        base: row.baseAmount,
+        night: row.nightAmount,
+        weekly: row.weeklyAmount,
+        total: row.totalAmount,
+        status: row.status,
+      };
+    return { ...this.calc(m, month, rows), status: row?.status ?? null };
+  }
+
   /** 매니저는 자기 직원 기록(급여·출퇴근)을 고칠 수 없다 — 사장님만 */
   private guardSelfEdit(actor: Actor, e: Employee) {
     if (actor.role === 'MANAGER' && e.userId === actor.userId) throw Errors.selfEditForbidden();
   }
 
-  /** 직원 본인 화면 — 오늘 출퇴근 · 이번 주 근무 · 이번 달 기록 (F5-02 직원 모바일) */
+  /**
+   * 직원 본인 화면 — 오늘 출퇴근 · 이번 주·다음 주 근무 · 오늘 같이 일하는 사람 · 이번 달 기록 · 급여 내역 (F5-02 직원 모바일).
+   * 근무표가 없는 날은 null(미정). 급여 내역(pay)은 사장님 알바관리 급여 칸과 같은 계산(payFor)이다.
+   */
   async mine(propertyId: string, userId: string, date = kstDate()) {
     const e = await this.prisma.employee.findFirst({
-      where: { propertyId, userId, resignedAt: null },
+      where: { propertyId, userId, ...employedOn(kstDate()) },
       include: { property: { select: { name: true } } },
     });
     if (!e) throw Errors.notLinkedEmployee();
     const month = date.slice(0, 7);
-    const monday = addDaysIso(date, -((dateOnly(date).getUTCDay() + 6) % 7));
+    const monday = weekMonday(date);
     const weekDates = Array.from({ length: 7 }, (_, i) => addDaysIso(monday, i));
-    const [allRows, shifts, open] = await Promise.all([
+    const nextDates = weekDates.map((d) => addDaysIso(d, 7));
+    const [allRows, shifts, open, saved, crew, crewShifts, crewRows, lastOut] = await Promise.all([
       this.payrollRows([e.id], month),
       this.prisma.workShift.findMany({
-        where: { employeeId: e.id, workDate: { gte: dateOnly(weekDates[0]), lte: dateOnly(weekDates[6]) } },
+        where: { employeeId: e.id, workDate: { gte: dateOnly(weekDates[0]), lte: dateOnly(nextDates[6]) } },
       }),
       this.openShift(e.id),
+      this.prisma.payroll.findUnique({ where: { employeeId_month: { employeeId: e.id, month: monthStart(month) } } }),
+      this.prisma.employee.findMany({
+        where: { propertyId, id: { not: e.id }, ...employedOn(date) },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.workShift.findMany({
+        where: { employee: { propertyId }, employeeId: { not: e.id }, workDate: dateOnly(date) },
+      }),
+      this.prisma.attendance.findMany({
+        where: { employee: { propertyId }, employeeId: { not: e.id }, workDate: dateOnly(date) },
+      }),
+      this.lastClockOut(e.id),
     ]);
     const rows = allRows
       .filter((r) => isoDay(r.workDate).startsWith(month))
       .sort((a, b) => b.workDate.getTime() - a.workDate.getTime());
     const today = rows.find((r) => isoDay(r.workDate) === date);
-    const pay = this.calc(e, month, allRows);
-    const h = { hours: pay.hours, nightHours: pay.nightHours };
+    const pay = this.payFor(e, month, allRows, saved ?? undefined);
+    const shiftOn = (d: string) => shifts.find((s) => isoDay(s.workDate) === d)?.shiftType ?? null;
+    const hourly = e.payType === 'HOURLY';
     return {
       date,
       property: e.property.name,
@@ -217,13 +292,50 @@ export class StaffService {
       today: {
         in: (open ?? today) ? hhmm((open ?? today)!.clockInAt) : null,
         out: today?.clockOutAt ? hhmm(today.clockOutAt) : null,
-        shift: shifts.find((s) => isoDay(s.workDate) === date)?.shiftType ?? 'OFF',
+        /** null: 근무표 없음 (미정) */
+        shift: shiftOn(date),
       },
-      week: {
-        dates: weekDates,
-        shifts: weekDates.map((d) => shifts.find((s) => isoDay(s.workDate) === d)?.shiftType ?? ('OFF' as ShiftType)),
+      /** 방금 퇴근했으면 되돌릴 수 있는 마감 시각 (퇴근 후 5분, 급여 확정 전) — 없으면 null */
+      undoOutUntil: lastOut ? new Date(lastOut.clockOutAt!.getTime() + UNDO_OUT_MS).toISOString() : null,
+      week: { dates: weekDates, shifts: weekDates.map(shiftOn) },
+      nextWeek: { dates: nextDates, shifts: nextDates.map(shiftOn) },
+      /**
+       * 오늘 같이 일하는 사람 — 오늘 근무표가 낮·밤이거나 오늘 출근한 동료 (휴무·미정이면서 출근 안 한 사람은 빼고).
+       * working: 지금 근무 중
+       */
+      coworkers: crew
+        .map((c) => {
+          const shift = crewShifts.find((s) => s.employeeId === c.id)?.shiftType ?? null;
+          const a = crewRows.find((r) => r.employeeId === c.id);
+          return {
+            name: c.name,
+            shift: shift === 'DAY' || shift === 'NIGHT' ? shift : null,
+            working: !!a && !a.clockOutAt && a.clockInAt > openSince(),
+            clockedIn: !!a,
+          };
+        })
+        .filter((c) => c.shift !== null || c.clockedIn)
+        .sort((a, b) => (a.shift ?? 'Z').localeCompare(b.shift ?? 'Z') || a.name.localeCompare(b.name))
+        .map(({ clockedIn: _c, ...c }) => c),
+      month: { hours: pay.hours, nightHours: pay.nightHours, estimatedPay: pay.total },
+      /**
+       * 이번 달 급여 내역 — 사장님 급여 화면과 같은 숫자. 시급제: 기본(시간×시급) + 야간 가산(50%) + 주휴.
+       * 월급제는 rate·weeklyHours 가 null 이고 base 가 일할한 월급.
+       */
+      pay: {
+        payType: e.payType,
+        rate: hourly ? e.payAmount : null,
+        monthly: hourly ? null : e.payAmount,
+        hours: pay.hours,
+        base: pay.base,
+        nightHours: pay.nightHours,
+        night: pay.night,
+        weeklyHours: hourly && e.payAmount > 0 ? Math.round((pay.weekly / e.payAmount) * 10) / 10 : null,
+        weekly: pay.weekly,
+        total: pay.total,
+        /** null 계산만 · DRAFT 확정 전 · CONFIRMED 확정 · SENT 명세 보냄 */
+        status: pay.status,
       },
-      month: { hours: h.hours, nightHours: h.nightHours, estimatedPay: pay.total },
       records: rows.map((r) => ({
         date: isoDay(r.workDate),
         in: hhmm(r.clockInAt),
@@ -236,6 +348,102 @@ export class StaffService {
     };
   }
 
+  /** 되돌릴 수 있는 마지막 퇴근 — 5분 안에 본인이 찍은 퇴근 (그 뒤 사장님·매니저가 고친 기록은 아님) */
+  private lastClockOut(employeeId: string, now = new Date()) {
+    return this.prisma.attendance.findFirst({
+      where: {
+        employeeId,
+        clockOutAt: { gt: new Date(now.getTime() - UNDO_OUT_MS), lte: now },
+        clockInAt: { gt: openSince(now) },
+        editedAt: null,
+      },
+      orderBy: { clockOutAt: 'desc' },
+    });
+  }
+
+  /**
+   * 퇴근 되돌리기 (P-12) — 직원 본인이 잘못 누른 퇴근을 5분 안에 취소해 다시 근무 중으로.
+   * 본인 직원 기록만, 그 달 급여가 확정됐으면 안 된다. 사장님·매니저가 고친 기록은 되돌리지 않는다.
+   */
+  async undoClockOut(propertyId: string, userId: string, now = new Date()) {
+    const e = await this.prisma.employee.findFirst({ where: { propertyId, userId, ...employedOn(kstDate(now)) } });
+    if (!e) throw Errors.notLinkedEmployee();
+    const last = await this.lastClockOut(e.id, now);
+    if (!last) throw Errors.undoExpired();
+    await this.ensureNotLocked(propertyId, isoDay(last.workDate).slice(0, 7));
+    // 그새 다른 근무가 열렸으면(다시 출근) 되돌리지 않는다
+    if (await this.openShift(e.id)) throw Errors.alreadyClockedIn();
+    const r = await this.prisma.attendance.updateMany({
+      where: { id: last.id, clockOutAt: last.clockOutAt, editedAt: null },
+      data: { clockOutAt: null },
+    });
+    if (r.count === 0) throw Errors.undoExpired();
+    return this.prisma.attendance.findUniqueOrThrow({ where: { id: last.id } });
+  }
+
+  /**
+   * 직원 한 명의 한 달 출퇴근 (P-11 '이번 달 기록') — 기록이 있거나 근무표상 근무(낮·밤)인 날.
+   * missingOut: 퇴근 기록 없이 16시간 넘게 열림 · absent: 지난 근무일인데 기록 없음.
+   * locked: 그 달 급여가 확정돼 고칠 수 없음.
+   */
+  async employeeAttendance(propertyId: string, employeeId: string, month: string, today = kstDate()) {
+    if (month > today.slice(0, 7)) throw Errors.futureMonth();
+    const e = await this.employee(propertyId, employeeId);
+    const from = monthStart(month);
+    const to = monthStart(addMonths(month, 1));
+    const [rows, shifts, lockedCount] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where: { employeeId, workDate: { gte: from, lt: to } },
+        orderBy: { workDate: 'asc' },
+      }),
+      this.prisma.workShift.findMany({ where: { employeeId, workDate: { gte: from, lt: to } } }),
+      this.prisma.payroll.count({
+        where: { month: from, status: { in: ['CONFIRMED', 'SENT'] }, employee: { propertyId } },
+      }),
+    ]);
+    const editorIds = [...new Set(rows.map((r) => r.editedById).filter((x): x is string => !!x))];
+    const editors = editorIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: editorIds } }, select: { id: true, name: true } })
+      : [];
+    const stale = openSince();
+    const dates = new Set([
+      ...rows.map((r) => isoDay(r.workDate)),
+      ...shifts.filter((s) => s.shiftType !== 'OFF').map((s) => isoDay(s.workDate)),
+    ]);
+    const days = [...dates].sort().map((d) => {
+      const r = rows.find((x) => isoDay(x.workDate) === d);
+      const shift = shifts.find((x) => isoDay(x.workDate) === d)?.shiftType ?? null;
+      return {
+        workDate: d,
+        shift,
+        attendanceId: r?.id ?? null,
+        clockIn: r ? hhmm(r.clockInAt) : null,
+        clockOut: r?.clockOutAt ? hhmm(r.clockOutAt) : null,
+        hours: r?.clockOutAt
+          ? Math.round(((r.clockOutAt.getTime() - r.clockInAt.getTime()) / 3_600_000) * 10) / 10
+          : null,
+        method: r?.method ?? null,
+        /** 고친 사유 (사장님·매니저가 기록을 고칠 때 남긴 메모) */
+        memo: r?.memo ?? null,
+        edited: !!r?.editedAt,
+        editedAt: r?.editedAt ?? null,
+        editedBy: r?.editedById ? (editors.find((u) => u.id === r.editedById)?.name ?? null) : null,
+        missingOut: !!r && !r.clockOutAt && r.clockInAt <= stale,
+        working: !!r && !r.clockOutAt && r.clockInAt > stale,
+        absent: !r && d < today && d >= isoDay(e.hiredDate),
+      };
+    });
+    const done = rows.filter((r) => r.clockOutAt).map((r) => ({ ...r, workDate: isoDay(r.workDate) }));
+    return {
+      month,
+      employee: { id: e.id, name: e.name, jobRole: e.jobRole, hiredDate: isoDay(e.hiredDate) },
+      locked: lockedCount > 0,
+      totalHours: sumHours(done).hours,
+      workedDays: rows.length,
+      days,
+    };
+  }
+
   /** 지금 근무 중인 기록 — 퇴근 전이고 출근한 지 16시간 안 (어제 밤 야간 근무 포함) */
   private openShift(employeeId: string) {
     return this.prisma.attendance.findFirst({
@@ -245,20 +453,54 @@ export class StaffService {
   }
 
   // ─── F5-01 직원 ───────────────────────────────────────
-  async create(propertyId: string, dto: EmployeeDto) {
-    const linked = await this.prisma.membership.findFirst({
-      where: { propertyId, user: { phone: dto.phone } },
-      select: { userId: true },
-    });
+  /**
+   * 그 번호로 가입한 앱 계정 — 있으면 직원 기록과 연결하고, 이 업장 구성원이 아니면 직원(STAFF)으로 넣는다.
+   * 매니저가 자기 번호를 직원으로 넣어 자기 기록(급여·출퇴근)을 고치는 길은 막는다.
+   */
+  private async linkAccount(propertyId: string, actor: Actor, phone: string, employed: boolean) {
+    const user = await this.prisma.user.findUnique({ where: { phone }, select: { id: true } });
+    if (!user) return null;
+    if (actor.role === 'MANAGER' && user.id === actor.userId) throw Errors.selfEditForbidden();
+    if (employed)
+      await this.prisma.membership.upsert({
+        where: { userId_propertyId: { userId: user.id, propertyId } },
+        create: { userId: user.id, propertyId, role: 'STAFF' },
+        update: {},
+      });
+    return user.id;
+  }
+
+  /**
+   * 급여(시급·월급)는 사장님만 정한다 — 매니저가 넣거나 바꾸려 하면 403.
+   * before 가 있으면(수정) 지금과 같은 값은 바꾸는 게 아니므로 그대로 둔다.
+   */
+  private guardPay(actor: Actor, dto: { payType?: PayType; payAmount?: number }, before?: Employee) {
+    if (actor.role !== 'MANAGER') return;
+    const typeChanged = dto.payType !== undefined && dto.payType !== before?.payType;
+    const amountChanged = dto.payAmount !== undefined && dto.payAmount !== before?.payAmount;
+    if (typeChanged || amountChanged) throw Errors.payOwnerOnly();
+  }
+
+  async create(propertyId: string, actor: Actor, dto: EmployeeDto) {
+    // 매니저: 자기 계정 연결 막기(SELF_EDIT_FORBIDDEN)를 먼저 본 뒤 급여 막기 — 구성원 추가 같은 부수 효과 전에
+    if (actor.role === 'MANAGER') {
+      const self = await this.prisma.user.findUnique({ where: { phone: dto.phone }, select: { id: true } });
+      if (self?.id === actor.userId) throw Errors.selfEditForbidden();
+    }
+    this.guardPay(actor, dto);
+    if (actor.role !== 'MANAGER' && (dto.payType === undefined || dto.payAmount === undefined))
+      throw Errors.payRequired();
+    const userId = await this.linkAccount(propertyId, actor, dto.phone, true);
     const e = await this.prisma.employee.create({
       data: {
         propertyId,
-        userId: linked?.userId ?? null,
+        userId,
         name: dto.name.trim(),
         phone: dto.phone,
         jobRole: dto.jobRole,
-        payType: dto.payType,
-        payAmount: dto.payAmount,
+        // 매니저가 등록하면 그해 최저시급 시급제로 — 사장님이 알바관리에서 정한다
+        payType: dto.payType ?? 'HOURLY',
+        payAmount: dto.payAmount ?? minimumWageFor(dto.hiredDate),
         hiredDate: dateOnly(dto.hiredDate),
       },
     });
@@ -268,15 +510,14 @@ export class StaffService {
   async update(propertyId: string, actor: Actor, id: string, dto: UpdateEmployeeDto) {
     const before = await this.employee(propertyId, id);
     this.guardSelfEdit(actor, before);
-    // 번호를 바꾸면 그 번호로 가입한 구성원 계정과 다시 연결 (없으면 연결 해제)
+    this.guardPay(actor, dto, before);
+    const today = kstDate();
+    const resigned = dto.resignedDate ?? (before.resignedAt ? isoDay(before.resignedAt) : null);
+    const employed = !resigned || resigned >= today;
+    // 번호를 바꾸면 그 번호로 가입한 계정과 다시 연결 (없으면 연결 해제)
     let userId: string | null | undefined;
-    if (dto.phone && dto.phone !== before.phone) {
-      const linked = await this.prisma.membership.findFirst({
-        where: { propertyId, user: { phone: dto.phone } },
-        select: { userId: true },
-      });
-      userId = linked?.userId ?? null;
-    }
+    if (dto.phone && dto.phone !== before.phone)
+      userId = await this.linkAccount(propertyId, actor, dto.phone, employed);
     const e = await this.prisma.employee.update({
       where: { id },
       data: {
@@ -289,15 +530,28 @@ export class StaffService {
         resignedAt: dto.resignedDate ? dateOnly(dto.resignedDate) : undefined,
       },
     });
+    // 퇴사일이 지났으면 이 업장 직원(STAFF) 계정 권한도 뺀다 — 사장님·매니저 권한은 그대로
+    if (dto.resignedDate && dto.resignedDate < today && e.userId) await this.dropStaffMembership(propertyId, e.userId);
     return { ...e, belowMinimumWage: isBelowMinimumWage(e) };
   }
 
+  /** 같은 계정으로 재직 중인 다른 직원 기록이 없을 때만 STAFF 권한을 지운다 */
+  private async dropStaffMembership(propertyId: string, userId: string) {
+    const still = await this.prisma.employee.count({ where: { propertyId, userId, ...employedOn(kstDate()) } });
+    if (still > 0) return;
+    await this.prisma.membership.deleteMany({ where: { propertyId, userId, role: 'STAFF' } });
+  }
+
   // ─── F5-06 근로계약서 ─────────────────────────────────
-  async sendContract(propertyId: string, id: string) {
+  async sendContract(propertyId: string, senderId: string, id: string) {
     const e = await this.employee(propertyId, id);
     // 최저시급보다 적은 조건으로는 계약서를 보낼 수 없다
-    if (isBelowMinimumWage(e)) throw Errors.belowMinimumWage(MINIMUM_WAGE);
+    if (isBelowMinimumWage(e)) throw Errors.belowMinimumWage(currentMinimumWage());
     const property = await this.prisma.property.findUniqueOrThrow({ where: { id: propertyId } });
+    return this.quota.use(senderId, 'CONTRACT', () => this.issueContract(e, property.name));
+  }
+
+  private async issueContract(e: Employee, propertyName: string) {
     const token = randomToken();
     await this.prisma.laborContract.create({
       data: {
@@ -308,10 +562,10 @@ export class StaffService {
         tokenHash: sha256(token),
       },
     });
-    const url = `${webOrigin(this.config.get('WEB_ORIGIN', { infer: true }))}/app/contract/${token}`;
+    const web = webOrigin(this.config.get('WEB_ORIGIN', { infer: true }));
     await this.sms.send(
       e.phone,
-      `[우주스테이] ${property.name} 근로계약서가 도착했어요. ${CONTRACT_DAYS}일 안에 확인하고 서명해 주세요. ${url}`,
+      `[우주스테이] ${smsSafeName(propertyName)} 근로계약서가 도착했어요. ${CONTRACT_DAYS}일 안에 확인하고 서명해 주세요. ${web}/app/contract/${token}\n우주스테이 앱에서 출퇴근: ${web}/app/login`,
     );
     return {
       status: 'SENT' as const,
@@ -365,6 +619,7 @@ export class StaffService {
     const workDate = kstDate();
     const now = new Date();
     if (action === 'in') {
+      await this.ensureNotLocked(propertyId, workDate.slice(0, 7));
       // 오늘 이미 출근했거나, 어젯밤 야간 근무가 아직 안 끝났으면 다시 출근할 수 없다
       // (16시간 넘게 열린 기록은 퇴근 누락이라 무시 — 오늘 새로 출근할 수 있다)
       const [exists, open] = await Promise.all([
@@ -388,6 +643,8 @@ export class StaffService {
     // 퇴근: 16시간 안에 출근한 열린 기록만 (어제 퇴근을 깜빡한 기록에 30시간이 붙지 않게)
     const open = await this.openShift(employeeId);
     if (!open) throw Errors.notClockedIn();
+    // 지난달 마지막 날 밤 야간 근무 — 그 달 급여가 이미 확정됐으면 고칠 수 없다
+    await this.ensureNotLocked(propertyId, isoDay(open.workDate).slice(0, 7));
     const closed = await this.prisma.attendance.updateMany({
       where: { id: open.id, clockOutAt: null },
       data: { clockOutAt: now },
@@ -396,13 +653,30 @@ export class StaffService {
     return this.prisma.attendance.findUniqueOrThrow({ where: { id: open.id } });
   }
 
-  /** 사장님·매니저가 기록을 고치면 누가 언제 고쳤는지 남긴다 */
+  /** 그 달 급여가 확정(또는 발송)됐으면 출퇴근 기록을 더하거나 고칠 수 없다 — 확정을 먼저 풀어야 한다 */
+  private async ensureNotLocked(propertyId: string, month: string) {
+    const locked = await this.prisma.payroll.count({
+      where: { month: monthStart(month), status: { in: ['CONFIRMED', 'SENT'] }, employee: { propertyId } },
+    });
+    if (locked > 0) throw Errors.payrollLocked();
+  }
+
+  /**
+   * 사장님·매니저가 기록을 고치면 누가 언제 고쳤는지 남긴다.
+   * 근무일은 오늘까지 · 입사일 이후, 출근≠퇴근, 한 번 근무는 16시간 이하. 급여가 확정된 달은 고칠 수 없다.
+   */
   async editAttendance(propertyId: string, actor: Actor, dto: EditAttendanceDto) {
     const e = await this.employee(propertyId, dto.employeeId);
     this.guardSelfEdit(actor, e);
+    if (dto.workDate > kstDate()) throw Errors.workDateFuture();
+    if (dateOnly(dto.workDate) < e.hiredDate) throw Errors.workDateBeforeHired();
+    if (dto.clockOut && dto.clockOut === dto.clockIn) throw Errors.clockSame();
     const clockInAt = atKst(dto.workDate, dto.clockIn);
     let clockOutAt = dto.clockOut ? atKst(dto.workDate, dto.clockOut) : null;
     if (clockOutAt && clockOutAt <= clockInAt) clockOutAt = new Date(clockOutAt.getTime() + 86_400_000);
+    if (clockOutAt && clockOutAt.getTime() - clockInAt.getTime() > OPEN_SHIFT_HOURS * 3_600_000)
+      throw Errors.shiftTooLong(OPEN_SHIFT_HOURS);
+    await this.ensureNotLocked(propertyId, dto.workDate.slice(0, 7));
     const data = {
       clockInAt,
       clockOutAt,
@@ -440,8 +714,9 @@ export class StaffService {
     });
   }
 
-  /** 출퇴근 기록으로 다시 계산해 확정 전(DRAFT) 명세를 만든다. 확정된 건 그대로 둔다. */
-  async calculatePayroll(propertyId: string, month: string) {
+  /** 출퇴근 기록으로 다시 계산해 확정 전(DRAFT) 명세를 만든다. 확정된 건 그대로 둔다. 앞으로 올 달은 400 */
+  async calculatePayroll(propertyId: string, month: string, today = kstDate()) {
+    if (month > today.slice(0, 7)) throw Errors.futureMonth();
     const members = await this.payrollMembers(propertyId, month);
     const rows = await this.payrollRows(
       members.map((m) => m.id),
@@ -479,12 +754,25 @@ export class StaffService {
     return this.payrollList(propertyId, month);
   }
 
-  /** 급여 확정 — 끝난 달(지난달 이전)만, 최저시급 미만 직원이 있으면 막는다 */
+  /**
+   * 급여 확정 — 끝난 달(지난달 이전)만.
+   * 그 달 최저시급(월급제는 월급 ÷ 209시간) 미만 직원이 있거나, 퇴근 기록이 빠진 근무가 있으면 막는다.
+   */
   async confirmPayroll(propertyId: string, month: string, today = kstDate()) {
-    if (month >= today.slice(0, 7)) throw Errors.monthNotEnded();
+    if (month > today.slice(0, 7)) throw Errors.futureMonth();
+    if (month === today.slice(0, 7)) throw Errors.monthNotEnded();
     const members = await this.payrollMembers(propertyId, month);
-    if (members.some((m) => isBelowMinimumWage(m))) throw Errors.belowMinimumWage(MINIMUM_WAGE);
-    await this.calculatePayroll(propertyId, month);
+    const minimum = minimumWageFor(month);
+    if (members.some((m) => isBelowMinimumWage(m, month))) throw Errors.belowMinimumWage(minimum);
+    const missing = await this.prisma.attendance.count({
+      where: {
+        employeeId: { in: members.map((m) => m.id) },
+        clockOutAt: null,
+        workDate: { gte: monthStart(month), lt: monthStart(addMonths(month, 1)) },
+      },
+    });
+    if (missing > 0) throw Errors.missingClockOut(missing);
+    await this.calculatePayroll(propertyId, month, today);
     await this.prisma.payroll.updateMany({
       where: { month: monthStart(month), status: 'DRAFT', employee: { propertyId } },
       data: { status: 'CONFIRMED', confirmedAt: new Date() },
@@ -524,26 +812,34 @@ export class StaffService {
     return this.payrollList(propertyId, month);
   }
 
+  /** 급여 목록 — 확정·발송된 건 저장값, 확정 전(DRAFT)은 지금 출퇴근 기록으로 다시 계산한 값 */
   private async payrollList(propertyId: string, month: string) {
     const rows = await this.prisma.payroll.findMany({
       where: { month: monthStart(month), employee: { propertyId } },
-      include: { employee: { select: { name: true } } },
+      include: { employee: true },
       orderBy: { employee: { name: 'asc' } },
     });
-    return {
-      month,
-      total: rows.reduce((s, r) => s + r.totalAmount, 0),
-      items: rows.map((r) => ({
-        employeeId: r.employeeId,
-        name: r.employee.name,
-        hours: Number(r.workHours),
-        nightHours: Number(r.nightHours),
-        base: r.baseAmount,
-        night: r.nightAmount,
-        weekly: r.weeklyAmount,
-        total: r.totalAmount,
-        status: r.status,
-      })),
-    };
+    const drafts = rows.filter((r) => r.status === 'DRAFT');
+    const attendance = drafts.length
+      ? await this.payrollRows(
+          drafts.map((r) => r.employeeId),
+          month,
+        )
+      : [];
+    const items = rows.map((r) => {
+      const v =
+        r.status === 'DRAFT'
+          ? this.calc(r.employee, month, attendance)
+          : {
+              hours: Number(r.workHours),
+              nightHours: Number(r.nightHours),
+              base: r.baseAmount,
+              night: r.nightAmount,
+              weekly: r.weeklyAmount,
+              total: r.totalAmount,
+            };
+      return { employeeId: r.employeeId, name: r.employee.name, ...v, status: r.status };
+    });
+    return { month, total: items.reduce((s, r) => s + r.total, 0), items };
   }
 }

@@ -29,8 +29,27 @@ export interface ApiUser {
   email: string | null;
 }
 
+/** 실증 업장 (PO-09 · PO-11) */
+export interface ApiPilot {
+  group: string;
+  startedAt: string;
+  endsAt: string;
+  active: boolean;
+}
+
 export interface ApiMe extends ApiUser {
-  properties: { id: string; name: string; type: string; rooms: number; role: "OWNER" | "MANAGER" | "STAFF" }[];
+  properties: {
+    id: string;
+    name: string;
+    type: string;
+    rooms: number;
+    role: "OWNER" | "MANAGER" | "STAFF";
+    pilot?: ApiPilot | null;
+    /** rates false — 요금·재고 메뉴 숨김 (실증 기간) */
+    features?: { rates: boolean };
+  }[];
+  /** 새 업장 무료 체험 일수 */
+  trialDays?: number;
 }
 
 type ApiAlertKind =
@@ -38,9 +57,17 @@ type ApiAlertKind =
   | "CHANNEL_ERROR"
   | "PAYMENT_FAILED"
   | "LOW_RATED"
+  | "NO_STAFF"
   | "STALE_DIRTY"
   | "MISSING_CLOCK_OUT"
   | "NO_CHANNEL";
+
+export interface ApiMonthCosts {
+  expenses: number;
+  payroll: number;
+  payrollStatus: "CONFIRMED" | "DRAFT" | null;
+  costRatio: number | null;
+}
 
 export interface ApiPortfolioProperty {
   id: string;
@@ -49,7 +76,9 @@ export interface ApiPortfolioProperty {
   rooms: number;
   role: "OWNER" | "MANAGER";
   today: { sales: number; bookings: number; yesterdaySales: number };
+  period?: { sales: number; bookings: number; prevSales: number };
   month: { sales: number; prevToDate: number };
+  costs?: ApiMonthCosts;
   reviews: { unanswered: number; lowRated: number };
   settle7: number;
   roomStatus: {
@@ -61,7 +90,7 @@ export interface ApiPortfolioProperty {
     outOfOrder: number;
     staleDirty: number;
   };
-  staff: { onDuty: number; missingClockOut: number };
+  staff: { onDuty: number; missingClockOut: number; scheduledNow?: number };
   channels: { connected: number; error: number; authExpired: number };
   billing: { status: "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | null };
   alerts: { kind: ApiAlertKind; message: string; link: string }[];
@@ -69,12 +98,15 @@ export interface ApiPortfolioProperty {
 
 export interface ApiPortfolio {
   date: string;
+  period?: { key: "today" | "yesterday" | "week"; from: string; to: string };
   properties: ApiPortfolioProperty[];
   totals: {
     properties: number;
     needsAttention: number;
     today: { sales: number; bookings: number; yesterdaySales: number };
+    period?: { sales: number; bookings: number; prevSales: number };
     month: { sales: number; prevToDate: number };
+    costs?: ApiMonthCosts;
     reviews: { unanswered: number; lowRated: number };
     settle7: number;
   };
@@ -86,7 +118,14 @@ export type ApiChannel = "YANOLJA" | "YEOGI" | "NAVER" | "AGODA" | "TRIP" | "HOT
 export interface ApiPortfolioPeople {
   properties: { id: string; name: string }[];
   people: { userId: string; name: string; phone: string; roles: Record<string, "OWNER" | "MANAGER" | "STAFF"> }[];
-  invitations: { phone: string; role: "MANAGER" | "STAFF"; propertyIds: string[]; expiresAt: string }[];
+  /** phone: 사장님에게는 전체 번호(숫자만). invitationIds 는 propertyIds 와 같은 순서 */
+  invitations: {
+    phone: string;
+    role: "MANAGER" | "STAFF";
+    propertyIds: string[];
+    invitationIds?: string[];
+    expiresAt: string;
+  }[];
 }
 
 /** 업장 비교 리포트 (GET /portfolio/report) */
@@ -107,7 +146,8 @@ export interface ApiPortfolioReport {
     commission: number;
     perRoomDay: number;
     channels: { channel: ApiChannel; name: string; sales: number }[];
-    reviews: { count: number; avgRating: number | null; answered: number };
+    reviews: { count: number; avgRating: number | null; answered: number; replyBase?: number };
+    costs?: ApiMonthCosts;
     trend: number[];
   }[];
 }
@@ -137,7 +177,8 @@ export interface ApiReview {
   needsReview: boolean;
   /** generator: 'ai' — AI 가 쓴 초안 · 'template' — 말투 설정으로 만든 템플릿 초안 */
   draft: { text: string; keywords: string[]; generator?: string } | null;
-  reply: { text: string; via: "API" | "COPY" | "AUTO"; postedAt: string } | null;
+  /** EXTERNAL: 수집할 때 채널에 이미 있던 답글 (postedAt 이 없을 수 있음) */
+  reply: { text: string; via: "API" | "COPY" | "AUTO" | "EXTERNAL"; postedAt: string | null } | null;
   copyTo?: string | null;
 }
 
@@ -155,7 +196,8 @@ export interface ApiDashboard {
   property: { id: string; name: string; type: string; rooms: number };
   todaySales: { amount: number; yesterday: number; changeRate: number | null; bookings: number };
   unanswered: { total: number; lowRating: number };
-  settlementWeek: { amount: number; count: number };
+  /** count: 7일 안 정산 예정 채널 수(중복 제거) · items: 정산 건수 */
+  settlementWeek: { amount: number; count: number; items?: number };
   channelSales: { channel: ApiChannel; name: string; amount: number }[];
   settlements: { date: string; channel: ApiChannel; name: string; amount: number }[];
   pendingReviews: ApiReview[];
@@ -176,7 +218,7 @@ export interface ApiNotification {
   id: string;
   propertyId: string;
   propertyName?: string;
-  kind: "REVIEW" | "SETTLE" | "SYNC" | "BILLING" | "STAFF";
+  kind: "REVIEW" | "SETTLE" | "SYNC" | "BILLING" | "STAFF" | "SUMMARY";
   text: string;
   link: string | null;
   readAt: string | null;
@@ -190,6 +232,12 @@ export interface ApiLedger {
   prevSales: number;
   /** 지난달 같은 날짜까지의 매출 — 이번 달 진행 중일 때 공정하게 비교 (없을 수 있음) */
   prevSalesToDate?: number;
+  /** 진행 중인 달이면 true — sales·fees·channels·trend(이번 달) 는 오늘(KST) 체크인까지 */
+  partial?: boolean;
+  /** 기준일 YYYY-MM-DD */
+  asOf?: string;
+  /** 내일 ~ 말일 체크인 예정 (지난 달은 0) */
+  upcoming?: { sales: number; bookings: number; commission: number };
   adSpend: number;
   fees: number;
   settleSoon: number;
@@ -234,11 +282,14 @@ export interface ApiStaff {
     attendanceId: string | null;
     in: string | null;
     out: string | null;
-    status: "working" | "done" | "missing-out" | "late" | "off";
+    status: "working" | "done" | "missing-out" | "late" | "scheduled" | "off";
     edited: boolean;
   }[];
+  /** 퇴근 누락 (최근 31일, 퇴사자 포함) — 고치기는 PUT /staff/attendance */
+  missingClockOut?: { employeeId: string; name: string; attendanceId: string; date: string; in: string }[];
   monthHours: Record<string, number>;
-  week: { dates: string[]; shifts: Record<string, ApiShift[]> };
+  /** null: 근무표가 없는 날 (미정) */
+  week: { dates: string[]; shifts: Record<string, (ApiShift | null)[]> };
   payroll: {
     employeeId: string;
     hours: number;
@@ -255,17 +306,61 @@ export interface ApiStaffMe {
   property: string;
   employee: { id: string; name: string; jobRole: ApiJobRole; payType: "HOURLY" | "MONTHLY"; payAmount: number };
   state: "ready" | "working" | "done";
-  today: { in: string | null; out: string | null; shift: ApiShift };
-  week: { dates: string[]; shifts: ApiShift[] };
+  /** shift null: 근무표 없음 (미정) */
+  today: { in: string | null; out: string | null; shift: ApiShift | null };
+  week: { dates: string[]; shifts: (ApiShift | null)[] };
+  nextWeek?: { dates: string[]; shifts: (ApiShift | null)[] };
+  coworkers?: { name: string; shift: "DAY" | "NIGHT" | null; working: boolean }[];
+  /** 방금 누른 퇴근을 되돌릴 수 있는 마감 (ISO) */
+  undoOutUntil?: string | null;
   month: { hours: number; nightHours: number; estimatedPay: number };
+  /** 이번 달 급여 내역 — 사장님 급여 화면과 같은 계산 */
+  pay?: {
+    payType: "HOURLY" | "MONTHLY";
+    rate: number | null;
+    monthly: number | null;
+    hours: number;
+    base: number;
+    nightHours: number;
+    night: number;
+    weeklyHours: number | null;
+    weekly: number;
+    total: number;
+    status: "DRAFT" | "CONFIRMED" | "SENT" | null;
+  };
   records: { date: string; in: string; out: string | null; hours: number | null; edited: boolean }[];
+}
+/** 직원 한 명의 한 달 출퇴근 — GET /staff/employees/:id/attendance?month= */
+export interface ApiStaffMonth {
+  month: string;
+  employee: { id: string; name: string; jobRole: ApiJobRole; hiredDate: string };
+  locked: boolean;
+  totalHours: number;
+  workedDays: number;
+  days: {
+    workDate: string;
+    shift: ApiShift | null;
+    attendanceId: string | null;
+    clockIn: string | null;
+    clockOut: string | null;
+    hours: number | null;
+    method: string | null;
+    memo: string | null;
+    edited: boolean;
+    editedAt: string | null;
+    editedBy: string | null;
+    missingOut: boolean;
+    working: boolean;
+    absent: boolean;
+  }[];
 }
 export interface ApiEmployeeInput {
   name: string;
   phone: string;
   jobRole: ApiJobRole;
-  payType: "HOURLY" | "MONTHLY";
-  payAmount: number;
+  /** 사장님만 — 매니저가 넣으면 403 PAY_OWNER_ONLY (빼면 그해 최저시급 시급제) */
+  payType?: "HOURLY" | "MONTHLY";
+  payAmount?: number;
   hiredDate: string;
 }
 
@@ -279,6 +374,8 @@ export interface ApiExpenseItem {
   amount: number;
   source: "CARD" | "RECEIPT" | "ORDER" | "MANUAL";
   memo: string | null;
+  /** 영수증으로 등록한 지출이면 그 영수증 id */
+  receiptId?: string | null;
 }
 export interface ApiOrder {
   id: string;
@@ -303,7 +400,9 @@ export interface ApiExpenses {
   prevTotal: number;
   /** 지난달 같은 날짜까지의 지출 (없을 수 있음) */
   prevTotalToDate?: number;
+  /** 오늘 체크인까지 (매출장부와 같은 기준) */
   sales: number;
+  upcoming?: { sales: number; bookings: number; commission: number };
   byCategory: { category: ApiExpenseCategory; amount: number }[];
   items: ApiExpenseItem[];
   orders: ApiOrder[];
@@ -370,6 +469,10 @@ export interface ApiBilling {
   nextBilling: string | null;
   monthlyTotal: number;
   card: { name: string; last4: string } | null;
+  trialDays?: number;
+  pilot?: ApiPilot | null;
+  /** 실증 기간이라 결제하지 않음 */
+  billingHeld?: boolean;
   payments: { id: string; date: string; billedMonth: string; description: string; amount: number; status: "PAID" | "FAILED" | "REFUNDED" }[];
 }
 export interface ApiProperty {
@@ -384,9 +487,10 @@ export interface ApiProperty {
 }
 export interface ApiMembers {
   members: { id: string; userId: string; name: string; phone: string; role: "OWNER" | "MANAGER" | "STAFF"; joinedAt: string }[];
-  invitations: { id: string; phone: string; role: "MANAGER" | "STAFF"; expiresAt: string }[];
+  /** phone: 부르는 사람이 사장님이면 전체 번호(숫자만), 매니저면 010-****-1234 */
+  invitations: { id: string; phone: string; role: "MANAGER" | "STAFF"; expiresAt: string; createdAt?: string }[];
 }
-export type ApiNoticeKind = "REVIEW" | "SETTLE" | "SYNC" | "BILLING" | "STAFF";
+export type ApiNoticeKind = "REVIEW" | "SETTLE" | "SYNC" | "BILLING" | "STAFF" | "SUMMARY";
 export interface ApiNoticeSetting {
   kind: ApiNoticeKind;
   alimtalk: boolean;
@@ -428,6 +532,10 @@ export interface ApiAdminProperty {
   lastSyncedAt: string | null;
   unansweredReviews: number;
   address: string;
+  owner?: { id: string; name: string; phone: string } | null;
+  lastLogin?: { owner: string | null; manager: string | null };
+  pilot?: ApiPilot | null;
+  activation?: ApiAdminActivation | null;
 }
 
 export interface ApiSyncIssue {
@@ -534,8 +642,8 @@ export class PmsApiClient {
     return this.call<ApiMe>("GET", "/auth/me");
   }
   /** 여러 업장 통합 현황 — 내가 사장님·매니저인 업장 전부 */
-  portfolio() {
-    return this.call<ApiPortfolio>("GET", "/portfolio");
+  portfolio(period?: "today" | "yesterday" | "week") {
+    return this.call<ApiPortfolio>("GET", period && period !== "today" ? `/portfolio?period=${period}` : "/portfolio");
   }
   portfolioReport(month?: string) {
     return this.call<ApiPortfolioReport>("GET", `/portfolio/report${month ? `?month=${month}` : ""}`);
@@ -566,12 +674,16 @@ export class PmsApiClient {
       role: "OWNER" | "MANAGER" | "STAFF";
       phone: string;
       status: "VALID" | "EXPIRED" | "USED";
+      /** 수락하면 합류할 업장과 업장별 권한 (첫 줄이 이 링크 업장) */
+      properties?: { name: string; role: "MANAGER" | "STAFF" }[];
     }>("GET", `/invitations/${encodeURIComponent(token)}`);
   }
   acceptInvitation(token: string) {
-    return this.call<{ propertyId: string; role: "OWNER" | "MANAGER" | "STAFF" }>("POST", "/invitations/accept", {
-      token,
-    });
+    return this.call<{ propertyId: string; role: "OWNER" | "MANAGER" | "STAFF"; joined?: number }>(
+      "POST",
+      "/invitations/accept",
+      { token },
+    );
   }
 
   /* 업장 · 채널 */
@@ -625,8 +737,13 @@ export class PmsApiClient {
   replySettings(propertyId: string) {
     return this.call<ApiReplySettings>("GET", `/properties/${propertyId}/reply-settings`);
   }
-  saveReplySettings(propertyId: string, body: ApiReplySettings) {
-    return this.call<ApiReplySettings>("PUT", `/properties/${propertyId}/reply-settings`, body);
+  /** applyTo: 같은 설정을 함께 저장할 다른 업장 (서명은 복사하지 않음) */
+  saveReplySettings(propertyId: string, body: ApiReplySettings, applyTo?: string[]) {
+    return this.call<ApiReplySettings>(
+      "PUT",
+      `/properties/${propertyId}/reply-settings`,
+      applyTo?.length ? { ...body, applyTo } : body,
+    );
   }
 
   /* 홈 · 알림 */
@@ -655,11 +772,26 @@ export class PmsApiClient {
   }
 
   /* 알바관리 */
-  staff(propertyId: string, date?: string) {
-    return this.call<ApiStaff>("GET", `/properties/${propertyId}/staff${date ? `?date=${date}` : ""}`);
+  /** date: 급여·오늘 기준일 · week: 그 날이 속한 주(월요일 시작)의 교대표 */
+  staff(propertyId: string, date?: string, week?: string) {
+    const q = new URLSearchParams();
+    if (date) q.set("date", date);
+    if (week) q.set("week", week);
+    const qs = q.toString();
+    return this.call<ApiStaff>("GET", `/properties/${propertyId}/staff${qs ? `?${qs}` : ""}`);
   }
   staffMe(propertyId: string) {
     return this.call<ApiStaffMe>("GET", `/properties/${propertyId}/staff/me`);
+  }
+  /** 퇴근 되돌리기 — 직원 본인, 퇴근 후 5분 안 */
+  undoClockOut(propertyId: string) {
+    return this.call<unknown>("POST", `/properties/${propertyId}/staff/clock/undo-out`, {});
+  }
+  staffMonth(propertyId: string, employeeId: string, month: string) {
+    return this.call<ApiStaffMonth>(
+      "GET",
+      `/properties/${propertyId}/staff/employees/${employeeId}/attendance?month=${encodeURIComponent(month)}`,
+    );
   }
   clock(propertyId: string, employeeId: string, action: "in" | "out") {
     return this.call<unknown>("POST", `/properties/${propertyId}/staff/attendance/clock`, {
@@ -739,6 +871,13 @@ export class PmsApiClient {
     if (!res.ok) throw new ApiError(res.status, data.errorCode ?? "UNKNOWN", data.message ?? "영수증을 올리지 못했어요.");
     return data;
   }
+  /** 영수증 사진 원본 — 화면의 route handler 가 그대로 흘려보낸다 (토큰은 서버에만) */
+  receiptFile(propertyId: string, receiptId: string) {
+    return fetch(`${this.baseUrl.replace(/\/$/, "")}/api/v1/properties/${propertyId}/receipts/${receiptId}/file`, {
+      headers: this.baseHeaders(),
+      cache: "no-store",
+    });
+  }
   registerReceipt(propertyId: string, receiptId: string, body: ApiExpenseInput) {
     return this.call<ApiExpenseItem>("POST", `/properties/${propertyId}/receipts/${receiptId}/register`, body);
   }
@@ -755,6 +894,12 @@ export class PmsApiClient {
   }
   addRooms(propertyId: string, rooms: { number: string; floor?: number; roomType?: string }[]) {
     return this.call<{ added: number }>("POST", `/properties/${propertyId}/rooms`, { rooms });
+  }
+  updateRoom(propertyId: string, roomId: string, room: { number: string; floor?: number; roomType?: string }) {
+    return this.call<ApiRoom>("PUT", `/properties/${propertyId}/rooms/${roomId}`, room);
+  }
+  removeRoom(propertyId: string, roomId: string) {
+    return this.call<void>("DELETE", `/properties/${propertyId}/rooms/${roomId}`);
   }
   setRoomStatus(propertyId: string, roomId: string, status: ApiRoomStatus, memo?: string) {
     return this.call<ApiRoom>("PATCH", `/properties/${propertyId}/rooms/${roomId}/status`, { status, memo });
@@ -791,11 +936,43 @@ export class PmsApiClient {
   changeMemberRole(propertyId: string, memberId: string, role: "OWNER" | "MANAGER" | "STAFF") {
     return this.call<unknown>("PATCH", `/properties/${propertyId}/members/${memberId}`, { role });
   }
+  removeMember(propertyId: string, memberId: string) {
+    return this.call<void>("DELETE", `/properties/${propertyId}/members/${memberId}`);
+  }
   invite(propertyId: string, phone: string, role: "MANAGER" | "STAFF") {
     return this.call<unknown>("POST", `/properties/${propertyId}/invitations`, { phone, role });
   }
-  plans() {
-    return this.call<ApiBilling["plans"]>("GET", "/plans");
+  cancelInvitation(propertyId: string, invitationId: string) {
+    return this.call<void>("DELETE", `/properties/${propertyId}/invitations/${invitationId}`);
+  }
+  resendInvitation(propertyId: string, invitationId: string) {
+    return this.call<{ ok: true; expiresInDays: number }>(
+      "POST",
+      `/properties/${propertyId}/invitations/${invitationId}/resend`,
+    );
+  }
+  /** GET /plans 는 상품 원본(isAvailable · stageLabel)을 준다 — 구독 화면(/billing)의 plans 와 같은 모양으로 맞춘다 */
+  async plans(): Promise<ApiBilling["plans"]> {
+    const raw = await this.call<
+      {
+        code: ApiPlanCode;
+        name: string;
+        monthlyPrice: number;
+        description: string;
+        stageLabel?: string;
+        stage?: string;
+        isAvailable?: boolean;
+        available?: boolean;
+      }[]
+    >("GET", "/plans");
+    return raw.map((p) => ({
+      code: p.code,
+      name: p.name,
+      monthlyPrice: p.monthlyPrice,
+      description: p.description,
+      stage: p.stage ?? p.stageLabel ?? "",
+      available: p.available ?? p.isAvailable ?? false,
+    }));
   }
   billing(propertyId: string) {
     return this.call<ApiBilling>("GET", `/properties/${propertyId}/billing`);
@@ -803,14 +980,25 @@ export class PmsApiClient {
   setPlan(propertyId: string, plan: ApiPlanCode, enabled: boolean) {
     return this.call<ApiBilling>("PUT", `/properties/${propertyId}/subscriptions/${plan}`, { enabled });
   }
+  /** 결제 실패한 구독료 다시 결제 (등록된 카드로) */
+  retryBilling(propertyId: string) {
+    return this.call<ApiBilling & { retried: { amount: number; ok: boolean } }>(
+      "POST",
+      `/properties/${propertyId}/billing/retry`,
+    );
+  }
   setCard(propertyId: string, authKey: string) {
     return this.call<ApiBilling>("POST", `/properties/${propertyId}/payment-method`, { authKey });
   }
   noticeSettings(propertyId: string) {
     return this.call<ApiNoticeSetting[]>("GET", `/properties/${propertyId}/notification-settings`);
   }
-  setNoticeSettings(propertyId: string, items: ApiNoticeSetting[]) {
-    return this.call<ApiNoticeSetting[]>("PUT", `/properties/${propertyId}/notification-settings`, { items });
+  setNoticeSettings(propertyId: string, items: ApiNoticeSetting[], applyTo?: string[]) {
+    return this.call<ApiNoticeSetting[]>(
+      "PUT",
+      `/properties/${propertyId}/notification-settings`,
+      applyTo?.length ? { items, applyTo } : { items },
+    );
   }
 
   /* 랜딩 도입·파트너 문의 (로그인 없음) */
@@ -858,4 +1046,142 @@ export class PmsApiClient {
   adminUpdateInquiry(id: string, body: { status?: ApiInquiry["status"]; adminMemo?: string }) {
     return this.call<ApiInquiry>("PATCH", `/admin/inquiries/${id}`, body);
   }
+  adminProperty(id: string) {
+    return this.call<ApiAdminPropertyDetail>("GET", `/admin/properties/${id}`);
+  }
+  adminAssignManager(id: string, managerId: string | null) {
+    return this.call<ApiAdminPropertyDetail>("PATCH", `/admin/properties/${id}/manager`, { managerId });
+  }
+  adminList() {
+    return this.call<(ApiAdmin & { isActive: boolean })[]>("GET", "/admin/admins");
+  }
+  /* 실증 측정 · 운영 도구 (2차 PO) */
+  adminPilot(group?: string) {
+    return this.call<ApiAdminPilotKpi>("GET", `/admin/pilot${group ? `?group=${encodeURIComponent(group)}` : ""}`);
+  }
+  adminAttention() {
+    return this.call<ApiAdminAttention>("GET", "/admin/attention");
+  }
+  adminSetPilot(id: string, group: string | null, startedAt?: string) {
+    return this.call<ApiAdminPropertyDetail>("PATCH", `/admin/properties/${id}/pilot`, { group, startedAt });
+  }
+  adminSaveSurvey(id: string, body: Partial<ApiAdminPilotSurvey>) {
+    return this.call<ApiAdminPilotSurvey>("PUT", `/admin/properties/${id}/pilot-survey`, body);
+  }
+  adminAddNote(id: string, kind: ApiAdminSupportNote["kind"], body: string) {
+    return this.call<ApiAdminSupportNote>("POST", `/admin/properties/${id}/notes`, { kind, body });
+  }
+  adminRemoveNote(id: string, noteId: string) {
+    return this.call<void>("DELETE", `/admin/properties/${id}/notes/${noteId}`);
+  }
+}
+
+/* 운영자 — 실증 측정 · 운영 도구 */
+export interface ApiAdminActivation {
+  stage: "SIGNUP" | "PROPERTY" | "CHANNEL" | "FIRST_SYNC" | "FIRST_REPLY";
+  blocked: ApiAdminActivation["stage"] | null;
+  stuckSince: string | null;
+  steps: { key: ApiAdminActivation["stage"]; label: string; done: boolean; at: string | null }[];
+}
+export interface ApiAdminPilotSurvey {
+  channelCheckMinutes: number | null;
+  payrollMethod: string | null;
+  payrollMinutes: number | null;
+  staffCount: number | null;
+  monthlyExpenseCount: number | null;
+  recordMethod: string | null;
+  baselineMemo: string | null;
+  satisfaction4w: number | null;
+  satisfaction8w: number | null;
+  satisfactionMemo: string | null;
+  wtpPlan: string | null;
+  wtpProperties: number | null;
+  wtpMemo: string | null;
+  updatedAt?: string;
+}
+export interface ApiAdminSupportNote {
+  id: string;
+  kind: "CALL" | "VISIT" | "ETC";
+  body: string;
+  createdAt: string;
+  admin: { id: string; name: string } | null;
+}
+export interface ApiAdminPilotWeek {
+  week: number;
+  from: string;
+  to: string;
+  days: number;
+  partial: boolean;
+  future: boolean;
+  [metric: string]: number | string | boolean | null;
+}
+export interface ApiAdminPilotKpi {
+  today: string;
+  groups: { name: string; properties: number }[];
+  group: string | null;
+  weeks: number;
+  definitions: Record<string, string>;
+  properties: {
+    id: string;
+    name: string;
+    owner: { name: string; phone: string; lastLoginAt: string | null } | null;
+    lastLoginAt: string | null;
+    pilot: ApiPilot & { week: number };
+    activation: ApiAdminActivation | null;
+    survey: ApiAdminPilotSurvey | null;
+    weeks: ApiAdminPilotWeek[];
+  }[];
+}
+export interface ApiAdminAttention {
+  rules: { noChannelHours: number; unansweredHours: number; noLoginDays: number };
+  items: {
+    property: { id: string; name: string; pilotGroup: string | null };
+    owner: { id: string; name: string; phone: string } | null;
+    manager: { id: string; name: string } | null;
+    lastLoginAt: string | null;
+    reasons: { kind: "NO_CHANNEL" | "UNANSWERED" | "NO_LOGIN"; text: string }[];
+  }[];
+}
+
+/** GET /admin/properties/:id */
+export interface ApiAdminPropertyDetail {
+  id: string;
+  name: string;
+  type: string;
+  address: string;
+  rooms: number;
+  bizNo: string;
+  bizVerified: boolean;
+  ownerName: string;
+  createdAt: string;
+  manager: { id: string; name: string } | null;
+  subscriptions: {
+    planCode: string;
+    planName: string;
+    monthlyPrice: number;
+    status: string;
+    trialEndsAt: string | null;
+  }[];
+  channels: {
+    channel: ApiChannel;
+    name: string;
+    status: string;
+    lastSyncedAt: string | null;
+    lastError: string | null;
+    consecutiveFails: number;
+  }[];
+  members: { role: "OWNER" | "MANAGER" | "STAFF"; name: string; phone: string; lastLoginAt: string | null }[];
+  payments: {
+    id: string;
+    billedMonth: string;
+    description: string;
+    amount: number;
+    status: string;
+    paidAt: string;
+  }[];
+  pilot?: ApiPilot | null;
+  survey?: ApiAdminPilotSurvey | null;
+  activation?: ApiAdminActivation | null;
+  aiUsage?: { month: string; drafts: number; regenerations: number; posts: number }[];
+  notes?: ApiAdminSupportNote[];
 }

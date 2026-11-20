@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AuthActions } from "@/core";
-import { cx } from "@/shared";
+import { cx, formatPhoneInput } from "@/shared";
 import { Field, Modal, PmButton, Tabs } from "../../components";
 import { AuthBrand } from "./AuthBrand";
 import "./auth.css";
@@ -81,8 +81,34 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
   const [done, setDone] = useState<string | null>(null);
   const [devCode, setDevCode] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [showPw, setShowPw] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+    setForm((f) => ({ ...f, [k]: k === "phone" ? formatPhoneInput(e.target.value) : e.target.value }));
+
+  /** 비밀번호 칸 + 보기 버튼 */
+  const passwordInput = (k: "password" | "newPassword", autoComplete: string, placeholder?: string) => (
+    <div className="au-pw">
+      <input
+        className="pm-input"
+        type={showPw ? "text" : "password"}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        value={form[k]}
+        onChange={set(k)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? "au-error" : undefined}
+      />
+      <button
+        type="button"
+        className="au-pw__toggle"
+        onClick={() => setShowPw((v) => !v)}
+        aria-pressed={showPw}
+        aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}
+      >
+        {showPw ? "숨기기" : "보기"}
+      </button>
+    </div>
+  );
 
   const run = (fn: () => Promise<{ ok: true; data: { next: string } } | { ok: false; message: string }>) =>
     start(async () => {
@@ -103,6 +129,7 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
     setError(null);
     setCodeSent(false);
     setDevCode(null);
+    setShowPw(false);
     setForm((f) => ({ ...f, code: "", newPassword: "" }));
   };
 
@@ -201,16 +228,10 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
               </header>
               {phoneWithCode}
               <Field label="새 비밀번호" required hint="영문·숫자 포함 8자 이상">
-                <input
-                  className="pm-input"
-                  type="password"
-                  autoComplete="new-password"
-                  value={form.newPassword}
-                  onChange={set("newPassword")}
-                />
+                {passwordInput("newPassword", "new-password")}
               </Field>
               {error && (
-                <p className="pm-error" role="alert">
+                <p className="pm-error" role="alert" id="au-error">
                   {error}
                 </p>
               )}
@@ -250,20 +271,13 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
                       autoComplete="tel"
                       value={form.phone}
                       onChange={set("phone")}
+                      aria-invalid={error ? true : undefined}
+                      aria-describedby={error ? "au-error" : undefined}
                     />
                   </Field>
-                  <Field label="비밀번호">
-                    <input
-                      className="pm-input"
-                      type="password"
-                      placeholder="비밀번호"
-                      autoComplete="current-password"
-                      value={form.password}
-                      onChange={set("password")}
-                    />
-                  </Field>
+                  <Field label="비밀번호">{passwordInput("password", "current-password", "비밀번호")}</Field>
                   {error && (
-                    <p className="pm-error" role="alert">
+                    <p className="pm-error" role="alert" id="au-error">
                       {error}
                     </p>
                   )}
@@ -318,13 +332,7 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
                     />
                   </Field>
                   <Field label="비밀번호" required hint="영문·숫자 포함 8자 이상">
-                    <input
-                      className="pm-input"
-                      type="password"
-                      autoComplete="new-password"
-                      value={form.newPassword}
-                      onChange={set("newPassword")}
-                    />
+                    {passwordInput("newPassword", "new-password")}
                   </Field>
 
                   <div className="au-terms" role="group" aria-label="약관 동의">
@@ -360,13 +368,14 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
                   </div>
 
                   {error && (
-                    <p className="pm-error" role="alert">
+                    <p className="pm-error" role="alert" id="au-error">
                       {error}
                     </p>
                   )}
                   <PmButton variant="primary" type="submit" disabled={!requiredOk || pending} className="au-submit">
                     {pending ? "가입 중…" : nextProp ? "가입하고 계속하기" : "가입하고 업장 등록하기"}
                   </PmButton>
+                  {!requiredOk && <p className="au-submit-hint">필수 약관에 동의해 주세요.</p>}
                 </form>
               )}
             </>

@@ -76,6 +76,12 @@ export class Env {
   @IsBooleanString()
   SMS_ALERTS_ENABLED: string = 'false';
 
+  /** 사장님 계정 하나가 하루(한국 날짜)에 보낼 수 있는 초대·초대 다시 보내기·근로계약서 문자 수 */
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  INVITE_SMS_DAILY_LIMIT: number = 30;
+
   /** 영수증 사진 저장 폴더 — 운영 서버에서는 도커 볼륨으로 보존 */
   @IsString()
   UPLOAD_DIR: string = './uploads';

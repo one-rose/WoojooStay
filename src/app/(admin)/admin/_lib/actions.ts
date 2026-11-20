@@ -1,9 +1,26 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import type { ActionResult } from "@/core";
-import { ApiAuthError, ApiError, pmsApi } from "@/infrastructure";
+import { redirect, unstable_rethrow } from "next/navigation";
+import type {
+  ActionResult,
+  AdminOperator,
+  AdminPilotKpi,
+  AdminPilotSurvey,
+  AdminPropertyDetail,
+  AdminSupportNote,
+  AdminSupportNoteKind,
+} from "@/core";
+import {
+  ApiAuthError,
+  ApiError,
+  pmsApi,
+  toAdminOperators,
+  toAdminPilotKpi,
+  toAdminPropertyDetail,
+  toAdminSurvey,
+  toSupportNote,
+} from "@/infrastructure";
 import { ADMIN_COOKIE, adminCookieOptions, requireAdminToken } from "./session";
 
 /** 운영자 화면 → API 서버 (토큰은 서버 쿠키에서만) */
@@ -68,6 +85,114 @@ export async function setInquiryStatusAction(id: string, status: "new" | "contac
     await guard(() => client.adminUpdateInquiry(id, { status: status.toUpperCase() as "NEW" | "CONTACTED" | "DONE" }));
     return { ok: true, data: undefined };
   } catch (e) {
+    return fail(e);
+  }
+}
+
+/** 업장 상세 — 사장님·구성원·채널·결제 */
+export async function adminPropertyAction(propertyId: string): Promise<ActionResult<AdminPropertyDetail>> {
+  const client = await api();
+  try {
+    return { ok: true, data: toAdminPropertyDetail(await guard(() => client.adminProperty(propertyId))) };
+  } catch (e) {
+    unstable_rethrow(e);
+    return fail(e);
+  }
+}
+
+/** 담당 운영자 지정 (null 이면 해제) */
+export async function assignAdminManagerAction(
+  propertyId: string,
+  managerId: string | null,
+): Promise<ActionResult<AdminPropertyDetail>> {
+  const client = await api();
+  try {
+    return {
+      ok: true,
+      data: toAdminPropertyDetail(await guard(() => client.adminAssignManager(propertyId, managerId))),
+    };
+  } catch (e) {
+    unstable_rethrow(e);
+    return fail(e);
+  }
+}
+
+/** 담당으로 고를 수 있는 운영자 목록 */
+export async function adminOperatorsAction(): Promise<ActionResult<AdminOperator[]>> {
+  const client = await api();
+  try {
+    return { ok: true, data: toAdminOperators(await guard(() => client.adminList())) };
+  } catch (e) {
+    unstable_rethrow(e);
+    return fail(e);
+  }
+}
+
+/* ── 실증 측정 · 운영 도구 ── */
+
+/** 실증 업장 지정·해제 (group null 이면 해제) */
+export async function setPilotAction(
+  propertyId: string,
+  group: string | null,
+  startedAt?: string,
+): Promise<ActionResult> {
+  const client = await api();
+  try {
+    await guard(() => client.adminSetPilot(propertyId, group, startedAt));
+    return { ok: true, data: undefined };
+  } catch (e) {
+    unstable_rethrow(e);
+    return fail(e);
+  }
+}
+
+/** 실증 설문 값 — 보낸 칸만 */
+export async function savePilotSurveyAction(
+  propertyId: string,
+  survey: Partial<AdminPilotSurvey>,
+): Promise<ActionResult<AdminPilotSurvey>> {
+  const client = await api();
+  try {
+    const r = toAdminSurvey(await guard(() => client.adminSaveSurvey(propertyId, survey)));
+    return r ? { ok: true, data: r } : { ok: false, message: "저장하지 못했어요." };
+  } catch (e) {
+    unstable_rethrow(e);
+    return fail(e);
+  }
+}
+
+export async function addSupportNoteAction(
+  propertyId: string,
+  kind: AdminSupportNoteKind,
+  body: string,
+): Promise<ActionResult<AdminSupportNote>> {
+  const client = await api();
+  try {
+    return { ok: true, data: toSupportNote(await guard(() => client.adminAddNote(propertyId, kind, body))) };
+  } catch (e) {
+    unstable_rethrow(e);
+    return fail(e);
+  }
+}
+
+export async function removeSupportNoteAction(propertyId: string, noteId: string): Promise<ActionResult> {
+  const client = await api();
+  try {
+    await guard(() => client.adminRemoveNote(propertyId, noteId));
+    return { ok: true, data: undefined };
+  } catch (e) {
+    unstable_rethrow(e);
+    return fail(e);
+  }
+}
+
+/** 실증 KPI — 다른 묶음 */
+export async function loadPilotAction(group?: string): Promise<ActionResult<AdminPilotKpi>> {
+  const client = await api();
+  try {
+    return { ok: true, data: toAdminPilotKpi(await guard(() => client.adminPilot(group))) };
+  } catch (e) {
+    unstable_rethrow(e);
     return fail(e);
   }
 }

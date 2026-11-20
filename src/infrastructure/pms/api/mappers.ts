@@ -1,3 +1,4 @@
+import { kstMinute as adminKstMinute, toActivation } from "./admin-pilot";
 import type {
   BillingState,
   PortfolioAlertKind,
@@ -21,6 +22,7 @@ import type {
   SettingsData,
   StaffData,
   StaffMeData,
+  StaffMonthAttendance,
   ChannelId,
   DashboardData,
   GuestReview,
@@ -29,6 +31,7 @@ import type {
   PropertyType,
   ReplySettings,
   ReviewPhotoId,
+  ShiftKind,
 } from "@/core";
 import type {
   ApiPortfolio,
@@ -48,6 +51,7 @@ import type {
   ApiProperty,
   ApiStaff,
   ApiStaffMe,
+  ApiStaffMonth,
   ApiAdmin,
   ApiAdminOverview,
   ApiAdminProperty,
@@ -58,6 +62,7 @@ import type {
   ApiNotification,
   ApiReplySettings,
   ApiReview,
+  ApiShift,
   ApiSyncIssue,
 } from "./client";
 import { kstDay } from "@/shared";
@@ -101,6 +106,7 @@ export function toReview(r: ApiReview): GuestReview {
     aiKeywords: r.draft?.keywords ?? [],
     draftGenerator: r.draft?.generator === "template" ? "template" : r.draft?.generator === "ai" ? "ai" : undefined,
     reply: r.reply?.text,
+    replyExternal: r.reply?.via === "EXTERNAL" || undefined,
     needsReview: r.needsReview || undefined,
   };
 }
@@ -198,6 +204,7 @@ const KIND: Record<ApiNotification["kind"], NotificationItem["kind"]> = {
   SYNC: "sync",
   BILLING: "billing",
   STAFF: "staff",
+  SUMMARY: "summary",
 };
 
 export function toNotification(n: ApiNotification): NotificationItem {
@@ -249,6 +256,13 @@ export function toAdminData(d: {
       syncErrors: p.issueCount,
       joined: day(p.createdAt),
       manager: p.manager?.name ?? "미지정",
+      owner: p.ownerName,
+      ownerPhone: p.ownerPhone ?? undefined,
+      ownerId: p.owner?.id,
+      lastLoginOwner: adminKstMinute(p.lastLogin?.owner),
+      lastLoginManager: adminKstMinute(p.lastLogin?.manager),
+      pilotGroup: p.pilot?.group ?? null,
+      activation: toActivation(p.activation),
     })),
     syncIssues: d.syncIssues.map((s) => ({
       id: s.id,
@@ -276,6 +290,8 @@ export function toAdminData(d: {
 
 const lower = <T extends string>(v: T) => v.toLowerCase() as Lowercase<T>;
 const ymd = (iso: string) => kstDay(iso);
+/** 숫자만인 번호 → 010-1234-5678 (가린 번호 010-****-1234 는 그대로) */
+export const formatPhone = (p: string) => p.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3");
 
 export function toLedger(l: ApiLedger): LedgerData {
   return {
@@ -283,6 +299,8 @@ export function toLedger(l: ApiLedger): LedgerData {
     sales: l.sales,
     prevSales: l.prevSales,
     prevSalesToDate: l.prevSalesToDate,
+    partial: l.partial,
+    upcoming: l.upcoming,
     adSpend: l.adSpend,
     fees: l.fees,
     settleSoon: l.settleSoon,
@@ -333,7 +351,7 @@ export function toStaff(d: ApiStaff): StaffData {
       role: JOB[m.jobRole],
       pay: { type: m.payType === "HOURLY" ? "hourly" : "monthly", amount: m.payAmount },
       joined: m.hiredDate,
-      phone: m.phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3"),
+      phone: formatPhone(m.phone),
       contract: m.contract === "SIGNED" ? "signed" : m.contract === "SENT" ? "sent" : "none",
       resigned: m.resignedDate,
     })),
@@ -346,7 +364,7 @@ export function toStaff(d: ApiStaff): StaffData {
     monthHours: d.monthHours,
     week: {
       dates: d.week.dates,
-      shifts: Object.fromEntries(Object.entries(d.week.shifts).map(([id, list]) => [id, list.map(lower)])),
+      shifts: Object.fromEntries(Object.entries(d.week.shifts).map(([id, list]) => [id, list.map(toShift)])),
     },
     payroll: d.payroll.map((p) => ({
       staffId: p.employeeId,
@@ -358,6 +376,12 @@ export function toStaff(d: ApiStaff): StaffData {
       total: p.total,
       status: p.status ? lower(p.status) : null,
     })),
+    missingClockOut: (d.missingClockOut ?? []).map((m) => ({
+      staffId: m.employeeId,
+      name: m.name,
+      date: m.date,
+      in: m.in,
+    })),
   };
 }
 
@@ -367,6 +391,7 @@ export function toExpenses(d: ApiExpenses, sample: ExpenseData["receiptSample"])
     prevTotal: d.prevTotal,
     prevTotalToDate: d.prevTotalToDate,
     sales: d.sales,
+    upcoming: d.upcoming,
     items: d.items.map((e) => ({
       id: e.id,
       date: e.date,
@@ -375,6 +400,7 @@ export function toExpenses(d: ApiExpenses, sample: ExpenseData["receiptSample"])
       amount: e.amount,
       source: lower(e.source),
       memo: e.memo,
+      receiptId: e.receiptId ?? null,
     })),
     orders: d.orders.map((o) => ({
       id: o.id,
@@ -418,16 +444,17 @@ export function toSettings(
     ...d.members.members.map((m) => ({
       id: m.id,
       name: m.name,
-      phone: m.phone,
+      phone: formatPhone(m.phone),
       role: lower(m.role),
       status: "active" as const,
     })),
     ...d.members.invitations.map((i) => ({
       id: i.id,
       name: "초대 중",
-      phone: i.phone,
+      phone: formatPhone(i.phone),
       role: lower(i.role),
       status: "invited" as const,
+      invitedAt: i.createdAt ? ymd(i.createdAt) : undefined,
     })),
   ];
   const b = d.billing;
@@ -443,8 +470,10 @@ export function toSettings(
       phone: d.property.phone ?? "",
     },
     accounts,
+    // 결제 정보를 못 받으면(매니저 등) 예시 값으로 채우지 않고 비운다 — 화면은 안내만
     ...(b
       ? {
+          billingVisible: true,
           plans: toPlanOptions(b.plans),
           subscribed: b.subscribed.map(lower),
           trialEnds: b.trialEnds ?? "-",
@@ -452,6 +481,9 @@ export function toSettings(
           card: card(b.card),
           hasCard: b.card !== null,
           inTrial: b.inTrial,
+          trialDays: b.trialDays,
+          pilot: b.pilot ? { group: b.pilot.group, endsAt: b.pilot.endsAt, active: b.pilot.active } : null,
+          billingHeld: b.billingHeld ?? false,
           billing: b.payments.map((p) => ({
             date: ymd(p.date),
             item: p.description,
@@ -459,10 +491,23 @@ export function toSettings(
             status: p.status === "PAID" ? "paid" : "failed",
           })),
         }
-      : {}),
+      : {
+          billingVisible: false,
+          plans: [],
+          subscribed: [],
+          trialEnds: "-",
+          nextBilling: "-",
+          card: "",
+          hasCard: false,
+          inTrial: false,
+          billing: [],
+        }),
     noticeSettings: d.notices.map((n) => ({ ...n, kind: lower(n.kind) })),
   };
 }
+
+/** 근무표 없는 날(null)은 미정 */
+const toShift = (s: ApiShift | null): ShiftKind => (s ? lower(s) : "unset");
 
 export function toStaffMe(d: ApiStaffMe): StaffMeData {
   return {
@@ -470,10 +515,60 @@ export function toStaffMe(d: ApiStaffMe): StaffMeData {
     property: d.property,
     employee: { id: d.employee.id, name: d.employee.name, role: JOB[d.employee.jobRole] },
     state: d.state,
-    today: { in: d.today.in ?? undefined, out: d.today.out ?? undefined, shift: lower(d.today.shift) },
-    week: { dates: d.week.dates, shifts: d.week.shifts.map(lower) },
+    today: { in: d.today.in ?? undefined, out: d.today.out ?? undefined, shift: toShift(d.today.shift) },
+    week: { dates: d.week.dates, shifts: d.week.shifts.map(toShift) },
     month: d.month,
     records: d.records.map((r) => ({ ...r, out: r.out ?? undefined, hours: r.hours ?? undefined })),
+    nextWeek: d.nextWeek ? { dates: d.nextWeek.dates, shifts: d.nextWeek.shifts.map(toShift) } : undefined,
+    coworkers: d.coworkers?.map((c) => ({ name: c.name, shift: c.shift ? lower(c.shift) : null, working: c.working })),
+    pay: d.pay
+      ? {
+          type: d.pay.payType === "HOURLY" ? "hourly" : "monthly",
+          rate: d.pay.rate ?? undefined,
+          monthly: d.pay.monthly ?? undefined,
+          hours: d.pay.hours,
+          base: d.pay.base,
+          nightHours: d.pay.nightHours,
+          night: d.pay.night,
+          weeklyHours: d.pay.weeklyHours ?? undefined,
+          weekly: d.pay.weekly,
+          total: d.pay.total,
+          status: d.pay.status ? lower(d.pay.status) : null,
+        }
+      : undefined,
+    undoOutUntil: d.undoOutUntil ?? null,
+  };
+}
+
+export function toStaffMonth(d: ApiStaffMonth): StaffMonthAttendance {
+  return {
+    month: d.month,
+    staffId: d.employee.id,
+    name: d.employee.name,
+    locked: d.locked,
+    totalHours: d.totalHours,
+    workedDays: d.workedDays,
+    days: d.days.map((x) => ({
+      date: x.workDate,
+      shift: toShift(x.shift),
+      in: x.clockIn ?? undefined,
+      out: x.clockOut ?? undefined,
+      hours: x.hours ?? undefined,
+      memo: x.memo ?? undefined,
+      edited: x.edited,
+      editedBy: x.editedBy ?? undefined,
+      status: x.clockOut
+        ? "done"
+        : x.working
+          ? "working"
+          : x.missingOut
+            ? "missing-out"
+            : x.absent
+              ? "absent"
+              : x.clockIn
+                ? "working"
+                : "scheduled",
+    })),
   };
 }
 
@@ -522,9 +617,15 @@ export function toPortfolioPeople(d: ApiPortfolioPeople): PortfolioPeople {
     properties: d.properties,
     people: d.people.map((p) => ({
       ...p,
+      phone: formatPhone(p.phone),
       roles: Object.fromEntries(Object.entries(p.roles).map(([id, r]) => [id, lower(r)])),
     })),
-    invitations: d.invitations.map((i) => ({ ...i, role: lower(i.role), expiresAt: kstDay(i.expiresAt) })),
+    invitations: d.invitations.map((i) => ({
+      ...i,
+      phone: formatPhone(i.phone),
+      role: lower(i.role),
+      expiresAt: kstDay(i.expiresAt),
+    })),
   };
 }
 
@@ -543,6 +644,7 @@ export function toPortfolioReport(d: ApiPortfolioReport): PortfolioReport {
 export function toPortfolio(d: ApiPortfolio): PortfolioData {
   return {
     date: d.date,
+    period: d.period,
     totals: d.totals,
     properties: d.properties.map((p) => ({
       ...p,

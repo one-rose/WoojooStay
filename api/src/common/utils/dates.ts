@@ -44,6 +44,18 @@ export function isoDay(d: Date): string {
 }
 
 /**
+ * 확정 매출(체크인이 오늘까지)의 끝(미포함).
+ * 진행 중인 달은 내일, 지난 달은 다음 달 1일(= 그 달 전체), 앞으로 올 달은 그 달 1일(확정 없음).
+ * 이 날부터 그 달 말일까지는 '예정'(upcoming) 으로 따로 센다.
+ */
+export function confirmedEnd(month: string, today = kstDate()): Date {
+  const thisMonth = today.slice(0, 7);
+  if (month < thisMonth) return monthStart(addMonths(month, 1));
+  if (month > thisMonth) return monthStart(month);
+  return dateOnly(addDaysIso(today, 1));
+}
+
+/**
  * '지난달 같은 날까지' 비교의 끝(미포함) — 진행 중인 이번 달을 지난달 전체와 비교하지 않도록.
  * 이번 달(KST)이면 지난달의 오늘과 같은 날 다음 날, 지난 달을 볼 때는 그 달 1일(= 지난달 전체).
  */

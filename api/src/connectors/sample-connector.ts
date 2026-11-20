@@ -7,6 +7,7 @@ import {
   type ChannelCredentials,
   type ExternalBooking,
   type ExternalPrice,
+  type ExternalRating,
   type ExternalReview,
   type ExternalSettlement,
 } from './channel-connector.js';
@@ -266,5 +267,15 @@ export class SampleChannelConnector extends ChannelConnector {
   async postReply(channel: Channel, creds: ChannelCredentials, externalId: string, text: string): Promise<void> {
     await this.verify(channel, creds);
     this.posted.push({ channel, externalId, text });
+  }
+
+  /** 채널마다 4.1~4.8 사이 고정값에 날짜별로 ±0.05 흔들림, 리뷰 수는 채널 크기에 비례 */
+  async fetchRating(channel: Channel, creds: ChannelCredentials): Promise<ExternalRating | null> {
+    await this.verify(channel, creds);
+    const base = 4.1 + rand(`rating-${channel}`) * 0.7;
+    const wobble = (rand(`rating-${channel}-${kstDate()}`) - 0.5) * 0.1;
+    const rating = Math.round(Math.min(5, Math.max(1, base + wobble)) * 100) / 100;
+    const reviewCount = Math.round((DAILY[channel] ?? 100_000) / 1_000 + rand(`count-${channel}`) * 200);
+    return { rating, reviewCount };
   }
 }

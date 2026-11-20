@@ -13,10 +13,18 @@ export const ROOM_LABEL: Record<RoomStatus, { label: string; short: string; tone
 
 /** 다음 단계 버튼 문구 */
 export const NEXT_LABEL: Partial<Record<RoomStatus, string>> = {
-  occupied: "퇴실 처리",
+  occupied: "퇴실한 방 처리",
   dirty: "청소 시작",
-  cleaning: "청소 완료 · 점검 요청",
-  inspect: "점검 완료 · 판매 가능",
+  cleaning: "청소 끝, 점검 요청",
+  inspect: "점검 끝, 판매 가능",
+};
+
+/** 상태를 바꾼 뒤 알림 문구 — "206호 점검 요청했어요" */
+export const DONE_LABEL: Partial<Record<RoomStatus, string>> = {
+  dirty: "퇴실 처리했어요",
+  cleaning: "청소 시작했어요",
+  inspect: "점검 요청했어요",
+  ready: "판매 가능으로 바꿨어요",
 };
 
 export const SHIFT_LABEL: Record<NonNullable<OpsNote["shift"]>, string> = { day: "주간", night: "야간" };

@@ -3,9 +3,21 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { ApiAuthError, loadAdminData, pmsRepository } from "@/infrastructure";
+import { ApiAuthError, demoAdminAttention, demoAdminPilot, loadAdminData, pmsRepository } from "@/infrastructure";
 import { AdminScreen, AdminShell } from "@/ui/pms";
-import { notifySyncAction, retrySyncAction, setInquiryStatusAction } from "./_lib/actions";
+import {
+  addSupportNoteAction,
+  adminOperatorsAction,
+  adminPropertyAction,
+  assignAdminManagerAction,
+  loadPilotAction,
+  notifySyncAction,
+  removeSupportNoteAction,
+  retrySyncAction,
+  savePilotSurveyAction,
+  setInquiryStatusAction,
+  setPilotAction,
+} from "./_lib/actions";
 import { ADMIN_COOKIE, requireAdminToken } from "./_lib/session";
 
 export const metadata: Metadata = { title: "운영자 백오피스" };
@@ -23,7 +35,8 @@ async function Office() {
   const token = await requireAdminToken();
   const channels = await pmsRepository.getChannels(); // 채널 이름표
   if (!token) {
-    const data = await pmsRepository.getAdmin();
+    // 체험 모드 — 실증 KPI · 연락할 곳도 예시로
+    const data = { ...(await pmsRepository.getAdmin()), pilot: demoAdminPilot(), attention: demoAdminAttention() };
     return (
       <AdminShell>
         <AdminScreen data={data} channels={channels} />
@@ -45,7 +58,19 @@ async function Office() {
       <AdminScreen
         data={data}
         channels={channels}
-        actions={{ retrySync: retrySyncAction, notifySync: notifySyncAction, setInquiryStatus: setInquiryStatusAction }}
+        actions={{
+          retrySync: retrySyncAction,
+          notifySync: notifySyncAction,
+          setInquiryStatus: setInquiryStatusAction,
+          propertyDetail: adminPropertyAction,
+          assignManager: assignAdminManagerAction,
+          operators: adminOperatorsAction,
+          setPilot: setPilotAction,
+          saveSurvey: savePilotSurveyAction,
+          addNote: addSupportNoteAction,
+          removeNote: removeSupportNoteAction,
+          loadPilot: loadPilotAction,
+        }}
       />
     </AdminShell>
   );

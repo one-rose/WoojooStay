@@ -1,0 +1,71 @@
+/* 다음 입금 한 줄 — 패널보다 가벼운 한 줄 띠 */
+.pm-payout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 12px;
+  row-gap: 2px;
+  margin-bottom: var(--pm-s4);
+  padding: 10px 16px;
+  border: 1px solid var(--pm-line);
+  border-radius: var(--pm-r-lg);
+  background: var(--pm-surface);
+  font-size: 13.5px;
+  color: var(--pm-ink-2);
+  transition: border-color 0.15s;
+}
+a.pm-payout:hover {
+  border-color: #c9ced6;
+}
+.pm-payout__icon {
+  align-self: center;
+  color: var(--pm-ok);
+}
+.pm-payout__label {
+  color: var(--pm-muted);
+  font-weight: 500;
+}
+.pm-payout__date {
+  font-weight: 600;
+  color: var(--pm-ink);
+}
+.pm-payout__date small {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pm-muted);
+}
+.pm-payout__amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--pm-ink);
+}
+.pm-payout__note {
+  color: var(--pm-muted);
+  font-size: 12.5px;
+}
+.pm-payout__go {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: center;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+a.pm-payout:hover .pm-payout__go {
+  color: var(--pm-ink);
+}
+@media (max-width: 720px) {
+  .pm-payout {
+    padding: 10px 14px;
+  }
+  .pm-payout__go {
+    display: none;
+  }
+  .pm-payout__note {
+    flex-basis: 100%;
+    padding-left: 28px;
+  }
+}

@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { isLiveApi } from "@/infrastructure";
-import { PeopleScreen } from "@/ui/pms";
-import { assignPeopleAction, invitePeopleAction } from "../../../_lib/actions";
+import { PeopleScreen, ScreenSkeleton } from "@/ui/pms";
+import { assignPeopleAction, cancelInviteAction, invitePeopleAction, resendInviteAction } from "../../../_lib/actions";
 import { loadPeople } from "../../../_lib/portfolio";
 
 export const metadata: Metadata = { title: "직원·권한" };
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "직원·권한" };
 /** 업장별 매니저 권한 (F8) — 사장님 업장 전부의 사람과 권한 */
 export default function PeoplePage() {
   return (
-    <Suspense fallback={<div className="pm-skeleton" aria-busy="true" aria-label="불러오는 중" />}>
+    <Suspense fallback={<ScreenSkeleton strip={0} rows={5} />}>
       <People />
     </Suspense>
   );
@@ -24,7 +24,16 @@ async function People() {
   return (
     <PeopleScreen
       data={data}
-      actions={isLiveApi ? { assign: assignPeopleAction, invite: invitePeopleAction } : undefined}
+      actions={
+        isLiveApi
+          ? {
+              assign: assignPeopleAction,
+              invite: invitePeopleAction,
+              cancelInvite: cancelInviteAction,
+              resendInvite: resendInviteAction,
+            }
+          : undefined
+      }
     />
   );
 }

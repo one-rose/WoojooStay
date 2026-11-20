@@ -8,13 +8,30 @@
  * - 월급제: 그 달 재직일 비율로 (입사·퇴사한 달은 일할), 그 달 이후 입사자는 급여 없음
  */
 
-/** 2026년 최저시급 */
-export const MINIMUM_WAGE = 10_320;
+/** 연도별 최저시급 (고시 기준) — 표에 없는 해는 가장 가까운 앞 해(없으면 가장 이른 해) 값 */
+export const MINIMUM_WAGE_BY_YEAR: Readonly<Record<number, number>> = { 2024: 9_860, 2025: 10_030, 2026: 10_320 };
+/** 월급제 최저임금 환산 기준 — 주 40시간 + 주휴 8시간 기준 월 소정근로시간 */
+export const MONTHLY_STANDARD_HOURS = 209;
 const KST = 9 * 3_600_000;
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
 /** 주휴수당 대상 최소 주 근무시간 */
 export const WEEKLY_HOLIDAY_MIN_HOURS = 15;
+
+/** 그 해(또는 'YYYY-MM' 의 해) 최저시급 */
+export function minimumWageFor(when: number | string): number {
+  const year = typeof when === 'number' ? when : Number(when.slice(0, 4));
+  const years = Object.keys(MINIMUM_WAGE_BY_YEAR)
+    .map(Number)
+    .sort((a, b) => a - b);
+  const y = [...years].reverse().find((k) => k <= year) ?? years[0];
+  return MINIMUM_WAGE_BY_YEAR[y];
+}
+
+/** 올해 최저시급 (한국 시간 기준) */
+export function currentMinimumWage(now = new Date()): number {
+  return minimumWageFor(new Date(now.getTime() + KST).getUTCFullYear());
+}
 
 export interface Shift {
   workDate: string;
@@ -22,9 +39,14 @@ export interface Shift {
   clockOutAt: Date | null;
 }
 
-/** 최저시급보다 적은지 — 월급제는 소정근로시간 정보가 없어 보지 않는다 */
-export function isBelowMinimumWage(pay: { payType: 'HOURLY' | 'MONTHLY'; payAmount: number }): boolean {
-  return pay.payType === 'HOURLY' && pay.payAmount < MINIMUM_WAGE;
+/**
+ * 최저시급보다 적은지 — month('YYYY-MM') 의 해 기준 (없으면 올해).
+ * 시급제는 시급, 월급제는 월급 ÷ 209시간으로 본다.
+ */
+export function isBelowMinimumWage(pay: { payType: 'HOURLY' | 'MONTHLY'; payAmount: number }, month?: string): boolean {
+  const minimum = month ? minimumWageFor(month) : currentMinimumWage();
+  const hourly = pay.payType === 'HOURLY' ? pay.payAmount : pay.payAmount / MONTHLY_STANDARD_HOURS;
+  return hourly < minimum;
 }
 
 /** 22:00 ~ 06:00 (KST) 와 겹치는 시간 */

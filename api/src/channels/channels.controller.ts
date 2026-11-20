@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseEnumPipe, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PropertyRoles } from '../common/decorators/auth.decorators.js';
+import { CurrentUser, PropertyRoles, type AuthUser } from '../common/decorators/auth.decorators.js';
 import { Channel, Role } from '../generated/prisma/enums.js';
 import { ChannelsService } from './channels.service.js';
 import { ConnectChannelDto } from './dto/connect.dto.js';
@@ -26,8 +26,9 @@ export class ChannelsController {
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Param('channel', new ParseEnumPipe(Channel)) channel: Channel,
     @Body() dto: ConnectChannelDto,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.channels.connect(propertyId, channel, dto);
+    return this.channels.connect(propertyId, channel, dto, user.id);
   }
 
   @Post(':channel/sync')

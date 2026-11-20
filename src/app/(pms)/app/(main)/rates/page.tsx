@@ -2,14 +2,14 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { isLiveApi } from "@/infrastructure";
 import { addDays } from "@/shared";
-import { RatesScreen } from "@/ui/pms";
+import { RatesScreen, ScreenSkeleton } from "@/ui/pms";
 import { getRepository } from "../../_lib/session";
 
 export const metadata: Metadata = { title: "요금·재고" };
 
 export default function RatesPage() {
   return (
-    <Suspense fallback={<div className="pm-skeleton" aria-busy="true" aria-label="불러오는 중" />}>
+    <Suspense fallback={<ScreenSkeleton strip={0} rows={6} />}>
       <Rates />
     </Suspense>
   );

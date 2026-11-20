@@ -2,12 +2,14 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.js';
 import { AligoSmsSender, ConsoleSmsSender, SmsSender } from './sms-sender.js';
+import { SmsQuota } from './sms-quota.js';
 
 /** 알리고 키가 모두 있으면 실제 문자, 아니면 로그만 (테스트는 ConsoleSmsSender 의 outbox 를 읽는다) */
 @Global()
 @Module({
   providers: [
     ConsoleSmsSender,
+    SmsQuota,
     {
       provide: SmsSender,
       inject: [ConfigService, ConsoleSmsSender],
@@ -25,6 +27,6 @@ import { AligoSmsSender, ConsoleSmsSender, SmsSender } from './sms-sender.js';
       },
     },
   ],
-  exports: [SmsSender, ConsoleSmsSender],
+  exports: [SmsSender, ConsoleSmsSender, SmsQuota],
 })
 export class SmsModule {}

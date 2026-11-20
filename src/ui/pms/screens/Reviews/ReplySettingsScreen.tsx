@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import type { ActionResult, ReplySettings } from "@/core";
-import { Card, Field, Icon, PageHead, PmButton, Switch } from "../../components";
+import { cx } from "@/shared";
+import { ApplyToDialog, Card, Field, Icon, PageHead, PmButton, Switch } from "../../components";
 import "./reviews.css";
 
 const SAMPLE_REVIEW = "체크인이 빨랐고 직원분이 친절했어요. 다만 아침 엘리베이터 대기가 길었습니다.";
@@ -10,22 +11,38 @@ const SAMPLE_REVIEW = "체크인이 빨랐고 직원분이 친절했어요. 다�
 /** 업장별 톤앤매너 (F1-04) · 자동 응대 (F1-08) */
 interface ReplySettingsScreenProps {
   initial: ReplySettings;
-  /** 실서버 저장. 없으면 화면만 동작하는 시안 */
-  onSave?: (s: ReplySettings) => Promise<ActionResult>;
+  /** 실서버 저장. applyTo: 같은 설정을 함께 저장할 다른 업장. 없으면 화면만 동작하는 시안 */
+  onSave?: (s: ReplySettings, applyTo?: string[]) => Promise<ActionResult>;
+  /** 함께 적용할 수 있는 다른 업장 (사장님·매니저인 업장) */
+  otherProperties?: readonly { id: string; name: string }[];
 }
 
-export function ReplySettingsScreen({ initial, onSave }: ReplySettingsScreenProps) {
+export function ReplySettingsScreen({ initial, onSave, otherProperties = [] }: ReplySettingsScreenProps) {
   const [s, setS] = useState(initial);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
-  const save = () =>
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyIds, setApplyIds] = useState<string[]>([]);
+  const save = (applyTo?: string[]) =>
     start(async () => {
-      if (!onSave) return setMsg({ ok: true, text: "저장했어요 (시안)" });
-      const r = await onSave(s);
-      setMsg(r.ok ? { ok: true, text: "저장했어요. 다음 답글 초안부터 반영돼요." } : { ok: false, text: r.message });
+      setApplyOpen(false);
+      const also = applyTo?.length
+        ? ` 업장 ${applyTo.length}곳에도 같은 말투로 저장했어요 (서명은 업장마다 그대로).`
+        : "";
+      if (!onSave) {
+        setSavedJson(JSON.stringify(s));
+        return setMsg({ ok: true, text: `저장했어요 (시안).${also}` });
+      }
+      const r = await onSave(s, applyTo);
+      if (r.ok) setSavedJson(JSON.stringify(s));
+      setMsg(
+        r.ok ? { ok: true, text: `저장했어요. 다음 답글 초안부터 반영돼요.${also}` } : { ok: false, text: r.message },
+      );
     });
   const set = <K extends keyof ReplySettings>(k: K, v: ReplySettings[K]) => setS((p) => ({ ...p, [k]: v }));
   const auto = s.autoReply;
+  const [savedJson, setSavedJson] = useState(() => JSON.stringify(initial));
+  const dirty = JSON.stringify(s) !== savedJson;
 
   const preview =
     s.tone === "polite"
@@ -81,7 +98,7 @@ export function ReplySettingsScreen({ initial, onSave }: ReplySettingsScreenProp
 
           <Card
             title="24시간 자동 응대"
-            meta="조건에 맞는 새 리뷰는 사람 확인 없이 게시"
+            meta="조건에 맞는 새 리뷰는 확인 없이 바로 등록"
             action={
               <Switch
                 checked={auto.enabled}
@@ -90,8 +107,9 @@ export function ReplySettingsScreen({ initial, onSave }: ReplySettingsScreenProp
               />
             }
           >
+            {!auto.enabled && <p className="rs-auto__off">자동 응대를 켜면 별점과 시간을 고를 수 있어요.</p>}
             <fieldset className="rs-auto" disabled={!auto.enabled}>
-              <Field label="자동 게시할 별점">
+              <Field label="자동으로 답할 별점">
                 <select
                   className="pm-input"
                   value={auto.minRating}
@@ -126,9 +144,39 @@ export function ReplySettingsScreen({ initial, onSave }: ReplySettingsScreenProp
             </fieldset>
             <p className="rs-note">
               <Icon name="alert" size={14} /> 별점 3점 이하, 실명·연락처가 든 리뷰는 자동 게시하지 않고 &lsquo;확인
-              필요&rsquo;로 남기고 알림을 보내요. 자동 게시는 API를 지원하는 채널에서만 동작해요.
+              필요&rsquo;로 남기고 알림을 보내요. 자동 응대는 자동 등록이 되는 채널(호텔스닷컴 등)에서만 동작하고, 다른
+              채널은 초안만 만들어 둬요.
             </p>
           </Card>
+
+          {/* 저장 바 — 폼 아래에 붙어 따라오는 한 줄 (요금·재고 저장 바와 같은 모양, D-15) */}
+          <div className={cx("rs-savebar", dirty && "is-dirty")} role="region" aria-label="저장">
+            <p>
+              {msg ? (
+                <span className={msg.ok ? "rs-saved" : "pm-error"} role={msg.ok ? "status" : "alert"}>
+                  {msg.text}
+                </span>
+              ) : dirty ? (
+                <strong>저장하지 않은 변경이 있어요</strong>
+              ) : (
+                <span className="rs-savebar__idle">바꾸면 오른쪽 미리보기에 바로 보여요</span>
+              )}
+            </p>
+            {otherProperties.length > 0 && (
+              <PmButton
+                onClick={() => {
+                  setApplyIds(otherProperties.map((p) => p.id));
+                  setApplyOpen(true);
+                }}
+                disabled={pending}
+              >
+                다른 업장에도 적용
+              </PmButton>
+            )}
+            <PmButton variant="primary" onClick={() => save()} disabled={pending || (!dirty && !!onSave)}>
+              {pending ? "저장 중…" : "설정 저장"}
+            </PmButton>
+          </div>
         </div>
 
         <Card title="미리보기" className="rs-preview">
@@ -137,16 +185,18 @@ export function ReplySettingsScreen({ initial, onSave }: ReplySettingsScreenProp
             {SAMPLE_REVIEW}
           </p>
           <p className="rs-preview__reply">{preview}</p>
-          <div className="rs-actions">
-            {msg && (
-              <span className={msg.ok ? "rs-saved" : "pm-error"} role={msg.ok ? "status" : "alert"}>
-                {msg.text}
-              </span>
-            )}
-            <PmButton variant="primary" onClick={save} disabled={pending}>
-              {pending ? "저장 중…" : "설정 저장"}
-            </PmButton>
-          </div>
+          {applyOpen && (
+            <ApplyToDialog
+              title="같은 말투를 다른 업장에도"
+              desc="말투·꼭 넣을 문구·금지어·자동 응대를 이 업장과 고른 업장에 함께 저장해요. 서명은 업장 이름이 들어가서 업장마다 그대로 둬요."
+              properties={otherProperties}
+              selected={applyIds}
+              onChange={setApplyIds}
+              pending={pending}
+              onClose={() => setApplyOpen(false)}
+              onApply={() => save(applyIds)}
+            />
+          )}
         </Card>
       </div>
     </div>

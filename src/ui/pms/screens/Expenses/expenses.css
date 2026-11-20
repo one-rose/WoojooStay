@@ -167,3 +167,23 @@
   object-fit: contain;
   background: var(--pm-surface);
 }
+/* 달 이동 (매출장부와 같은 모양) */
+.ex-month {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-s2);
+  margin-bottom: var(--pm-s4);
+  font-size: 16px;
+}
+.ex-month__nav {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--pm-r-md);
+  border: 1px solid var(--pm-line);
+  background: var(--pm-surface);
+}
+.ex-month__nav:disabled {
+  opacity: 0.35;
+}

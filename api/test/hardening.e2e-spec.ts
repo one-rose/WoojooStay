@@ -627,11 +627,13 @@ describe('결함 수정 확인 (e2e)', () => {
 
       const orig = connector.postReply.bind(connector);
       connector.postReply = () => Promise.reject(new Error('채널 서버 오류'));
-      await http
+      // 채널 서버 오류는 우리 오류(500)가 아니라 502 CHANNEL_POST_FAILED
+      const failed = await http
         .post(api(`/properties/${channelPid}/reviews/${rev.id}/reply`))
         .set(o())
         .send({ text: 'Thanks!' })
-        .expect(500);
+        .expect(502);
+      expect(failed.body.errorCode).toBe('CHANNEL_POST_FAILED');
       expect((await prisma.review.findUniqueOrThrow({ where: { id: rev.id } })).status).toBe('UNANSWERED');
 
       let posts = 0;

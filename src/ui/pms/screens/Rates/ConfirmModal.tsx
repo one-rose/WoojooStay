@@ -1,7 +1,7 @@
 "use client";
 
 import { derivePrice, type RateCell, type RateChange, type RateGrid, type RatePlan } from "@/core";
-import { formatNumber, formatShortDate } from "@/shared";
+import { formatShortDate, formatWon } from "@/shared";
 import { Badge, Icon, Modal, PmButton } from "../../components";
 
 interface ConfirmModalProps {
@@ -18,7 +18,7 @@ const FIELD_LABEL: Record<RateChange["field"], string> = { stock: "재고", pric
 function show(field: RateChange["field"], value: RateChange["before"]) {
   if (field === "open") return value ? "판매" : "마감";
   if (value === null) return <span className="rt-confirm__empty">미입력</span>;
-  return field === "price" ? `₩${formatNumber(value as number)}` : `${value}실`;
+  return field === "price" ? `${formatWon(value as number)}` : `${value}실`;
 }
 
 export function ConfirmModal({ grid, changes, planById, edited, onClose, onSave }: ConfirmModalProps) {
@@ -53,7 +53,7 @@ export function ConfirmModal({ grid, changes, planById, edited, onClose, onSave 
         <thead>
           <tr>
             <th scope="col">날짜</th>
-            <th scope="col">객실 · 요금제</th>
+            <th scope="col">객실과 요금제</th>
             <th scope="col">항목</th>
             <th scope="col">변경</th>
           </tr>
@@ -73,7 +73,7 @@ export function ConfirmModal({ grid, changes, planById, edited, onClose, onSave 
                       </th>
                     )}
                     <td>
-                      {c.roomType} · {c.plan}
+                      {c.roomType} › {c.plan}
                     </td>
                     <td>
                       <span className={c.field === "open" ? "rt-confirm__field is-open" : "rt-confirm__field"}>
@@ -90,8 +90,8 @@ export function ConfirmModal({ grid, changes, planById, edited, onClose, onSave 
                         return (
                           <span key={p.id} className="rt-confirm__follow">
                             <Icon name="derived" size={12} /> {planById[p.id].name}{" "}
-                            {before === null ? "미입력" : `₩${formatNumber(before)}`} →{" "}
-                            {after === null ? "미입력" : `₩${formatNumber(after)}`}
+                            {before === null ? "미입력" : `${formatWon(before)}`} →{" "}
+                            {after === null ? "미입력" : `${formatWon(after)}`}
                           </span>
                         );
                       })}

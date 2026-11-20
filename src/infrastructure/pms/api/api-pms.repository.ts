@@ -11,6 +11,7 @@ import type {
   ReplySettings,
   SettingsData,
   StaffData,
+  StaffMonthAttendance,
 } from "@/core";
 import { StaticPmsRepository } from "../static-pms.repository";
 import type { PmsApiClient } from "./client";
@@ -25,6 +26,7 @@ import {
   toReview,
   toSettings,
   toStaff,
+  toStaffMonth,
 } from "./mappers";
 
 /**
@@ -67,12 +69,16 @@ export class ApiPmsRepository extends StaticPmsRepository implements PmsReposito
     return toLedger(await this.api.ledger(this.propertyId, month));
   }
 
-  override async getStaff(date?: string): Promise<StaffData> {
-    return toStaff(await this.api.staff(this.propertyId, date));
+  override async getStaff(date?: string, week?: string): Promise<StaffData> {
+    return toStaff(await this.api.staff(this.propertyId, date, week));
   }
 
-  override async getExpenses(): Promise<ExpenseData> {
-    const [d, base] = await Promise.all([this.api.expenses(this.propertyId), super.getExpenses()]);
+  override async getStaffMonth(staffId: string, month: string): Promise<StaffMonthAttendance> {
+    return toStaffMonth(await this.api.staffMonth(this.propertyId, staffId, month));
+  }
+
+  override async getExpenses(month?: string): Promise<ExpenseData> {
+    const [d, base] = await Promise.all([this.api.expenses(this.propertyId, month), super.getExpenses()]);
     return toExpenses(d, base.receiptSample);
   }
 
@@ -80,7 +86,10 @@ export class ApiPmsRepository extends StaticPmsRepository implements PmsReposito
     return toOps(await this.api.ops(this.propertyId));
   }
 
-  /** 업장 정보·직원 계정·구독·알림 — 구독은 사장님만 볼 수 있어 매니저면 예시 값 대신 비워 둔다 */
+  /**
+   * 업장 정보·직원 계정·구독·알림 — 구독은 사장님만 볼 수 있어(매니저는 403) 못 받으면 비워 둔다.
+   * 예시 구독 값(super.getSettings)이 섞이지 않게 toSettings 가 billing null 을 빈 값으로 채운다.
+   */
   override async getSettings(): Promise<SettingsData> {
     const [base, noti, property, members, billing, notices] = await Promise.all([
       super.getSettings(),

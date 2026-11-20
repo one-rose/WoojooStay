@@ -26,8 +26,12 @@ export class ReviewsController {
   @Post('reviews/:reviewId/draft')
   @HttpCode(200)
   @ApiOperation({ summary: 'AI 답글 초안 다시 만들기' })
-  draft(@Param('propertyId', ParseUUIDPipe) propertyId: string, @Param('reviewId', ParseUUIDPipe) reviewId: string) {
-    return this.reviews.generateDraft(propertyId, reviewId);
+  draft(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.reviews.generateDraft(propertyId, reviewId, user.id);
   }
 
   @Post('reviews/:reviewId/reply')
@@ -50,7 +54,12 @@ export class ReviewsController {
   }
 
   @Put('reply-settings')
-  updateSettings(@Param('propertyId', ParseUUIDPipe) propertyId: string, @Body() dto: ReplySettingsDto) {
-    return this.reviews.updateSettings(propertyId, dto);
+  @ApiOperation({ summary: '답글 설정 저장 — applyTo 로 다른 업장에도 함께 적용 (서명 제외)' })
+  updateSettings(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ReplySettingsDto,
+  ) {
+    return this.reviews.updateSettings(propertyId, dto, user.id);
   }
 }

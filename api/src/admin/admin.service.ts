@@ -6,7 +6,10 @@ import type { Prisma } from '../generated/prisma/client.js';
 import type { Channel, InquiryStatus } from '../generated/prisma/enums.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { kstDate } from '../common/utils/dates.js';
+import { pilotInfo } from '../common/utils/pilot.js';
 import { createAdminUser, toAdminView } from './admin-auth.service.js';
+import { PilotService, toSurvey } from './pilot.service.js';
 import type { CreateAdminDto, CreateInquiryDto, ListPropertiesQuery, UpdateInquiryDto } from './dto/admin.dto.js';
 
 const ISSUE_STATUSES = ['AUTH_EXPIRED', 'ERROR'] as const;
@@ -18,6 +21,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly channels: ChannelsService,
     private readonly notifications: NotificationsService,
+    private readonly pilot: PilotService,
   ) {}
 
   async overview() {
@@ -56,6 +60,8 @@ export class AdminService {
         : {}),
       ...(query.filter === 'issue' ? { channels: { some: { status: { in: [...ISSUE_STATUSES] } } } } : {}),
       ...(query.filter === 'trial' ? { subscriptions: { some: { status: 'TRIAL' } } } : {}),
+      ...(query.filter === 'pilot' ? { pilotGroup: { not: null } } : {}),
+      ...(query.ownerId ? { memberships: { some: { userId: query.ownerId, role: 'OWNER' as const } } } : {}),
     };
     const rows = await this.prisma.property.findMany({
       where,
@@ -65,14 +71,21 @@ export class AdminService {
         manager: { select: { id: true, name: true } },
         subscriptions: { select: { planCode: true, status: true, trialEndsAt: true } },
         channels: { select: { channel: true, status: true, lastSyncedAt: true } },
-        memberships: { where: { role: 'OWNER' }, take: 1, include: { user: { select: { name: true, phone: true } } } },
+        memberships: {
+          where: { role: { in: ['OWNER', 'MANAGER'] } },
+          orderBy: { createdAt: 'asc' },
+          include: { user: { select: { id: true, name: true, phone: true, lastLoginAt: true } } },
+        },
         _count: { select: { reviews: { where: { status: 'UNANSWERED' } } } },
       },
     });
+    const activation = await this.pilot.activation(rows.map((p) => p.id));
+    const today = kstDate();
     return rows.map((p) => {
       const synced = p.channels.map((c) => c.lastSyncedAt?.getTime() ?? 0);
       const last = synced.length ? Math.max(...synced) : 0;
-      const owner = p.memberships[0]?.user;
+      const owner = p.memberships.find((m) => m.role === 'OWNER')?.user;
+      const managerLogins = p.memberships.filter((m) => m.role === 'MANAGER').map((m) => m.user.lastLoginAt);
       return {
         id: p.id,
         name: p.name,
@@ -88,6 +101,12 @@ export class AdminService {
         issueCount: p.channels.filter((c) => (ISSUE_STATUSES as readonly string[]).includes(c.status)).length,
         lastSyncedAt: last ? new Date(last) : null,
         unansweredReviews: p._count.reviews,
+        /** 사장님 계정 — 사장님 단위로 묶어 보기·필터(?ownerId=) 용 (PO-23) */
+        owner: owner ? { id: owner.id, name: owner.name, phone: owner.phone } : null,
+        /** 최근 접속 — 사장님 · 매니저 중 가장 최근 (PO-01) */
+        lastLogin: { owner: owner?.lastLoginAt ?? null, manager: latestDate(managerLogins) },
+        pilot: pilotInfo(p, today),
+        activation: activation.get(p.id) ?? null,
       };
     });
   }
@@ -103,9 +122,15 @@ export class AdminService {
         },
         memberships: { include: { user: { select: { name: true, phone: true, lastLoginAt: true } } } },
         payments: { orderBy: { paidAt: 'desc' }, take: 12 },
+        pilotSurvey: true,
       },
     });
     if (!p) throw Errors.notFound('업장');
+    const [activation, aiUsage, notes] = await Promise.all([
+      this.pilot.activation([p.id]),
+      this.pilot.aiUsage(p.id),
+      this.pilot.notes(p.id),
+    ]);
     return {
       id: p.id,
       name: p.name,
@@ -132,6 +157,13 @@ export class AdminService {
         lastLoginAt: m.user.lastLoginAt,
       })),
       payments: p.payments,
+      pilot: pilotInfo(p, kstDate()),
+      survey: p.pilotSurvey ? toSurvey(p.pilotSurvey) : null,
+      activation: activation.get(p.id) ?? null,
+      /** 최근 6개월 AI 답글 사용량 (PO-16) */
+      aiUsage,
+      /** 지원 메모 최근 100건 (PO-23) */
+      notes,
     };
   }
 
@@ -259,4 +291,9 @@ export class AdminService {
     const a = await this.prisma.adminUser.update({ where: { id }, data: { isActive } });
     return { ...toAdminView(a), isActive: a.isActive };
   }
+}
+
+function latestDate(list: (Date | null)[]): Date | null {
+  const t = Math.max(0, ...list.map((d) => d?.getTime() ?? 0));
+  return t > 0 ? new Date(t) : null;
 }

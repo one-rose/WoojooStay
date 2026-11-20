@@ -32,8 +32,7 @@
   font-weight: 700;
 }
 .rt-view {
-  display: inline-flex;
-  gap: 6px;
+  flex: none;
 }
 .rt-toggle {
   display: inline-flex;
@@ -309,14 +308,20 @@
   font-weight: 700;
   letter-spacing: 0.02em;
 }
+/* 판매 중은 평소 상태 — 조용한 회색 글자. 마감만 눈에 띄게 (D-02) */
 .rt-switch.is-open {
-  background: var(--pm-ok-bg);
-  color: var(--pm-ok);
+  background: transparent;
+  color: var(--pm-muted);
+  font-weight: 500;
+}
+.rt-switch.is-open:hover {
+  background: var(--pm-neutral-bg);
+  color: var(--pm-ink);
 }
 .rt-switch.is-closed {
-  background: var(--pm-neutral-bg);
-  color: var(--pm-muted);
-  text-decoration: line-through;
+  background: var(--pm-closed);
+  color: var(--pm-ink-2);
+  border-radius: var(--pm-r-sm);
 }
 .rt-switch.is-dirty {
   box-shadow: 0 0 0 2px var(--pm-dirty-line);

@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import {
   hasUrgentAlert,
   type NotificationItem,
+  type PortfolioPeriod,
   type PortfolioData,
   type PortfolioPeople,
   type PortfolioReport,
@@ -30,15 +31,15 @@ import {
 } from "@/infrastructure";
 import { COOKIE, loadMe, readSession, redirectToRefresh, requireSession, serverApi } from "./session";
 
-/** 여러 업장 통합 현황 — 체험 모드는 예시 10곳. 한 요청 안에서는 한 번만 부른다 */
-export const loadPortfolio = cache(async (): Promise<PortfolioData> => {
+/** 여러 업장 통합 현황 — 체험 모드는 예시 10곳. 한 요청 안에서는 기간마다 한 번만 부른다 */
+export const loadPortfolio = cache(async (period: PortfolioPeriod = "today"): Promise<PortfolioData> => {
   if (!isLiveApi) {
     await connection();
-    return demoPortfolio();
+    return demoPortfolio(undefined, period);
   }
   const s = await requireSession();
   try {
-    return toPortfolio(await (await serverApi(s.accessToken)).portfolio());
+    return toPortfolio(await (await serverApi(s.accessToken)).portfolio(period));
   } catch (e) {
     if (e instanceof ApiAuthError) await redirectToRefresh({ stale: true });
     throw e;

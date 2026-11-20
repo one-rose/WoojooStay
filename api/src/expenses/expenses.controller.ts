@@ -22,6 +22,7 @@ import { CurrentUser, PropertyRoles, type AuthUser } from '../common/decorators/
 import { Role } from '../generated/prisma/enums.js';
 import { ExpenseDto, ExpenseQuery, OrderDto, OrderStatusDto } from './expenses.dto.js';
 import { ExpensesService } from './expenses.service.js';
+import { EventsService } from '../events/events.service.js';
 
 const PID = 'propertyId';
 
@@ -29,7 +30,10 @@ const PID = 'propertyId';
 @ApiBearerAuth()
 @Controller('properties/:propertyId')
 export class ExpensesController {
-  constructor(private readonly expenses: ExpensesService) {}
+  constructor(
+    private readonly expenses: ExpensesService,
+    private readonly events: EventsService,
+  ) {}
 
   @Get('expenses')
   @PropertyRoles([Role.OWNER, Role.MANAGER])
@@ -94,13 +98,15 @@ export class ExpensesController {
   @Post('receipts/:id/register')
   @PropertyRoles([Role.OWNER, Role.MANAGER])
   @ApiOperation({ summary: '확인한 내용으로 지출 등록' })
-  register(
+  async register(
     @Param(PID, ParseUUIDPipe) propertyId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: ExpenseDto,
   ) {
-    return this.expenses.registerReceipt(propertyId, user.id, id, dto);
+    const r = await this.expenses.registerReceipt(propertyId, user.id, id, dto);
+    await this.events.record('RECEIPT_REGISTER', { userId: user.id, propertyId, meta: { receiptId: id } });
+    return r;
   }
 
   @Post('orders')

@@ -2,10 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Errors } from '../common/errors/app-error.js';
 import { addDaysIso, dateOnly, kstDate } from '../common/utils/dates.js';
 import { CHANNEL_CATALOG, CHANNELS } from '../connectors/catalog.js';
-import { ChannelAuthError, ChannelConnector } from '../connectors/channel-connector.js';
+import { ChannelAuthError, ChannelConnector, type ChannelCredentials } from '../connectors/channel-connector.js';
 import { CompetitorSource } from '../connectors/competitor-source.js';
 import { CredentialVault } from '../connectors/credential-vault.js';
 import { ConnectionStatus, type Channel } from '../generated/prisma/enums.js';
+import { EventsService } from '../events/events.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ReviewIngestService } from '../reviews/review-ingest.service.js';
@@ -31,6 +32,7 @@ export class ChannelsService {
     private readonly ingest: ReviewIngestService,
     private readonly notifications: NotificationsService,
     private readonly competitors: CompetitorSource,
+    private readonly events: EventsService,
   ) {}
 
   /** 9개 채널 전부 — 연결 안 된 채널도 함께 */
@@ -51,7 +53,7 @@ export class ChannelsService {
   }
 
   /** 로그인 확인 → 암호화 저장 → 최근 90일 첫 수집 */
-  async connect(propertyId: string, channel: Channel, dto: ConnectChannelDto) {
+  async connect(propertyId: string, channel: Channel, dto: ConnectChannelDto, userId: string | null = null) {
     if (!dto.consent) throw Errors.consentRequired();
     const creds = { loginId: dto.loginId, password: dto.password };
     try {
@@ -72,6 +74,7 @@ export class ChannelsService {
         lastError: null,
       },
     });
+    await this.events.record('CHANNEL_CONNECT', { userId, propertyId, meta: { channel } });
     const result = await this.sync(propertyId, channel, FIRST_SYNC_DAYS);
     await this.refreshCompetitors(propertyId);
     return result;
@@ -222,6 +225,7 @@ export class ChannelsService {
           update: { amount, source: 'CHANNEL' },
         });
       }
+      await this.saveRating(propertyId, channel, creds, today);
       await this.prisma.channelConnection.update({
         where: { id: conn.id },
         data: { status: ConnectionStatus.CONNECTED, lastSyncedAt: new Date(), consecutiveFails: 0, lastError: null },
@@ -246,6 +250,22 @@ export class ChannelsService {
       }
       this.logger.warn(`수집 실패 ${propertyId}/${channel}: ${(err as Error).message}`);
       return { channel, status, newReviews: 0 };
+    }
+  }
+
+  /** 채널 평점 — 하루 한 줄 (같은 날 다시 수집하면 덮어씀). 평점을 못 가져와도 수집은 성공으로 둔다 (PO-05) */
+  private async saveRating(propertyId: string, channel: Channel, creds: ChannelCredentials, today: string) {
+    try {
+      const r = await this.connector.fetchRating(channel, creds);
+      if (!r || !Number.isFinite(r.rating)) return;
+      const data = { rating: Math.max(0, Math.min(5, Math.round(r.rating * 100) / 100)), reviewCount: r.reviewCount };
+      await this.prisma.ratingSnapshot.upsert({
+        where: { propertyId_channel_date: { propertyId, channel, date: dateOnly(today) } },
+        create: { propertyId, channel, date: dateOnly(today), ...data },
+        update: data,
+      });
+    } catch (err) {
+      this.logger.warn(`평점 기록 실패 ${propertyId}/${channel}: ${(err as Error).message}`);
     }
   }
 

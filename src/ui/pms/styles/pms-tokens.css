@@ -38,8 +38,9 @@
   /* 상태 — 글자색 / 바탕색 쌍으로만 쓴다 */
   --pm-ok: #0e7350;
   --pm-ok-bg: #e4f4ec;
-  --pm-warn: #a15200;
-  --pm-warn-bg: #fff1dd;
+  /* 주의 — 갈색 계열 호박색. 브랜드 주황 글자(#c24100)와 헷갈리지 않게 노랑 쪽으로 (D-03) */
+  --pm-warn: #8a5a00;
+  --pm-warn-bg: #fff6db;
   --pm-bad: #c23a1d;
   --pm-bad-bg: #fde9e4;
   --pm-info: var(--primary-2);
@@ -70,6 +71,10 @@
   --pm-fs-table: 13px;
   --pm-fs-cap: 12px;
   --pm-fs-kpi: 26px; /* 요약 띠 숫자 */
+  --pm-fs-kpi-text: 15px; /* 요약 칸에 숫자 대신 글자가 들어갈 때 ("연결 안 됨" 등) */
+
+  /* 손가락으로 누르는 것의 최소 크기 (pointer: coarse) */
+  --pm-touch: 44px;
 
   /* 간격 (4 배수) */
   --pm-s1: 4px;

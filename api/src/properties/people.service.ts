@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Errors } from '../common/errors/app-error.js';
-import { maskPhone } from '../common/utils/phone.js';
 import { Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ownersLockKey } from './members.service.js';
 
 export type AssignRole = 'MANAGER' | 'STAFF' | null;
 
@@ -38,28 +38,35 @@ export class PeopleService {
         orderBy: { createdAt: 'desc' },
       }),
     ]);
+    // 사장님만 부르는 화면이라 번호는 전체로 (연락·초대 다시 보내기에 필요)
     const people = new Map<string, { userId: string; name: string; phone: string; roles: Record<string, Role> }>();
     for (const m of members) {
       const row = people.get(m.userId) ?? {
         userId: m.userId,
         name: m.user.name,
-        phone: maskPhone(m.user.phone),
+        phone: m.user.phone,
         roles: {},
       };
       row.roles[m.propertyId] = m.role;
       people.set(m.userId, row);
     }
-    // 초대는 번호 · 권한별로 묶는다 (여러 업장에 함께 보낸 초대가 한 줄로)
-    const invites = new Map<string, { phone: string; role: Role; propertyIds: string[]; expiresAt: Date }>();
+    // 초대는 번호 · 권한별로 묶는다 (여러 업장에 함께 보낸 초대가 한 줄로).
+    // invitationIds 는 propertyIds 와 같은 순서 — 업장별 취소·다시 보내기에 쓴다
+    const invites = new Map<
+      string,
+      { phone: string; role: Role; propertyIds: string[]; invitationIds: string[]; expiresAt: Date }
+    >();
     for (const i of invitations) {
       const key = `${i.phone}:${i.role}`;
       const row = invites.get(key) ?? {
-        phone: maskPhone(i.phone),
+        phone: i.phone,
         role: i.role,
         propertyIds: [],
+        invitationIds: [],
         expiresAt: i.expiresAt,
       };
       row.propertyIds.push(i.propertyId);
+      row.invitationIds.push(i.id);
       if (i.expiresAt > row.expiresAt) row.expiresAt = i.expiresAt;
       invites.set(key, row);
     }
@@ -72,8 +79,27 @@ export class PeopleService {
    */
   async assign(ownerId: string, userId: string, assignments: { propertyId: string; role: AssignRole }[]) {
     if (userId === ownerId) throw Errors.forbidden();
+    // 같은 업장이 두 번 들어 있으면 어느 쪽을 따를지 알 수 없다
+    if (new Set(assignments.map((a) => a.propertyId)).size !== assignments.length) throw Errors.duplicateProperty();
     const owned = new Set((await this.ownedProperties(ownerId)).map((p) => p.id));
     if (assignments.some((a) => !owned.has(a.propertyId))) throw Errors.forbidden();
+    // 바꾸는 업장마다 사장님 권한 변경과 겹치지 않게 잠그고, 잠금 안에서 다시 읽는다
+    await this.prisma.withLock(
+      assignments.map((a) => ownersLockKey(a.propertyId)),
+      () => this.assignLocked(ownerId, userId, owned, assignments),
+    );
+    return this.list(ownerId);
+  }
+
+  private async assignLocked(
+    ownerId: string,
+    userId: string,
+    owned: Set<string>,
+    assignments: { propertyId: string; role: AssignRole }[],
+  ) {
+    // 잠금을 기다리는 동안 내가 사장님에서 빠졌을 수 있다
+    const stillOwned = new Set((await this.ownedProperties(ownerId)).map((p) => p.id));
+    if (assignments.some((a) => !stillOwned.has(a.propertyId))) throw Errors.forbidden();
     const current = await this.prisma.membership.findMany({
       where: { userId, propertyId: { in: [...owned] } },
     });
@@ -101,6 +127,5 @@ export class PeopleService {
         ];
       }),
     );
-    return this.list(ownerId);
   }
 }
