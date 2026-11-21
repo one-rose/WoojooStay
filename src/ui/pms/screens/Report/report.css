@@ -17,6 +17,9 @@
   font-weight: 600;
 }
 .rp-panel {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-top: var(--pm-s4);
   background: var(--pm-surface);
   border: 1px solid var(--pm-line);
@@ -33,6 +36,7 @@
   font-size: var(--pm-fs-h2);
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--pm-section);
 }
 .rp-panel__head span {
   margin-left: auto;
@@ -180,7 +184,7 @@
 .rp-period__btn.is-on {
   border-color: var(--pm-navy);
   background: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .rp-cost {
   display: inline-grid;

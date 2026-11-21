@@ -224,6 +224,8 @@ export interface StaffActions {
     memo?: string;
   }) => Promise<ActionResult>;
   setShift: (staffId: string, date: string, shift: "day" | "night" | "off") => Promise<ActionResult>;
+  /** 출퇴근 요청 승인·거절 (거절은 사유 필수) */
+  decideClockRequest?: (requestId: string, decision: "approve" | "reject", reason?: string) => Promise<ActionResult>;
   /** 급여 확정 · 명세 발송 · 확정 취소(발송 전, 사장님만) */
   payroll: (month: string, step: "confirm" | "send" | "reopen") => Promise<ActionResult>;
   updateEmployee: (
@@ -275,7 +277,17 @@ export interface ExpenseActions {
 
 /** 설정 (F0-02 · F0-03 · F0-08 · F0-09 · F0-13) */
 export interface SettingsActions {
-  saveProperty: (input: { name: string; address: string; rooms: number; phone: string }) => Promise<ActionResult>;
+  saveProperty: (input: {
+    name: string;
+    address: string;
+    rooms: number;
+    phone: string;
+    /** 출근 확인 위치 — 둘 다 null 이면 지우기, 없으면 그대로 */
+    latitude?: number | null;
+    longitude?: number | null;
+    /** 출근 확인 반경 (m, 50~1000) */
+    clockRadiusM?: number;
+  }) => Promise<ActionResult>;
   invite: (phone: string, role: "manager" | "staff") => Promise<ActionResult>;
   setPlan: (planId: string, enabled: boolean) => Promise<ActionResult>;
   /** 개발용 PG — 실제로는 PG 결제창이 authKey 를 준다 */
@@ -310,7 +322,21 @@ export interface SettingsActions {
   ) => Promise<ActionResult>;
 }
 
-/** 직원 본인 출퇴근 */
-export type ClockAction = (employeeId: string, action: "in" | "out") => Promise<ActionResult>;
+/** 출퇴근 확인 값 — 브라우저(앱) 위치 */
+export interface ClockLocation {
+  latitude: number;
+  longitude: number;
+  /** 정확도 (m) */
+  accuracy?: number;
+}
+
+/** 직원 본인 출퇴근 — 위치를 보내면 서버가 업장 반경 안인지 본다 (OUT_OF_RANGE · LOCATION_REQUIRED) */
+export type ClockAction = (employeeId: string, action: "in" | "out", location?: ClockLocation) => Promise<ActionResult>;
+/** 직원 본인 — 위치로 안 될 때 사유와 함께 출퇴근 요청 (사장님·매니저가 승인) */
+export type ClockRequestAction = (
+  type: "in" | "out",
+  reason: string,
+  location?: ClockLocation,
+) => Promise<ActionResult>;
 /** 직원 본인 — 방금 누른 퇴근 되돌리기 (퇴근 후 5분 안, 급여 확정 전) */
 export type UndoClockOutAction = () => Promise<ActionResult>;

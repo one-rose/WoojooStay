@@ -326,7 +326,7 @@ export function PeopleScreen({ data: initial, actions }: PeopleScreenProps) {
 
       {toast && (
         <div className={cx("pp-toast", toast.bad && "is-bad")} role={toast.bad ? "alert" : "status"}>
-          <Icon name={toast.bad ? "alert" : "check"} size={16} />
+          <Icon name={toast.bad ? "alert" : "check"} size={16} swap />
           {toast.text}
         </div>
       )}

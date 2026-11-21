@@ -284,7 +284,12 @@ export interface ApiStaff {
     out: string | null;
     status: "working" | "done" | "missing-out" | "late" | "scheduled" | "off";
     edited: boolean;
+    /** 출근·퇴근을 어떻게 찍었는지 (기록 없으면 null) */
+    method?: ApiClockMethod | null;
+    outMethod?: ApiClockMethod | null;
   }[];
+  /** 기다리는 출퇴근 요청 (오래된 순) */
+  clockRequests?: ApiClockRequest[];
   /** 퇴근 누락 (최근 31일, 퇴사자 포함) — 고치기는 PUT /staff/attendance */
   missingClockOut?: { employeeId: string; name: string; attendanceId: string; date: string; in: string }[];
   monthHours: Record<string, number>;
@@ -301,13 +306,58 @@ export interface ApiStaff {
     status: "DRAFT" | "CONFIRMED" | "SENT" | null;
   }[];
 }
+export type ApiClockMethod = "GPS" | "QR" | "REQUEST" | "MANUAL";
+export interface ApiClockRequest {
+  id: string;
+  employeeId: string;
+  name?: string;
+  type: "IN" | "OUT";
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  /** 한국 날짜 · HH:mm */
+  date: string;
+  time: string;
+  reason: string;
+  distanceM: number | null;
+  rejectReason?: string | null;
+  createdAt: string;
+}
+/** 출근 확인 설정 — 위치는 위도·경도가 둘 다 있을 때만 */
+export interface ApiClockSettings {
+  locationSet: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  radiusM: number;
+}
+export interface ApiClockQr {
+  propertyId: string;
+  propertyName: string;
+  keyVersion: number;
+  payload: string;
+}
 export interface ApiStaffMe {
   date: string;
   property: string;
   employee: { id: string; name: string; jobRole: ApiJobRole; payType: "HOURLY" | "MONTHLY"; payAmount: number };
   state: "ready" | "working" | "done";
   /** shift null: 근무표 없음 (미정) */
-  today: { in: string | null; out: string | null; shift: ApiShift | null };
+  today: {
+    in: string | null;
+    out: string | null;
+    shift: ApiShift | null;
+    method?: ApiClockMethod | null;
+    outMethod?: ApiClockMethod | null;
+  };
+  clock?: ApiClockSettings;
+  requests?: {
+    id: string;
+    type: "IN" | "OUT";
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    requestedAt: string;
+    reason: string;
+    rejectReason: string | null;
+    decidedAt: string | null;
+  }[];
   week: { dates: string[]; shifts: (ApiShift | null)[] };
   nextWeek?: { dates: string[]; shifts: (ApiShift | null)[] };
   coworkers?: { name: string; shift: "DAY" | "NIGHT" | null; working: boolean }[];
@@ -484,6 +534,8 @@ export interface ApiProperty {
   bizNo: string;
   ownerName: string;
   phone: string | null;
+  /** 출근 확인 설정 */
+  clock?: ApiClockSettings;
 }
 export interface ApiMembers {
   members: { id: string; userId: string; name: string; phone: string; role: "OWNER" | "MANAGER" | "STAFF"; joinedAt: string }[];
@@ -637,6 +689,12 @@ export class PmsApiClient {
   }
   logout(refreshToken: string) {
     return this.call<void>("POST", "/auth/logout", { refreshToken });
+  }
+  /** 앱 → 웹 화면 넘기기 코드(1회용, 60초)를 웹 로그인 토큰으로 바꾼다 */
+  exchangeHandoff(code: string) {
+    return this.call<ApiTokens & { path: string; propertyId: string | null }>("POST", "/auth/web-handoff/exchange", {
+      code,
+    });
   }
   me() {
     return this.call<ApiMe>("GET", "/auth/me");
@@ -793,12 +851,45 @@ export class PmsApiClient {
       `/properties/${propertyId}/staff/employees/${employeeId}/attendance?month=${encodeURIComponent(month)}`,
     );
   }
-  clock(propertyId: string, employeeId: string, action: "in" | "out") {
+  /** 출퇴근 — 위치를 보내면 서버가 업장 반경 안인지 본다 (업장 위치가 없으면 확인 없이) */
+  clock(
+    propertyId: string,
+    employeeId: string,
+    action: "in" | "out",
+    location?: { latitude: number; longitude: number; accuracy?: number },
+  ) {
     return this.call<unknown>("POST", `/properties/${propertyId}/staff/attendance/clock`, {
       employeeId,
       action,
-      method: "GPS",
+      ...(location
+        ? {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            ...(location.accuracy !== undefined ? { accuracy: Math.round(location.accuracy) } : {}),
+          }
+        : {}),
     });
+  }
+  /** 출퇴근 요청 (직원 본인) — 위치로 안 될 때 사유와 함께 */
+  clockRequest(
+    propertyId: string,
+    body: { type: "IN" | "OUT"; reason: string; latitude?: number; longitude?: number; accuracy?: number },
+  ) {
+    return this.call<ApiClockRequest>("POST", `/properties/${propertyId}/staff/clock-requests`, body);
+  }
+  /** 출퇴근 요청 승인·거절 (사장님·매니저) */
+  decideClockRequest(propertyId: string, requestId: string, decision: "approve" | "reject", reason?: string) {
+    return this.call<unknown>(
+      "POST",
+      `/properties/${propertyId}/staff/clock-requests/${requestId}/${decision}`,
+      decision === "reject" ? { reason } : undefined,
+    );
+  }
+  clockQr(propertyId: string) {
+    return this.call<ApiClockQr>("GET", `/properties/${propertyId}/clock-qr`);
+  }
+  rotateClockQr(propertyId: string) {
+    return this.call<ApiClockQr>("POST", `/properties/${propertyId}/clock-qr/rotate`);
   }
   createEmployee(propertyId: string, body: ApiEmployeeInput) {
     return this.call<{ id: string; belowMinimumWage: boolean }>("POST", `/properties/${propertyId}/staff/employees`, body);
@@ -927,7 +1018,14 @@ export class PmsApiClient {
   property(propertyId: string) {
     return this.call<ApiProperty>("GET", `/properties/${propertyId}`);
   }
-  updateProperty(propertyId: string, body: Partial<Pick<ApiProperty, "name" | "address" | "rooms" | "phone">>) {
+  updateProperty(
+    propertyId: string,
+    body: Partial<Pick<ApiProperty, "name" | "address" | "rooms" | "phone">> & {
+      latitude?: number | null;
+      longitude?: number | null;
+      clockRadiusM?: number;
+    },
+  ) {
     return this.call<ApiProperty>("PATCH", `/properties/${propertyId}`, body);
   }
   members(propertyId: string) {

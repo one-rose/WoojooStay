@@ -6,6 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import type {
   ActionResult,
   ChannelId,
+  ClockLocation,
   ExpenseInput,
   GuestReview,
   OpsActions,
@@ -470,15 +471,25 @@ export async function setOrderStatusAction(orderId: string, status: "ordered" | 
 
 /* ── 설정 (F0-02 · F0-03 · F0-08 · F0-09 · F0-13) ── */
 
-export async function savePropertyAction(input: { name: string; address: string; rooms: number; phone: string }) {
+export async function savePropertyAction(input: Parameters<SettingsActions["saveProperty"]>[0]) {
   return act((api, pid) =>
     api.updateProperty(pid, {
       name: input.name,
       address: input.address,
       rooms: input.rooms,
       phone: input.phone || undefined,
+      // 출근 확인 위치 — 둘 다 넘어왔을 때만 (null 이면 지우기)
+      ...(input.latitude !== undefined && input.longitude !== undefined
+        ? { latitude: input.latitude, longitude: input.longitude }
+        : {}),
+      ...(input.clockRadiusM !== undefined ? { clockRadiusM: input.clockRadiusM } : {}),
     }),
   );
+}
+
+/** 출근 QR 새로 만들기 — 예전에 인쇄한 QR 은 더 이상 안 된다 (사장님) */
+export async function rotateClockQrAction() {
+  return act((api, pid) => api.rotateClockQr(pid));
 }
 
 export async function inviteAction(phone: string, role: "manager" | "staff") {
@@ -623,8 +634,30 @@ export async function signContractAction(token: string, name: string): Promise<A
 }
 
 /** 직원 본인 출근·퇴근 (F5-02) */
-export async function clockAction(employeeId: string, action: "in" | "out") {
-  return act((api, pid) => api.clock(pid, employeeId, action));
+export async function clockAction(employeeId: string, action: "in" | "out", location?: ClockLocation) {
+  return act((api, pid) => api.clock(pid, employeeId, action, location));
+}
+
+/** 직원 본인 — 위치로 안 될 때 사유와 함께 출퇴근 요청 (사장님·매니저가 승인) */
+export async function clockRequestAction(type: "in" | "out", reason: string, location?: ClockLocation) {
+  return act((api, pid) =>
+    api.clockRequest(pid, {
+      type: type === "in" ? "IN" : "OUT",
+      reason,
+      ...(location
+        ? {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            ...(location.accuracy !== undefined ? { accuracy: Math.round(location.accuracy) } : {}),
+          }
+        : {}),
+    }),
+  );
+}
+
+/** 출퇴근 요청 승인·거절 (사장님·매니저, 거절은 사유 필수) */
+export async function decideClockRequestAction(requestId: string, decision: "approve" | "reject", reason?: string) {
+  return act((api, pid) => api.decideClockRequest(pid, requestId, decision, reason));
 }
 
 /** 직원 본인 — 방금 누른 퇴근 되돌리기 (퇴근 후 5분 안) */

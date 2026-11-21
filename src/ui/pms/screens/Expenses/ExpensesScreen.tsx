@@ -590,7 +590,7 @@ function ReceiptPanel({
             // eslint-disable-next-line @next/next/no-img-element -- 방금 고른 파일의 미리보기 (blob 주소)
             <img src={preview} alt="올린 영수증 미리보기" className="ex-drop__preview" />
           ) : (
-            <Icon name={receipt ? (receipt.recognized ? "check" : "alert") : "photo"} size={28} />
+            <Icon name={receipt ? (receipt.recognized ? "check" : "alert") : "photo"} size={28} swap />
           )}
           <strong>
             {uploading

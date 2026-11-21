@@ -369,7 +369,7 @@ export function AppShell({
               className={cx("pm-top__sync", syncErrors > 0 && "has-error")}
               title={`마지막 채널 수집 ${syncLong(lastSyncedAt)}`}
             >
-              <Icon name={syncErrors > 0 ? "alert" : "sync"} size={15} />
+              <Icon name={syncErrors > 0 ? "alert" : "sync"} size={15} swap />
               <span>
                 {syncErrors > 0 ? `연동 끊김 ${syncErrors}건` : "채널 수집"}{" "}
                 <span className="num">{syncTime(lastSyncedAt)}</span>

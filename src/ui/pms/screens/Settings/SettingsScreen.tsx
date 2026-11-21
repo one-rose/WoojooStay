@@ -15,7 +15,7 @@ import type {
   SettingsActions,
   SettingsData,
 } from "@/core";
-import { cx, formatWon, josa, plainList } from "@/shared";
+import { cx, formatNumber, formatWon, josa, plainList } from "@/shared";
 import {
   ApplyToDialog,
   Badge,
@@ -99,7 +99,7 @@ export function SettingsScreen({
     <div className="se">
       <PageHead title="설정" desc="업장 정보, 채널 연결, 직원 계정, 알림, 구독을 한곳에서 관리해요." />
       <div className="se-layout">
-        <nav ref={nav} className="se-nav" aria-label="설정 메뉴">
+        <nav ref={nav} className="se-nav pm-hscroll" aria-label="설정 메뉴">
           {SETTINGS_SECTIONS.map((s) => (
             <Link
               key={s.id}
@@ -113,6 +113,7 @@ export function SettingsScreen({
         </nav>
         <div className="se-body">
           {section === "property" && <PropertySection data={data} actions={actions} owner={role === "owner"} />}
+          {section === "property" && <ClockSection data={data} actions={actions} owner={role === "owner"} />}
           {section === "property" && role === "owner" && (
             <div className="se-addprop">
               <p>
@@ -226,6 +227,154 @@ function PropertySection({ data, actions, owner }: { data: SettingsData; actions
           </PmButton>
         </div>
       )}
+    </Card>
+  );
+}
+
+/* 출근 확인 — 업장 위치·반경 (직원 앱이 이 안에서만 출퇴근) + 출근 QR 인쇄 */
+const RADIUS = { min: 50, max: 1000, default: 150 };
+/** 위도·경도 칸 — 소수 6자리(약 10cm)까지 */
+const coord = (v: number | null | undefined) => (v == null ? "" : String(Math.round(v * 1e6) / 1e6));
+
+function ClockSection({ data, actions, owner }: { data: SettingsData; actions?: SettingsActions; owner: boolean }) {
+  const p = data.profile;
+  const c = p.clock;
+  const { run, pending, message, setNote } = useAction(actions);
+  const [f, setF] = useState({
+    lat: coord(c?.latitude),
+    lng: coord(c?.longitude),
+    radius: String(c?.radiusM ?? RADIUS.default),
+  });
+  const [locating, setLocating] = useState(false);
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setF((x) => ({ ...x, [k]: e.target.value }));
+  const lat = f.lat.trim() === "" ? null : Number(f.lat);
+  const lng = f.lng.trim() === "" ? null : Number(f.lng);
+  const radius = Number(f.radius);
+  const both = lat !== null && lng !== null;
+  const half = (lat === null) !== (lng === null);
+  const badCoord =
+    (lat !== null && (!Number.isFinite(lat) || Math.abs(lat) > 90)) ||
+    (lng !== null && (!Number.isFinite(lng) || Math.abs(lng) > 180));
+  const badRadius = !Number.isInteger(radius) || radius < RADIUS.min || radius > RADIUS.max;
+  const set0 = c?.latitude != null && c?.longitude != null;
+
+  /** 브라우저 위치 — 업장 안(프런트)에서 누르면 그 자리를 출근 위치로 */
+  const here = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setNote({ bad: true, text: "이 브라우저에서는 위치를 쓸 수 없어요. 위도와 경도를 직접 넣어 주세요." });
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        setF((x) => ({ ...x, lat: coord(pos.coords.latitude), lng: coord(pos.coords.longitude) }));
+        setNote({
+          bad: false,
+          text: `지금 위치를 넣었어요 (오차 약 ${Math.round(pos.coords.accuracy)}m). 저장을 눌러야 반영돼요.`,
+        });
+      },
+      () => {
+        setLocating(false);
+        setNote({ bad: true, text: "위치를 가져오지 못했어요. 브라우저의 위치 권한을 켜고 다시 눌러 주세요." });
+      },
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
+    );
+  };
+
+  const save = (clear = false) =>
+    run(
+      (a) =>
+        a.saveProperty({
+          name: p.name,
+          address: p.address,
+          rooms: p.rooms,
+          phone: p.phone,
+          latitude: clear ? null : lat,
+          longitude: clear ? null : lng,
+          clockRadiusM: radius,
+        }),
+      clear ? "출근 위치를 지웠어요. 이제 위치 확인 없이 출퇴근돼요." : "출근 위치를 저장했어요.",
+      clear ? () => setF((x) => ({ ...x, lat: "", lng: "" })) : undefined,
+    );
+
+  return (
+    <Card title="출근 확인" meta={set0 ? `반경 ${formatNumber(c!.radiusM)}m` : "위치 미설정"}>
+      <p className="se-sub se-clock__lead">
+        직원 앱은 업장 반경 안에서만 출퇴근을 찍어요. 위치가 잡히지 않으면 프런트의 출근 QR을 찍고, 그래도 안 되면
+        사유를 적어 요청을 보내요. 요청은 알바관리 근태에서 승인해요.
+      </p>
+      {!set0 && (
+        <p className="se-clock__warn" role="note">
+          아직 업장 위치가 없어 위치 확인 없이 출퇴근돼요. 프런트에서 아래 지금 위치로 지정을 눌러 주세요.
+        </p>
+      )}
+      <Field layout="row" label="업장 위치" hint={owner ? "업장 프런트에서 누르면 가장 정확해요." : undefined}>
+        <div className="se-clock__coords">
+          <input
+            className="pm-input num"
+            inputMode="decimal"
+            aria-label="위도"
+            placeholder="위도 (예: 37.566300)"
+            value={f.lat}
+            onChange={set("lat")}
+            readOnly={!owner}
+          />
+          <input
+            className="pm-input num"
+            inputMode="decimal"
+            aria-label="경도"
+            placeholder="경도 (예: 126.991800)"
+            value={f.lng}
+            onChange={set("lng")}
+            readOnly={!owner}
+          />
+          {owner && (
+            <PmButton disabled={locating} onClick={here}>
+              {locating ? "위치 찾는 중…" : "지금 위치로 지정"}
+            </PmButton>
+          )}
+        </div>
+      </Field>
+      <Field layout="row" label="출근 반경" hint="50m~1,000m. 휴대폰 위치 오차는 100m까지 봐줘요.">
+        <span className="se-clock__radius">
+          <input
+            className="pm-input num se-short"
+            inputMode="numeric"
+            aria-label="출근 반경 (m)"
+            value={f.radius}
+            onChange={set("radius")}
+            readOnly={!owner}
+          />
+          <span className="is-muted">m</span>
+        </span>
+      </Field>
+      <Field layout="row" label="출근 QR">
+        <div className="se-clock__qr">
+          <PmButton href="/app/print/clock-qr">출근 QR 인쇄</PmButton>
+          <span className="is-muted">A4 한 장에 업장 이름과 안내 문구를 함께 넣어요. 프런트에 붙여 두세요.</span>
+        </div>
+      </Field>
+      {half && <p className="pm-error">위도와 경도를 함께 넣어 주세요.</p>}
+      {badCoord && <p className="pm-error">위도는 -90~90, 경도는 -180~180 사이 숫자예요.</p>}
+      {owner && badRadius && <p className="pm-error">출근 반경은 50m~1,000m 사이로 정해 주세요.</p>}
+      {message}
+      {owner ? (
+        <div className="se-actions">
+          {set0 && (
+            <PmButton variant="quiet" disabled={pending} onClick={() => save(true)}>
+              위치 지우기
+            </PmButton>
+          )}
+          <PmButton disabled={pending || half || badCoord || badRadius} onClick={() => save()}>
+            {pending ? "저장 중…" : "출근 위치 저장"}
+          </PmButton>
+        </div>
+      ) : (
+        <p className="se-sub se-owner-only">출근 위치와 반경은 사장님만 바꿀 수 있어요.</p>
+      )}
+      {!both && set0 && owner && <p className="se-sub">위도와 경도를 비우고 저장하면 위치 확인을 끄게 돼요.</p>}
     </Card>
   );
 }

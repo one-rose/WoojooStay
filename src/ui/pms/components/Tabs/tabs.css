@@ -1,8 +1,6 @@
 .pm-tabs {
   display: flex;
   gap: 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 .pm-tabs__tab {
   display: inline-flex;
@@ -53,8 +51,8 @@
 }
 .pm-tabs--pill .pm-tabs__tab.is-on {
   background: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .pm-tabs--pill .pm-tabs__tab.is-on .pm-tabs__count {
-  color: rgba(255, 255, 255, 0.72);
+  color: oklch(100% 0 0 / 0.72);
 }

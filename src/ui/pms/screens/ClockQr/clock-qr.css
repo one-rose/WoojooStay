@@ -1,0 +1,133 @@
+/* 출근 QR 인쇄 — 화면에서는 A4 미리보기, 인쇄하면 종이 한 장만 */
+.cq {
+  min-height: 100dvh; /* 규칙 9 — 아이폰 사파리 주소창 높이 */
+  padding: 16px 16px 40px;
+  background: var(--pm-canvas);
+}
+.cq-bar {
+  max-width: 210mm;
+  margin: 0 auto 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cq-bar__right {
+  display: flex;
+  gap: 8px;
+}
+.cq-note {
+  max-width: 210mm;
+  margin: 0 auto 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--pm-info-bg);
+  color: var(--pm-ink-2);
+  font-size: 13px;
+}
+.cq-note.is-bad {
+  background: var(--pm-bad-bg);
+  color: var(--pm-bad);
+}
+.cq-sheet {
+  box-sizing: border-box;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 22mm 20mm 16mm;
+  background: oklch(100% 0 0);
+  border: 1px solid var(--pm-line);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: oklch(17.8% 0 0);
+}
+.cq-sheet__head {
+  text-align: center;
+}
+.cq-sheet__brand {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pm-muted);
+}
+.cq-sheet__name {
+  margin: 6mm 0 0;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.25;
+  word-break: keep-all;
+}
+.cq-sheet__title {
+  margin: 3mm 0 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--pm-ink);
+}
+.cq-sheet__qr {
+  width: 120mm;
+  max-width: 100%;
+  height: auto;
+  margin: 12mm 0 10mm;
+}
+.cq-sheet__steps {
+  margin: 0;
+  padding-left: 1.4em;
+  max-width: 150mm;
+  font-size: 17px;
+  line-height: 1.7;
+  word-break: keep-all;
+}
+.cq-sheet__foot {
+  margin-top: auto;
+  padding-top: 10mm;
+  font-size: 12px;
+  color: var(--pm-muted);
+  text-align: center;
+  word-break: keep-all;
+}
+.cq-modal__text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--pm-ink-2);
+}
+
+@media (max-width: 640px) {
+  .cq-sheet {
+    min-height: 0;
+    padding: 24px 16px;
+  }
+  .cq-sheet__name {
+    font-size: 24px;
+  }
+  .cq-sheet__title {
+    font-size: 18px;
+  }
+  .cq-sheet__steps {
+    font-size: 15px;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+@media print {
+  .cq {
+    padding: 0;
+    background: oklch(100% 0 0);
+  }
+  .cq-bar,
+  .cq-note {
+    display: none;
+  }
+  .cq-sheet {
+    width: 210mm;
+    height: 297mm;
+    border: 0;
+    border-radius: 0;
+  }
+}

@@ -20,7 +20,7 @@ interface TabsProps<T extends string> {
 
 export function Tabs<T extends string>({ items, value, onChange, label, variant = "line" }: TabsProps<T>) {
   return (
-    <div className={cx("pm-tabs", `pm-tabs--${variant}`)} role="tablist" aria-label={label}>
+    <div className={cx("pm-tabs", "pm-hscroll", `pm-tabs--${variant}`)} role="tablist" aria-label={label}>
       {items.map((t) => (
         <button
           key={t.id}

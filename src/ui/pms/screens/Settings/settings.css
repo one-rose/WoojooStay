@@ -47,6 +47,9 @@
   padding-top: var(--pm-s5);
 }
 .se-addprop {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -163,6 +166,14 @@
   font-weight: 700;
   margin-bottom: 6px;
 }
+/* 넓은 화면의 세로 메뉴에서는 옆으로 넘김·흐림을 끈다 */
+@media (min-width: 1101px) {
+  .se-nav.pm-hscroll {
+    overflow: visible;
+    mask-image: none;
+    animation: none;
+  }
+}
 @media (max-width: 1100px) {
   .se-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -173,11 +184,7 @@
     flex-direction: row;
     min-width: 0;
     max-width: 100%;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-    /* 탭이 더 있다는 표시 — 오른쪽 끝을 흐리게 */
-    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    /* 옆으로 넘김 + 양 끝 흐림은 .pm-hscroll (규칙 6) */
   }
   .se-nav::-webkit-scrollbar {
     display: none;
@@ -254,13 +261,13 @@
 
 /* 채널 연동 — 끊긴 줄 · 알림에서 눌러 들어온 줄 */
 .se-channels tr.is-problem td {
-  background: #fff8f6;
+  background: oklch(98.4% 0.008 36.6);
 }
 .se-channels tr.is-problem td:first-child {
   box-shadow: inset 3px 0 0 var(--pm-bad);
 }
 .se-channels tr.is-focus td {
-  background: #fff1ec;
+  background: oklch(96.8% 0.017 40.8);
 }
 
 /* 결제 실패 — 구독·결제 맨 위 */
@@ -317,7 +324,7 @@
   flex-wrap: wrap;
   gap: var(--pm-s2) var(--pm-s3);
   padding: 12px var(--pm-s5);
-  background: #fff8f6;
+  background: oklch(98.4% 0.008 36.6);
   box-shadow: inset 3px 0 0 var(--pm-bad);
   font-size: 13px;
   color: var(--pm-ink);
@@ -329,5 +336,46 @@
   flex: 1 1 180px;
 }
 .se-broken li.is-focus {
-  background: #fff1ec;
+  background: oklch(96.8% 0.017 40.8);
+}
+
+/* 출근 확인 */
+.se-clock__lead {
+  margin: 0 0 12px;
+}
+.se-clock__warn {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--pm-warn-bg);
+  color: var(--pm-warn);
+  font-size: 13px;
+}
+.se-clock__coords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.se-clock__coords .pm-input {
+  width: 180px;
+  max-width: 100%;
+}
+.se-clock__radius {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.se-clock__qr {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 13px;
+}
+@media (max-width: 640px) {
+  .se-clock__coords .pm-input {
+    flex: 1 1 140px;
+    width: auto;
+  }
 }

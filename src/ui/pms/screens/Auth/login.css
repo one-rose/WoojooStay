@@ -1,0 +1,206 @@
+/*
+ * 로그인 · 가입 · 비밀번호 재설정 (v4) — 토스처럼 화면 하나에 질문 하나, 가운데 한 줄.
+ * 흰 바탕, 큰 질문(26px), 큰 입력칸(52px, 글자 17px), 누르면 일어나는 일을 쓴 큰 버튼(56px).
+ * 휴대폰에서는 버튼이 화면 아래에 붙는다 (엄지 닿는 곳).
+ */
+.lg4 {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--pm-surface);
+  /* 이 화면의 입력칸은 크게 — 50~60대 사장님도 휴대폰에서 바로 */
+  --size-element-md: 52px;
+}
+.lg4-top {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  padding-inline: 24px;
+}
+.lg4-logo {
+  height: 22px;
+  width: auto;
+}
+.lg4-main {
+  flex: 1;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 48px 24px 32px;
+}
+.lg4-notice {
+  margin-bottom: 32px;
+  padding: 14px 16px;
+  border-radius: var(--pm-r-md);
+  background: var(--pm-neutral-bg);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--pm-ink-2);
+}
+.lg4-notice strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 15px;
+  color: var(--pm-ink);
+}
+
+.lg4-form {
+  display: flex;
+  flex-direction: column;
+}
+.lg4-head {
+  margin-bottom: 32px;
+}
+.lg4-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: -8px 0 12px -8px;
+  padding: 0 8px;
+  border-radius: var(--pm-r-md);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+.lg4-back:hover {
+  background: var(--pm-neutral-bg);
+}
+.lg4-title {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--pm-ink);
+}
+.lg4-desc {
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--pm-muted);
+}
+
+/* 입력칸: 이름표 15px, 글자 17px */
+.lg4 .ax-field label {
+  font-size: 15px;
+}
+.lg4 .ax-field input {
+  font-size: 17px;
+}
+.lg4 .ax-field + .ax-field {
+  margin-top: 20px;
+}
+.lg4 .ax-field__hint {
+  font-size: 13px;
+}
+.lg4-note {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--pm-bad);
+}
+.lg4 .pm-error {
+  margin-top: 12px;
+  font-size: 14px;
+}
+.lg4 .pm-devhint {
+  margin-top: 12px;
+}
+
+/* 큰 버튼 — 화면의 한 가지 일. 둥근 사각(14px) */
+.lg4-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 32px;
+}
+.lg4 .lg4-submit {
+  width: 100%;
+  height: 56px;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.lg4 .lg4-submit.ax-btn--brand:not(:disabled) {
+  font-size: 18px;
+}
+.lg4-cta .ax-btn--quiet {
+  align-self: center;
+  font-size: 15px;
+}
+
+/* 다른 방법 — 비밀번호 찾기 · 가입 */
+.lg4-links {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+.lg4-links button {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--pm-r-md);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pm-ink-2);
+}
+.lg4-links button:hover {
+  background: var(--pm-neutral-bg);
+  color: var(--pm-ink);
+}
+
+.lg4-terms {
+  margin-top: 28px;
+}
+
+.lg4-legal {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+  font-size: 13px;
+  color: var(--pm-muted);
+}
+.lg4-legal a,
+.lg4-legal button {
+  color: inherit;
+}
+.lg4-legal a:hover,
+.lg4-legal button:hover {
+  color: var(--pm-ink);
+  text-decoration: underline;
+}
+
+/* 휴대폰 — 위 여백을 줄이고 큰 버튼은 화면 아래에 붙인다 */
+@media (max-width: 640px) {
+  .lg4-main {
+    display: flex;
+    flex-direction: column;
+    padding-top: 24px;
+    padding-bottom: 0;
+  }
+  .lg4-form {
+    flex: 1;
+  }
+  .lg4-cta {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    margin-inline: -24px;
+    padding: 12px 24px calc(12px + env(safe-area-inset-bottom));
+    background: var(--pm-surface);
+  }
+  .lg4-cta {
+    padding-top: 24px;
+  }
+  .lg4-legal {
+    padding-top: 8px;
+  }
+}
+
+.lg4-center {
+  text-align: center;
+}
+.lg4-desc .pm-icon {
+  display: inline-block;
+  vertical-align: -2px;
+}

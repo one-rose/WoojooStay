@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import type { ChannelConnection, ChannelId, GuestReview, OnboardingActions, PlanOption, PropertyType } from "@/core";
 import { cx, formatWon, plainList } from "@/shared";
 import { Logo } from "@/ui/brand";
-import { Badge, ChannelChip, Field, Icon, PmButton, Stars } from "../../components";
+import { Badge, ChannelChip, Field, Icon, Stars } from "../../components";
+import { AxButton, AxTextField } from "../../components/Astryx";
 import "./auth.css";
 
 const STEPS = ["업장 정보", "채널 연결", "서비스 선택", "시작하기"];
@@ -81,6 +82,10 @@ export function OnboardingScreen({
       setBizStatus("");
     }
   };
+
+  /** 아스트릭스 입력창은 값만 넘긴다 */
+  const setV = (k: keyof typeof form) => (v: string) =>
+    set(k)({ target: { value: v } } as React.ChangeEvent<HTMLInputElement>);
 
   const checkBiz = () =>
     start(async () => {
@@ -184,9 +189,7 @@ export function OnboardingScreen({
           <section className="ob-panel">
             <h1>운영하는 숙소를 알려 주세요</h1>
             <p className="ob-desc">업장마다 채널·구독·데이터를 따로 관리해요. 여러 곳이면 하나씩 등록하면 돼요.</p>
-            <Field label="업장 이름" required>
-              <input className="pm-input" value={form.name} onChange={set("name")} />
-            </Field>
+            <AxTextField label="업장 이름" value={form.name} onChange={setV("name")} />
             <Field label="숙박 유형" required hint="유형에 맞는 화면을 먼저 보여드려요 (모텔은 대실 집계 등)">
               <div className="pm-choice">
                 {TYPES.map((t) => (
@@ -198,43 +201,35 @@ export function OnboardingScreen({
               </div>
             </Field>
             <div className="ob-row">
-              <Field label="주소" required>
-                <input className="pm-input" value={form.address} onChange={set("address")} />
-              </Field>
-              <Field label="객실 수" required>
-                <input className="pm-input num" inputMode="numeric" value={form.rooms} onChange={set("rooms")} />
-              </Field>
+              <AxTextField label="주소" value={form.address} onChange={setV("address")} />
+              <AxTextField label="객실 수" inputMode="numeric" value={form.rooms} onChange={setV("rooms")} />
             </div>
-            <Field
-              label="사업자등록번호"
-              required
-              hint={bizChecked ? undefined : "국세청에서 휴·폐업 여부를 확인해요."}
-            >
+            <div>
               <div className="au-inline">
-                <input
-                  className="pm-input num"
+                <AxTextField
+                  label="사업자등록번호"
+                  hint={bizChecked ? undefined : "국세청에서 휴·폐업 여부를 확인해요."}
                   inputMode="numeric"
                   value={form.bizNo}
-                  onChange={set("bizNo")}
+                  onChange={setV("bizNo")}
                   placeholder="000-00-00000"
                 />
-                <PmButton variant={bizChecked ? "ghost" : "navy"} onClick={checkBiz} disabled={pending}>
+                <AxButton variant={bizChecked ? "ghost" : "navy"} onClick={checkBiz} disabled={pending}>
                   {bizChecked ? "확인됨" : "확인"}
-                </PmButton>
+                </AxButton>
               </div>
               {bizChecked && bizStatus && (
                 <p className="ob-ok" role="status">
                   <Icon name="check" size={14} /> {bizStatus}
                 </p>
               )}
-            </Field>
-            <Field
+            </div>
+            <AxTextField
               label="대표자 이름"
-              required
               hint={ownerName ? "가입한 이름을 넣어 뒀어요. 다르면 고쳐 주세요." : undefined}
-            >
-              <input className="pm-input" value={form.ownerName} onChange={set("ownerName")} />
-            </Field>
+              value={form.ownerName}
+              onChange={setV("ownerName")}
+            />
             {error && (
               <p className="pm-error" role="alert">
                 {error}
@@ -242,7 +237,7 @@ export function OnboardingScreen({
             )}
             <div className="ob-actions">
               <span />
-              <PmButton
+              <AxButton
                 variant="primary"
                 onClick={saveProperty}
                 disabled={
@@ -250,7 +245,7 @@ export function OnboardingScreen({
                 }
               >
                 {pending ? "저장 중…" : "다음"}
-              </PmButton>
+              </AxButton>
             </div>
             {intro && (
               <div className="ob-invited">
@@ -290,7 +285,7 @@ export function OnboardingScreen({
                         닫기
                       </button>
                     ) : (
-                      <PmButton
+                      <AxButton
                         size="sm"
                         onClick={() => {
                           setError(null);
@@ -300,7 +295,7 @@ export function OnboardingScreen({
                         }}
                       >
                         연결
-                      </PmButton>
+                      </AxButton>
                     )}
                     {opened && (
                       <form
@@ -329,14 +324,14 @@ export function OnboardingScreen({
                             onChange={(e) => setCred((x) => ({ ...x, password: e.target.value }))}
                             autoComplete="off"
                           />
-                          <PmButton
+                          <AxButton
                             type="submit"
                             size="sm"
                             variant="navy"
                             disabled={pending || !cred.loginId || !cred.password}
                           >
                             {pending ? "확인 중…" : "동의하고 연결"}
-                          </PmButton>
+                          </AxButton>
                         </div>
                         <p className="ob-login__safe">
                           <Icon name="lock" size={14} />
@@ -372,18 +367,18 @@ export function OnboardingScreen({
               {actions ? (
                 <span />
               ) : (
-                <PmButton variant="ghost" onClick={() => setStep(0)}>
+                <AxButton variant="ghost" onClick={() => setStep(0)}>
                   이전
-                </PmButton>
+                </AxButton>
               )}
               {linked.length === 0 ? (
-                <PmButton variant="quiet" onClick={() => setStep(2)}>
+                <AxButton variant="quiet" onClick={() => setStep(2)}>
                   나중에 연결할게요
-                </PmButton>
+                </AxButton>
               ) : (
-                <PmButton variant="primary" onClick={() => setStep(2)}>
+                <AxButton variant="primary" onClick={() => setStep(2)}>
                   {linked.length}개 연결하고 다음
-                </PmButton>
+                </AxButton>
               )}
             </div>
           </section>
@@ -439,15 +434,15 @@ export function OnboardingScreen({
               })}
             </ul>
             <div className="ob-actions">
-              <PmButton variant="ghost" onClick={() => setStep(1)}>
+              <AxButton variant="ghost" onClick={() => setStep(1)}>
                 이전
-              </PmButton>
+              </AxButton>
               <span className="ob-sum num">
                 체험 뒤 월 <strong>{formatWon(sum)}</strong>
               </span>
-              <PmButton variant="primary" onClick={start2} disabled={picked.length === 0 || pending}>
+              <AxButton variant="primary" onClick={start2} disabled={picked.length === 0 || pending}>
                 {pending ? "시작하는 중…" : "무료로 시작하기"}
-              </PmButton>
+              </AxButton>
             </div>
           </section>
         )}
@@ -467,17 +462,17 @@ export function OnboardingScreen({
             </p>
             {drafts && drafts.count > 0 ? (
               <div className="ob-done__actions">
-                <PmButton variant="primary" disabled={pending} onClick={() => finish("/app/reviews")}>
+                <AxButton variant="brand" disabled={pending} onClick={() => finish("/app/reviews")}>
                   답글 초안 {drafts.count}건 확인하기
-                </PmButton>
+                </AxButton>
                 <button type="button" className="ob-invited__link" onClick={() => finish("/app")}>
                   홈으로 가기
                 </button>
               </div>
             ) : (
-              <PmButton variant="primary" disabled={pending} onClick={() => finish("/app")}>
+              <AxButton variant="brand" disabled={pending} onClick={() => finish("/app")}>
                 홈으로 가기
-              </PmButton>
+              </AxButton>
             )}
           </section>
         )}

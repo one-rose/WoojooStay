@@ -25,5 +25,6 @@ export { AdminLoginScreen } from "./screens/Admin/AdminLoginScreen";
 export { AdminShell } from "./screens/Admin/AdminShell";
 export { ContractScreen } from "./screens/Contract/ContractScreen";
 export { StaffMeScreen } from "./screens/StaffMe/StaffMeScreen";
+export { ClockQrPrint } from "./screens/ClockQr/ClockQrPrint";
 export { ErrorState, ScreenSkeleton } from "./components";
 export { FinancePreviewScreen } from "./screens/Finance/FinancePreviewScreen";

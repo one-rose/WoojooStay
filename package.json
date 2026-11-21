@@ -11,9 +11,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint:copy": "node scripts/lint-copy.mjs",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm lint:copy"
+    "lint:ui": "node scripts/lint-ui-rules.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm lint:copy && pnpm lint:ui"
   },
   "dependencies": {
+    "@astryxdesign/core": "0.7.17",
+    "@astryxdesign/theme-neutral": "0.7.17",
+    "@stylexjs/stylex": "0.19.2",
     "next": "16.4.1",
     "pretendard": "^1.3.9",
     "react": "19.3.0",

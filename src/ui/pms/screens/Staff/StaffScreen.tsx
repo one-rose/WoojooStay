@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type {
   ActionResult,
   AttendanceRow,
+  ClockMethodKind,
+  ClockRequestItem,
   ContractStatus,
   MissingClockOut,
   PayrollRow,
@@ -63,6 +65,23 @@ const ATTEND: Record<AttendanceRow["status"], { tone: BadgeTone; label: string }
   off: { tone: "neutral", label: "휴무" },
 };
 const SHIFT: Record<ShiftKind, string> = { day: "낮", night: "밤", off: "휴무", unset: "미정" };
+/** 출퇴근을 어떻게 찍었는지 — 종류 표시라 배지 없이 회색 글자 */
+const HOW: Record<ClockMethodKind, string> = { gps: "위치", qr: "QR", request: "요청 승인", manual: "수기" };
+/** 시각 + 찍은 방법 (기록 없으면 -) */
+function ClockCell({ at, how }: { at?: string; how?: ClockMethodKind | null }) {
+  if (!at) return <span className="is-muted">-</span>;
+  return (
+    <>
+      {at}
+      {how && <span className="st-how">{HOW[how]}</span>}
+    </>
+  );
+}
+/** 요청 시각 — 오늘이면 시각만, 아니면 "11.20 (금) 22:10" */
+const requestAt = (r: ClockRequestItem, today: string) =>
+  r.date === today ? r.time : `${r.date.slice(5).replace("-", ".")} (${weekdayKo(r.date)}) ${r.time}`;
+/** 요청할 때 업장까지 거리 */
+const distance = (m: number) => (m < 1000 ? `${formatNumber(m)}m` : `${(Math.round(m / 100) / 10).toFixed(1)}km`);
 const won = formatWon;
 
 type Dialog =
@@ -77,6 +96,8 @@ type Dialog =
     }
   /** 직원 한 명의 이번 달 기록 (날짜별 출퇴근, 줄마다 고치기) */
   | { kind: "month"; staffId: string; month?: string }
+  /** 출퇴근 요청 거절 — 사유 쓰기 */
+  | { kind: "reject"; request: ClockRequestItem }
   | { kind: "member"; staffId: string; focusPay?: boolean }
   | null;
 
@@ -170,6 +191,7 @@ export function StaffScreen({
   // 급여 금액은 사장님만 본다 — 매니저에게는 최저임금 안내도 띄우지 않는다
   const belowMin = owner ? active.filter((m) => m.pay.type === "hourly" && m.pay.amount < data.minimumWage) : [];
   const missing = data.missingClockOut ?? [];
+  const requests = data.clockRequests ?? [];
   // 교대표 주 이동 (?week=) — 이번 주가 아니면 "이번 주로"
   const weekStart = data.week.dates[0];
   const thisWeek = data.week.dates.includes(data.date);
@@ -375,10 +397,11 @@ export function StaffScreen({
               label="확인 필요"
               value={
                 data.today.filter((a) => a.status === "late").length +
-                (data.missingClockOut ? missing.length : data.today.filter((a) => a.status === "missing-out").length)
+                (data.missingClockOut ? missing.length : data.today.filter((a) => a.status === "missing-out").length) +
+                requests.length
               }
               suffix="건"
-              foot="지각, 퇴근 누락"
+              foot={requests.length ? `출퇴근 요청 ${requests.length}건 포함` : "지각, 퇴근 누락"}
             />
             <Stat
               label="이번 달 총 근무"
@@ -387,6 +410,68 @@ export function StaffScreen({
               foot={`${Number(data.month.slice(5))}월 기준`}
             />
           </StatRow>
+          {requests.length > 0 && (
+            <Card title="승인을 기다리는 출퇴근 요청" meta={`${requests.length}건`} flush>
+              <TableWrap>
+                <table className="pm-table pm-rtable st-requests">
+                  <thead>
+                    <tr>
+                      <th>이름</th>
+                      <th>요청</th>
+                      <th>요청 시각</th>
+                      <th>사유</th>
+                      <th>업장까지</th>
+                      <th>
+                        <span className="pm-sr">동작</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requests.map((r) => (
+                      <tr key={r.id}>
+                        <td className="pm-rtable__main">
+                          <strong>{r.name}</strong>
+                        </td>
+                        <td>{r.type === "in" ? "출근" : "퇴근"}</td>
+                        <td className="num">{requestAt(r, data.date)}</td>
+                        <td className="st-requests__reason">{r.reason}</td>
+                        <td className="num">
+                          {r.distanceM == null ? <span className="is-muted">위치 없음</span> : distance(r.distanceM)}
+                        </td>
+                        <td className="is-num st-requests__act">
+                          <PmButton
+                            size="sm"
+                            icon="check"
+                            disabled={pending}
+                            onClick={() =>
+                              run(
+                                () => actions!.decideClockRequest!(r.id, "approve"),
+                                `${r.name}님 ${r.type === "in" ? "출근" : "퇴근"}을 ${r.time}에 기록했어요.`,
+                              )
+                            }
+                          >
+                            승인
+                          </PmButton>
+                          <PmButton
+                            size="sm"
+                            variant="quiet"
+                            disabled={pending}
+                            onClick={() => setDialog({ kind: "reject", request: r })}
+                          >
+                            거절
+                          </PmButton>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
+              <p className="st-foot">
+                위치나 출근 QR로 확인이 안 될 때 직원이 사유를 적어 보낸 요청이에요. 승인하면 요청한 시각으로 기록하고,
+                결과는 직원 앱으로 알려요.
+              </p>
+            </Card>
+          )}
           <Card
             title={
               attendDay === data.date
@@ -469,8 +554,12 @@ export function StaffScreen({
                           )}
                         </td>
                         <td>{ROLE[m.role]}</td>
-                        <td className="num">{a.in ?? <span className="is-muted">-</span>}</td>
-                        <td className="num">{a.out ?? <span className="is-muted">-</span>}</td>
+                        <td className="num">
+                          <ClockCell at={a.in} how={a.method} />
+                        </td>
+                        <td className="num">
+                          <ClockCell at={a.out} how={a.outMethod} />
+                        </td>
                         <td>
                           <Badge tone={s.tone}>{s.label}</Badge>
                         </td>
@@ -882,6 +971,22 @@ export function StaffScreen({
           }
         />
       )}
+      {dialog?.kind === "reject" && (
+        <RejectRequestDialog
+          request={dialog.request}
+          today={data.date}
+          error={note?.bad ? note.text : null}
+          pending={pending}
+          onClose={() => setDialog(null)}
+          onSubmit={(reason) =>
+            run(
+              () => actions!.decideClockRequest!(dialog.request.id, "reject", reason),
+              `${dialog.request.name}님 요청을 거절했어요. 사유를 직원 앱으로 알렸어요.`,
+              () => setDialog(null),
+            )
+          }
+        />
+      )}
       {dialog?.kind === "month" && byId[dialog.staffId] && loadMonth && (
         <MonthDialog
           name={byId[dialog.staffId].name}
@@ -1165,6 +1270,58 @@ function MonthDialog({
             </table>
           </TableWrap>
         )
+      )}
+    </Modal>
+  );
+}
+
+/** 출퇴근 요청 거절 — 사유는 직원에게 그대로 보인다 */
+function RejectRequestDialog({
+  request: r,
+  today,
+  error,
+  pending,
+  onClose,
+  onSubmit,
+}: {
+  request: ClockRequestItem;
+  today: string;
+  error: string | null;
+  pending: boolean;
+  onClose: () => void;
+  onSubmit: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const ok = reason.trim().length >= 2;
+  return (
+    <Modal
+      title={`${r.name}님 ${r.type === "in" ? "출근" : "퇴근"} 요청 거절`}
+      desc={`${requestAt(r, today)} 요청, 사유: ${r.reason}`}
+      onClose={onClose}
+      footer={
+        <>
+          <PmButton variant="ghost" onClick={onClose}>
+            취소
+          </PmButton>
+          <PmButton variant="alert" disabled={pending || !ok} onClick={() => onSubmit(reason.trim())}>
+            {pending ? "보내는 중…" : "거절하기"}
+          </PmButton>
+        </>
+      }
+    >
+      <Field label="거절 사유" hint="직원 앱에 그대로 보여요. 2자 이상 적어 주세요.">
+        <input
+          className="pm-input"
+          maxLength={200}
+          placeholder="예: 그날 근무표에 없어요"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+      </Field>
+      {error && (
+        <p className="pm-error" role="alert">
+          {error}
+        </p>
       )}
     </Modal>
   );

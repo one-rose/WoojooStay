@@ -84,6 +84,9 @@ export interface StaffMember {
   resigned?: string | null;
 }
 
+/** 출퇴근을 어떻게 찍었는지 — gps 위치 · qr 프런트 QR · request 요청 승인 · manual 수기(사장님·매니저가 넣거나 고침) */
+export type ClockMethodKind = "gps" | "qr" | "request" | "manual";
+
 export interface AttendanceRow {
   staffId: string;
   /** "HH:mm" — 없으면 미기록 */
@@ -91,6 +94,24 @@ export interface AttendanceRow {
   out?: string;
   /** scheduled: 오늘 근무인데 아직 시작 시각(주간 9시 · 야간 22시) 전 */
   status: "working" | "done" | "missing-out" | "off" | "late" | "scheduled";
+  /** 출근 방법 (기록이 있을 때) */
+  method?: ClockMethodKind | null;
+  /** 퇴근 방법 (퇴근 기록이 있을 때) */
+  outMethod?: ClockMethodKind | null;
+}
+
+/** 기다리는 출퇴근 요청 — 직원이 위치·QR 로 못 찍어 사유와 함께 보낸 것 */
+export interface ClockRequestItem {
+  id: string;
+  staffId: string;
+  name: string;
+  type: "in" | "out";
+  /** 요청 시각 (한국 날짜 YYYY-MM-DD · HH:mm) */
+  date: string;
+  time: string;
+  reason: string;
+  /** 요청할 때 업장까지 거리 (m) — 업장 위치와 요청 위치가 모두 있을 때만 */
+  distanceM?: number | null;
 }
 
 /** 퇴근 기록이 빠진 근무 (최근 31일, 퇴사자 포함) — 기록 수정으로 고친다 */
@@ -136,6 +157,8 @@ export interface StaffData {
   payroll: readonly PayrollRow[];
   /** 실서버: 퇴근 기록이 빠진 근무 */
   missingClockOut?: readonly MissingClockOut[];
+  /** 기다리는 출퇴근 요청 (오래된 순) */
+  clockRequests?: readonly ClockRequestItem[];
 }
 
 /* ── 지출관리 (F6-01 · F6-03 · F6-04) ───────────────────────── */
@@ -239,6 +262,15 @@ export interface PropertyProfile {
   bizNo: string;
   owner: string;
   phone: string;
+  /** 출근 확인 — 업장 위치(없으면 null: 위치 확인 없이 출근)와 반경(m) */
+  clock?: { latitude: number | null; longitude: number | null; radiusM: number };
+}
+
+/** 출근 QR (인쇄용) — payload 를 QR 로 그린다 */
+export interface ClockQrData {
+  propertyName: string;
+  payload: string;
+  keyVersion: number;
 }
 
 export interface NotificationItem {
@@ -460,6 +492,19 @@ export interface StaffMeData {
   pay?: StaffMePay;
   /** 방금 누른 퇴근을 되돌릴 수 있는 마감 시각 (ISO, 퇴근 후 5분) — 없으면 되돌릴 수 없음 */
   undoOutUntil?: string | null;
+  /** 출근 확인 — locationSet false 면 위치 확인 없이 찍힌다 */
+  clock?: { locationSet: boolean; radiusM: number };
+  /** 최근 출퇴근 요청 (새 순) */
+  requests?: readonly {
+    id: string;
+    type: "in" | "out";
+    status: "pending" | "approved" | "rejected";
+    /** 요청 시각 HH:mm (한국 시간) */
+    time: string;
+    date: string;
+    reason: string;
+    rejectReason?: string | null;
+  }[];
 }
 
 /** 직원 본인 이번 달 급여 내역 — 시급제: 기본(시간 × 시급) + 야간 가산 + 주휴. 월급제: base = 그 달 월급(일할) */

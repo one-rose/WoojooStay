@@ -50,7 +50,7 @@ body.pm {
 }
 .pm-loading {
   min-height: 100dvh;
-  background: linear-gradient(to right, var(--pm-nav-bg) var(--pm-nav-w), var(--pm-canvas) 0);
+  background: linear-gradient(to right in oklch, var(--pm-nav-bg) var(--pm-nav-w), var(--pm-canvas) 0);
 }
 .pm-error {
   margin-top: var(--pm-s2);
@@ -78,7 +78,7 @@ body.pm {
   display: block;
   border-radius: var(--pm-r-lg);
   background: linear-gradient(
-    90deg,
+    90deg in oklch,
     var(--pm-line-soft) 0 40%,
     var(--pm-surface-sunken) 50%,
     var(--pm-line-soft) 60% 100%
@@ -151,7 +151,7 @@ body.pm {
 .pm-seg__btn[aria-pressed="true"],
 .pm-seg__btn[aria-selected="true"] {
   background: var(--pm-primary);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 
 /* ── 표 줄 동작 — 줄마다 같은 자리, 같은 모양: 글자 버튼(고치기) + 지우기는 조용히 ── */
@@ -295,7 +295,7 @@ body.pm {
   display: block;
   border-radius: var(--pm-r-md);
   background: linear-gradient(
-    90deg,
+    90deg in oklch,
     var(--pm-line-soft) 0 40%,
     var(--pm-surface-sunken) 50%,
     var(--pm-line-soft) 60% 100%
@@ -362,4 +362,105 @@ body.pm {
   .pm-skel__bar {
     animation: none;
   }
+}
+
+/* 규칙 5 — 아이콘 선 굵기 = 옆 글자 굵기. non-scaling-stroke 라 아이콘 크기와 상관없이 글자 획과 같은 픽셀 */
+.pm-icon {
+  stroke-width: var(--pm-stem);
+}
+.pm-nav__item {
+  --pm-stem: 0.085em; /* 메뉴 글자 500 */
+}
+.pm-btn,
+.pm-nav__item.is-active,
+b,
+strong,
+th {
+  --pm-stem: var(--pm-stem-bold);
+}
+
+/* 규칙 7 — 아이콘이 바뀔 때 흐림(4px)에서 선명하게 */
+.pm-icon--swap {
+  animation: pm-icon-swap 0.22s ease-out;
+}
+@keyframes pm-icon-swap {
+  from {
+    filter: blur(4px);
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+}
+
+/*
+ * 규칙 6 — 옆으로 넘기는 줄(카드 줄 · 탭 줄)은 양 끝을 서서히 흐리게.
+ * 스크롤 위치에 따라: 맨 왼쪽이면 왼쪽은 선명, 더 넘길 게 없으면 오른쪽도 선명 (scroll-timeline).
+ * 지원 안 하는 브라우저는 오른쪽만 흐리게 (더 있다는 표시).
+ */
+@property --pm-fade-l {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --pm-fade-r {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 24px;
+}
+.pm-hscroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right in oklch,
+    transparent,
+    var(--pm-mask) var(--pm-fade-l),
+    var(--pm-mask) calc(100% - var(--pm-fade-r)),
+    transparent
+  );
+}
+.pm-hscroll::-webkit-scrollbar {
+  display: none;
+}
+@supports (animation-timeline: scroll()) {
+  .pm-hscroll {
+    animation: pm-hscroll-edges linear both;
+    animation-timeline: scroll(self inline);
+  }
+}
+@keyframes pm-hscroll-edges {
+  0% {
+    --pm-fade-l: 0px;
+    --pm-fade-r: 24px;
+  }
+  8% {
+    --pm-fade-l: 24px;
+  }
+  92% {
+    --pm-fade-r: 24px;
+  }
+  100% {
+    --pm-fade-l: 24px;
+    --pm-fade-r: 0px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-icon--swap {
+    animation: none;
+  }
+}
+
+/* 홀마크 점검 (2026-11-22) — 바닥 규칙 */
+/* 가로로 넘치는 블록이 있어도 페이지 전체가 옆으로 밀리지 않게 (hidden 은 sticky 를 깨서 clip) */
+html,
+body {
+  overflow-x: clip;
+}
+/* 제목 줄바꿈 균형 — 마지막 줄에 한두 글자만 남지 않게 */
+h1,
+h2 {
+  text-wrap: balance;
+}
+p {
+  text-wrap: pretty;
 }

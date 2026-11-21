@@ -180,13 +180,44 @@ export const STAFF: readonly StaffMember[] = [
 ];
 
 export const TODAY_ATTENDANCE = [
-  { staffId: "s1", in: "08:52", status: "working" },
-  { staffId: "s2", in: "08:57", status: "working" },
+  { staffId: "s1", in: "08:52", status: "working", method: "gps" },
+  { staffId: "s2", in: "08:57", status: "working", method: "qr" },
   { staffId: "s3", status: "off" },
-  { staffId: "s4", in: "22:01", out: "07:03", status: "done" },
-  { staffId: "s5", in: "10:14", status: "late" },
-  { staffId: "s6", in: "09:58", status: "missing-out" },
+  { staffId: "s4", in: "22:01", out: "07:03", status: "done", method: "gps", outMethod: "request" },
+  { staffId: "s5", in: "10:14", status: "late", method: "request" },
+  { staffId: "s6", in: "09:58", status: "missing-out", method: "manual" },
 ] as const;
+
+/** 예시 — 기다리는 출퇴근 요청 (위치·QR 로 못 찍어 사유와 함께 보낸 것) */
+export const CLOCK_REQUESTS = [
+  {
+    id: "cr1",
+    staffId: "s3",
+    name: "정다은",
+    type: "in",
+    date: "2026-11-10",
+    time: "08:55",
+    reason: "휴대폰 위치가 안 잡혀요. 프런트 QR도 떨어져 있어요",
+    distanceM: 640,
+  },
+  {
+    id: "cr2",
+    staffId: "s6",
+    name: "최유진",
+    type: "out",
+    date: "2026-11-10",
+    time: "07:10",
+    reason: "배터리가 꺼져서 퇴근을 못 눌렀어요",
+    distanceM: null,
+  },
+] as const;
+
+/** 예시 출근 QR 내용 (체험 모드 — 실제로는 업장 비밀 키로 서명한 값) */
+export const CLOCK_QR = {
+  propertyName: "스테이 오르빗 을지로",
+  payload: "uzustay://clock?p=00000000-0000-4000-8000-000000000001&k=1&s=demo-demo-demo-demo-demo",
+  keyVersion: 1,
+} as const;
 
 export const MONTH_HOURS: Record<string, [hours: number, nightHours: number, weeksFull: number]> = {
   s1: [176, 0, 4],
@@ -304,6 +335,7 @@ export const SETTINGS: SettingsData = {
     bizNo: "123-45-*****",
     owner: "정현",
     phone: "02-****-1234",
+    clock: { latitude: 37.5663, longitude: 126.9918, radiusM: 150 },
   },
   accounts: [
     { name: "정현", phone: "010-****-0001", role: "owner", status: "active" },

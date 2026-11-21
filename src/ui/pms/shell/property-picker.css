@@ -32,7 +32,7 @@
 .pm-picker__now strong {
   font-size: 13.5px;
   font-weight: 600;
-  color: #fff;
+  color: oklch(100% 0 0);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -69,7 +69,7 @@
   max-height: calc(100dvh - 150px);
   padding: 6px;
   background: var(--pm-surface);
-  border: 1px solid var(--pm-line);
+  /* 떠 있는 면은 그림자 하나로 (선과 그림자를 겹치지 않는다) */
   border-radius: var(--pm-r-md);
   box-shadow: var(--pm-shadow-pop);
   color: var(--pm-ink);

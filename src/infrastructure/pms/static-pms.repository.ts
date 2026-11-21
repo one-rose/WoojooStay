@@ -12,6 +12,7 @@ import {
   type PmsRepository,
   type RateGrid,
   type ReplySettings,
+  type ClockQrData,
   type SettingsData,
   type StaffData,
   type StaffMonthAttendance,
@@ -109,6 +110,7 @@ export class StaticPmsRepository implements PmsRepository {
       monthHours: Object.fromEntries(Object.entries(B.MONTH_HOURS).map(([id, [h]]) => [id, h])),
       week: { dates: Array.from({ length: 7 }, (_, i) => addDays(B.WEEK_START, i)), shifts: B.WEEK_SHIFTS },
       payroll,
+      clockRequests: B.CLOCK_REQUESTS,
     };
   }
 
@@ -193,6 +195,10 @@ export class StaticPmsRepository implements PmsRepository {
 
   async getSettings(): Promise<SettingsData> {
     return B.SETTINGS;
+  }
+
+  async getClockQr(): Promise<ClockQrData> {
+    return B.CLOCK_QR;
   }
 
   async getAdmin(): Promise<AdminData> {

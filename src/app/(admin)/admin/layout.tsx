@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/ui/styles/tokens.css";
-import "@/ui/styles/global.css";
+import "@/ui/pms/styles/pms-global.css";
 import "@/ui/pms/styles/pms-tokens.css";
 import "@/ui/pms/styles/pms-base.css";
 import "@/ui/pms/components/Form/form.css";
 import "@/ui/pms/components/Table/table.css";
+import { AstryxScope } from "@/ui/pms/components/Astryx";
 
 /**
  * 운영팀 백오피스(/admin) — 사장님 앱(/app)과 별도 root layout
@@ -22,7 +23,10 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="pm">{children}</body>
+      <body className="pm">
+        {/* 운영자 화면의 버튼 · 입력창은 아스트릭스 */}
+        <AstryxScope>{children}</AstryxScope>
+      </body>
     </html>
   );
 }

@@ -13,7 +13,8 @@ import type {
   PropertyType,
 } from "@/core";
 import { formatNumber } from "@/shared";
-import { Badge, ChannelChip, Modal, PmButton, type BadgeTone } from "../../components";
+import { Badge, ChannelChip, Modal, type BadgeTone } from "../../components";
+import { AxButton, AxTextField } from "../../components/Astryx";
 
 const TYPE: Record<PropertyType, string> = {
   hotel: "호텔",
@@ -159,9 +160,9 @@ export function AdminPropertyPanel({
       wide
       onClose={onClose}
       footer={
-        <PmButton variant="ghost" onClick={onClose}>
+        <AxButton variant="ghost" onClick={onClose}>
           닫기
-        </PmButton>
+        </AxButton>
       }
     >
       {!actions && <p className="ad-detail__muted">체험 모드에서는 목록에 있는 정보만 보여요.</p>}
@@ -222,9 +223,9 @@ export function AdminPropertyPanel({
                   </option>
                 ))}
               </select>
-              <PmButton variant="navy" size="sm" disabled={pending || !managerChanged} onClick={saveManager}>
+              <AxButton variant="navy" size="sm" disabled={pending || !managerChanged} onClick={saveManager}>
                 {pending ? "저장 중…" : "저장"}
-              </PmButton>
+              </AxButton>
             </div>
             {note && (
               <p className="ad-detail__ok" role="status">
@@ -236,15 +237,15 @@ export function AdminPropertyPanel({
           <section className="ad-detail__sec">
             <h3>실증</h3>
             <div className="ad-detail__assign">
-              <input
-                className="pm-input"
+              <AxTextField
+                label="실증 묶음 이름"
+                labelHidden
                 value={pilotGroup}
-                onChange={(e) => {
-                  setPilotGroup(e.target.value);
+                onChange={(v) => {
+                  setPilotGroup(v);
                   setPilotNote("");
                 }}
                 placeholder="묶음 이름 (예: 대전 1차)"
-                aria-label="실증 묶음 이름"
                 maxLength={30}
                 disabled={!pilotActions}
               />
@@ -256,18 +257,18 @@ export function AdminPropertyPanel({
                 aria-label="실증 시작일"
                 disabled={!pilotActions}
               />
-              <PmButton
+              <AxButton
                 size="sm"
                 variant="ghost"
                 disabled={pending || !pilotActions || !pilotGroup.trim()}
                 onClick={() => savePilot(false)}
               >
                 {detail.pilot ? "바꾸기" : "실증 업장으로"}
-              </PmButton>
+              </AxButton>
               {detail.pilot && (
-                <PmButton size="sm" variant="quiet" disabled={pending} onClick={() => savePilot(true)}>
+                <AxButton size="sm" variant="quiet" disabled={pending} onClick={() => savePilot(true)}>
                   해제
-                </PmButton>
+                </AxButton>
               )}
             </div>
             <p className="ad-detail__muted">
@@ -446,9 +447,9 @@ export function AdminPropertyPanel({
                   aria-label="메모 내용"
                   maxLength={2000}
                 />
-                <PmButton size="sm" variant="ghost" disabled={pending || !noteBody.trim()} onClick={addNote}>
+                <AxButton size="sm" variant="ghost" disabled={pending || !noteBody.trim()} onClick={addNote}>
                   남기기
-                </PmButton>
+                </AxButton>
               </div>
             )}
             {notes.length === 0 ? (

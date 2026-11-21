@@ -6,12 +6,15 @@ import "./pm-button.css";
 
 interface PmButtonProps {
   /**
+   * brand: 랜딩 CTA 주황 그라데이션 — 로그인·가입·온보딩 마지막에만 (docs/PMS-DESIGN-V3.md)
    * primary: 남색 단색 주 동작 (화면당 1개) · navy: primary 와 같은 모양(예전 이름) · ghost: 흰 바탕 + 선 · quiet: 글자만
    * alert: 경고 띠 안의 해결 버튼 — 흰 바탕 + 빨간 선·글자 (남색 주 버튼과 겹치지 않게, D-04)
    */
-  variant?: "primary" | "navy" | "ghost" | "quiet" | "alert";
+  variant?: "brand" | "primary" | "navy" | "ghost" | "quiet" | "alert";
   size?: "md" | "sm";
   icon?: IconName;
+  /** 아이콘이 상태에 따라 바뀌는 버튼 (복사 → 완료 등) — 바뀔 때 흐림에서 선명하게 (규칙 7) */
+  iconSwap?: boolean;
   href?: string;
   onClick?: () => void;
   disabled?: boolean;
@@ -29,6 +32,7 @@ export function PmButton({
   variant = "ghost",
   size = "md",
   icon,
+  iconSwap,
   href,
   onClick,
   disabled,
@@ -42,7 +46,7 @@ export function PmButton({
   const classes = cx("pm-btn", `pm-btn--${variant}`, size === "sm" && "pm-btn--sm", className);
   const inner = (
     <>
-      {icon && <Icon name={icon} size={size === "sm" ? 15 : 16} />}
+      {icon && <Icon name={icon} size={size === "sm" ? 15 : 16} swap={iconSwap} />}
       <span>{children}</span>
     </>
   );

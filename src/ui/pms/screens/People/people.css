@@ -1,5 +1,8 @@
 /* 업장별 매니저 권한 (F8) — 사람 × 업장 표, 권한 바꾸기 · 여러 업장 초대 */
 .pp-panel {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-top: var(--pm-s4);
   background: var(--pm-surface);
   border: 1px solid var(--pm-line);
@@ -19,6 +22,7 @@
   font-size: var(--pm-fs-h2);
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--pm-section);
 }
 .pp-panel__head span {
   font-size: 13px;
@@ -275,7 +279,7 @@
   padding: 10px 16px;
   border-radius: var(--pm-r-md);
   background: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
   font-size: 13px;
   font-weight: 600;
   box-shadow: var(--pm-shadow-pop);

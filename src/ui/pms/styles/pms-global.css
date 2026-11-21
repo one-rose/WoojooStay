@@ -1,0 +1,9 @@
+/*
+ * 랜딩 공용 기본 스타일(global.css)을 앱 화면에서는 가장 낮은 층(reset)에 넣어 불러온다.
+ * - 랜딩 파일은 그대로 (랜딩 화면은 지금처럼 바로 불러옴)
+ * - 앱 · 운영자 화면에서는 아스트릭스 부품의 기본 모양이 이 초기화(button 배경 없애기 등)에 지워지지 않는다
+ * - 우리 앱 CSS 는 층 밖이라 여전히 항상 이긴다
+ * 층 순서는 아스트릭스와 같게: reset < astryx-base < astryx-theme < (층 밖: 우리 CSS)
+ */
+@layer reset, astryx-base, astryx-theme;
+@import "../../styles/global.css" layer(reset);

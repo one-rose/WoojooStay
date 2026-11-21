@@ -5,7 +5,7 @@
   gap: 6px;
   height: 36px;
   padding: 0 16px;
-  border-radius: var(--pm-r-md);
+  border-radius: var(--pm-r-btn);
   border: 1px solid transparent;
   font-size: 13.5px;
   font-weight: 600;
@@ -24,11 +24,23 @@
 .pm-btn--primary,
 .pm-btn--navy {
   background: var(--pm-primary);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .pm-btn--primary:hover,
 .pm-btn--navy:hover {
   background: var(--pm-primary-hover);
+}
+/* 대표 버튼 — 랜딩 CTA 주황 그라데이션. 화면당 하나 (로그인 · 가입 · 온보딩 마지막), 글자 18px 굵게 */
+.pm-btn.pm-btn--brand {
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--pm-brand);
+  color: oklch(100% 0 0);
+  font-size: 18px;
+  font-weight: 700;
+}
+.pm-btn.pm-btn--brand:hover {
+  background: var(--pm-brand-hover);
 }
 .pm-btn--ghost {
   background: var(--pm-surface);
@@ -36,7 +48,7 @@
   border: 1px solid var(--pm-line);
 }
 .pm-btn--ghost:hover {
-  border-color: #c9ced6;
+  border-color: var(--pm-line-strong);
   background: var(--pm-surface-sunken);
 }
 .pm-btn--alert {
@@ -46,7 +58,7 @@
 }
 .pm-btn--alert:hover {
   border-color: var(--pm-bad);
-  background: #fff8f6;
+  background: oklch(98.4% 0.008 36.6);
 }
 .pm-btn--quiet {
   color: var(--pm-ink-2);

@@ -28,7 +28,7 @@
   height: 56px;
   padding: 0 var(--pm-s6);
   background: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .ad-top__brand {
   display: inline-flex;
@@ -43,7 +43,6 @@
   border-left: 1px solid var(--pm-navy-line);
   font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.04em;
   color: var(--pm-nav-muted);
 }
 .ad-top__right {
@@ -64,7 +63,7 @@
   padding: 0 12px;
   border: 1px solid var(--pm-navy-line);
   border-radius: var(--pm-r-sm);
-  color: #fff;
+  color: oklch(100% 0 0);
   font-size: 13px;
 }
 .ad-top__out:hover {
@@ -99,13 +98,15 @@
 /* 업장 찾기 · 업장 상세 */
 .ad-search {
   display: flex;
+  flex-wrap: wrap; /* 좁은 화면에서 옆으로 넘치지 않게 */
   align-items: center;
   gap: var(--pm-s3);
   margin-bottom: var(--pm-s3);
   font-size: 13px;
   color: var(--pm-muted);
 }
-.ad-search .pm-input {
+.ad-search .pm-input,
+.ad-search__field {
   width: min(360px, 100%);
 }
 .ad-row {
@@ -288,7 +289,7 @@
   color: var(--pm-muted);
 }
 .ad-pilot__grid .is-now {
-  background: #f3f6fb;
+  background: oklch(97.2% 0.007 260.7);
 }
 .ad-pilot__defs {
   display: grid;

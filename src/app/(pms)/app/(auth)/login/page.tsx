@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "로그인" };
 const demoNotice = (
   <>
     <strong>체험 모드예요</strong>
-    아무 번호나 넣고 로그인하면 업장 10곳을 운영하는 사장님 화면으로 들어가요.
+    아무 번호로나 로그인하면 업장 10곳을 운영하는 사장님 화면으로 들어가요.
     <span className="au-demo-links">
       <Link href="/app/overview">사장님 화면</Link>
       <Link href="/app/me">직원 화면</Link>

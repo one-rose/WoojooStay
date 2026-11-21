@@ -8,5 +8,5 @@
   color: var(--pm-orange);
 }
 .pm-stars__off {
-  color: #dfe2e7;
+  color: oklch(91.2% 0.008 260.7);
 }

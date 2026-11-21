@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "@/ui/styles/tokens.css";
-import "@/ui/styles/global.css";
+import "@/ui/pms/styles/pms-global.css";
 import "@/ui/pms/styles/pms-tokens.css";
 import "@/ui/pms/styles/pms-base.css";
 import "@/ui/pms/components/Form/form.css";

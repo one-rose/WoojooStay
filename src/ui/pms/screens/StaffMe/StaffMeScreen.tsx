@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   SHIFT_TIME,
   type ClockAction,
+  type ClockLocation,
+  type ClockRequestAction,
   type OpsActions,
   type OpsData,
   type ShiftKind,
@@ -24,6 +26,20 @@ type MeTab = "today" | "mine";
 const DOW = ["월", "화", "수", "목", "금", "토", "일"];
 const ROLE = { front: "프런트", housekeeping: "하우스키핑", night: "야간", manager: "매니저" } as const;
 const md = (d: string) => `${Number(d.slice(5, 7))}.${Number(d.slice(8))}`;
+/** 위치·QR 로 확인이 안 됐다는 오류 — 이때 출퇴근 요청을 권한다 */
+const NEEDS_REQUEST = new Set(["OUT_OF_RANGE", "LOCATION_REQUIRED", "QR_INVALID", "QR_EXPIRED", "QR_OTHER_PROPERTY"]);
+
+/** 브라우저 위치 한 번 — 못 받으면 null (권한 거부·시간 초과) */
+function currentLocation(): Promise<ClockLocation | null> {
+  if (typeof navigator === "undefined" || !navigator.geolocation) return Promise.resolve(null);
+  return new Promise((resolve) =>
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude, accuracy: p.coords.accuracy }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
+    ),
+  );
+}
 
 function useClock() {
   const [now, setNow] = useState<Date | null>(null);
@@ -53,9 +69,12 @@ export function StaffMeScreen({
   ops,
   opsActions,
   undoOut,
+  requestClock,
 }: {
   data: StaffMeData | null;
   clock?: ClockAction;
+  /** 위치로 안 될 때 사유와 함께 출퇴근 요청 — 없으면 체험 모드 */
+  requestClock?: ClockRequestAction;
   /** 방금 누른 퇴근 되돌리기 (퇴근 후 5분 안) — 없으면 체험 모드에서만 화면으로 되돌린다 */
   undoOut?: UndoClockOutAction;
   logoutPath?: string;
@@ -80,7 +99,15 @@ export function StaffMeScreen({
   return (
     <>
       {!clock && <DemoBar current="/app/me" />}
-      <Body data={data} clock={clock} logoutPath={logoutPath} ops={ops} opsActions={opsActions} undoOut={undoOut} />
+      <Body
+        data={data}
+        clock={clock}
+        logoutPath={logoutPath}
+        ops={ops}
+        opsActions={opsActions}
+        undoOut={undoOut}
+        requestClock={requestClock}
+      />
     </>
   );
 }
@@ -92,9 +119,11 @@ function Body({
   ops,
   opsActions,
   undoOut,
+  requestClock,
 }: {
   data: StaffMeData;
   clock?: ClockAction;
+  requestClock?: ClockRequestAction;
   logoutPath?: string;
   ops?: OpsData | null;
   opsActions?: Pick<OpsActions, "setRoomStatus" | "readNote" | "addNote">;
@@ -111,6 +140,12 @@ function Body({
   }
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  /** 위치로 확인이 안 됐을 때 — 사유를 적어 출퇴근 요청 */
+  const [asking, setAsking] = useState<{ action: "in" | "out"; location: ClockLocation | null } | null>(null);
+  const [reason, setReason] = useState("");
+  const [sent, setSent] = useState<string | null>(null);
+  const waiting = (data.requests ?? []).filter((r) => r.status === "pending");
+  const latest = data.requests?.[0];
   const [tab, setTab] = useState<MeTab>("today");
   /** 퇴근 전 확인 — 인수인계 남기고 퇴근할지 */
   const [leaving, setLeaving] = useState(false);
@@ -152,9 +187,23 @@ function Body({
         if (!n.ok) return setError(n.message);
       }
       if (clock) {
-        const r = await clock(data.employee.id, action);
-        if (!r.ok) return setError(r.message);
+        // 업장 위치가 있으면 지금 위치를 함께 보낸다 — 서버가 반경 안인지 본다
+        const location = data.clock?.locationSet ? await currentLocation() : null;
+        const r = await clock(data.employee.id, action, location ?? undefined);
+        if (!r.ok) {
+          setLeaving(false);
+          if (r.errorCode && NEEDS_REQUEST.has(r.errorCode)) {
+            setAsking({ action, location });
+            return setError(
+              location || r.errorCode !== "LOCATION_REQUIRED"
+                ? r.message
+                : "위치를 가져오지 못했어요. 브라우저의 위치 권한을 켜고 다시 누르거나, 아래에서 요청을 보내 주세요.",
+            );
+          }
+          return setError(r.message);
+        }
       }
+      setAsking(null);
       setLeaving(false);
       setHandover("");
       if (action === "out") {
@@ -162,6 +211,20 @@ function Body({
         setUndoable(true);
       }
       setState(action === "in" ? "working" : "done");
+      router.refresh();
+    });
+
+  const sendRequest = () =>
+    start(async () => {
+      if (!asking) return;
+      setError(null);
+      if (requestClock) {
+        const r = await requestClock(asking.action, reason.trim(), asking.location ?? undefined);
+        if (!r.ok) return setError(r.message);
+      }
+      setSent(`${asking.action === "in" ? "출근" : "퇴근"} 요청을 보냈어요. 사장님이나 매니저가 확인하면 알려 드려요.`);
+      setAsking(null);
+      setReason("");
       router.refresh();
     });
 
@@ -228,7 +291,55 @@ function Body({
             {error}
           </p>
         )}
+        {sent && (
+          <p className="sm-clock__left" role="status">
+            {sent}
+          </p>
+        )}
+        {!sent &&
+          waiting.map((r) => (
+            <p key={r.id} className="sm-clock__wait" role="status">
+              {r.type === "in" ? "출근" : "퇴근"} 요청 {r.time} 보냄, 확인을 기다리는 중이에요
+            </p>
+          ))}
+        {latest?.status === "rejected" && latest.date === data.date && waiting.length === 0 && (
+          <p className="sm-clock__wait" role="status">
+            {latest.time} {latest.type === "in" ? "출근" : "퇴근"} 요청이 거절됐어요. 사유: {latest.rejectReason}
+          </p>
+        )}
       </section>
+
+      {asking && (
+        <section className="sm-leave" aria-labelledby="sm-ask-title">
+          <h2 id="sm-ask-title">{asking.action === "in" ? "출근" : "퇴근"} 요청 보내기</h2>
+          <p>
+            위치로 확인이 안 될 때는 프런트의 출근 QR을 앱에서 찍어 주세요. 그것도 어렵다면 사유를 적어 보내면
+            사장님이나 매니저가 확인하고 지금 시각으로 기록해요.
+          </p>
+          <textarea
+            className="sm-ops-text"
+            rows={2}
+            maxLength={200}
+            aria-label="요청 사유"
+            placeholder="예: 휴대폰 위치가 안 잡혀요"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <div className="sm-leave__actions">
+            <button type="button" className="sm-ops-btn" disabled={pending} onClick={() => setAsking(null)}>
+              닫기
+            </button>
+            <button
+              type="button"
+              className="sm-ops-btn is-solid"
+              disabled={pending || reason.trim().length < 2}
+              onClick={sendRequest}
+            >
+              {pending ? "보내는 중…" : "요청 보내기"}
+            </button>
+          </div>
+        </section>
+      )}
 
       {leaving && (
         <section className="sm-leave" role="dialog" aria-modal="false" aria-labelledby="sm-leave-title">
@@ -397,7 +508,7 @@ function Body({
                       {Number(r.date.slice(8))}일 ({weekdayKo(r.date)})
                     </span>
                     <span className="num">
-                      {r.in} – {r.out ?? "퇴근 기록 없음"}
+                      {r.in} ~ {r.out ?? "퇴근 기록 없음"}
                     </span>
                     <b className="num">{r.hours != null ? formatHours(r.hours) : ""}</b>
                     {r.edited && (

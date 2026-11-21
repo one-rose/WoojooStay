@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AcceptInvitationAction } from "@/core";
 import { josa } from "@/shared";
-import { PmButton } from "../../components";
-import { AuthBrand } from "./AuthBrand";
+import { AxButton } from "../../components/Astryx";
+import Link from "next/link";
+import { Logo } from "@/ui/brand";
+import "./login.css";
 import "./auth.css";
 
 interface InviteScreenProps {
@@ -53,13 +55,17 @@ export function InviteScreen({ token, me, accept, logoutPath, invite }: InviteSc
     });
 
   return (
-    <div className="au">
-      <AuthBrand />
-      <main className="au-main">
-        <div className="au-card">
-          <header className="au-reset-head">
-            <h2>{invite ? `${invite.propertyName}에서 초대했어요` : "직원 초대를 받으셨어요"}</h2>
-            <p>
+    <div className="lg4">
+      <header className="lg4-top">
+        <Link href="/" aria-label="우주스테이 소개로">
+          <Logo className="lg4-logo" />
+        </Link>
+      </header>
+      <main className="lg4-main">
+        <div className="lg4-form">
+          <header className="lg4-head">
+            <h1 className="lg4-title">{invite ? `${invite.propertyName}에서 초대했어요` : "직원 초대를 받으셨어요"}</h1>
+            <p className="lg4-desc">
               {invite
                 ? many
                   ? `수락하면 아래 ${invite.properties!.length}곳에 함께 참여해요. 초대받은 번호(${invite.phone})로 로그인한 상태여야 수락할 수 있어요.`
@@ -70,7 +76,7 @@ export function InviteScreen({ token, me, accept, logoutPath, invite }: InviteSc
 
           {many && <InvitePropertyList properties={invite!.properties!} />}
 
-          <div className="au-notice">
+          <div className="lg4-notice">
             <strong>{me.name}님으로 로그인되어 있어요</strong>
             휴대폰 번호 <span className="num">{me.phone}</span> — 초대받은 번호와 같아야 수락할 수 있어요.
           </div>
@@ -86,15 +92,23 @@ export function InviteScreen({ token, me, accept, logoutPath, invite }: InviteSc
             </p>
           )}
 
-          <PmButton variant="primary" className="au-submit" onClick={onAccept} disabled={pending || Boolean(joined)}>
-            {pending ? "수락하는 중…" : "초대 수락하기"}
-          </PmButton>
+          <div className="lg4-cta">
+            <AxButton
+              variant="brand"
+              className="lg4-submit"
+              onClick={onAccept}
+              disabled={Boolean(joined)}
+              loading={pending}
+            >
+              초대 수락하기
+            </AxButton>
+          </div>
 
           {logoutPath && (
             <form
               action={`${logoutPath}?next=${encodeURIComponent(`/app/invite?token=${token}`)}`}
               method="post"
-              className="au-links"
+              className="lg4-links"
             >
               <button type="submit">
                 {error?.mismatch ? "초대받은 번호로 다시 로그인하기" : "다른 번호로 로그인하기"}

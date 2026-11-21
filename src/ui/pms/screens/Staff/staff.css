@@ -49,16 +49,18 @@
 .st-shift.is-day {
   background: var(--pm-surface);
   border: 1px solid var(--pm-line);
-  box-shadow: inset 3px 0 0 #d9b44a;
+  box-shadow: inset 3px 0 0 oklch(78.3% 0.13 89.7);
   color: var(--pm-ink);
 }
 .st-shift:disabled {
-  opacity: 0.6;
-  cursor: progress;
+  /* 누를 수 없음: 면 · 글자 · 커서 세 가지로 (흐리게만 하지 않는다) */
+  background: var(--pm-disabled-bg);
+  color: var(--pm-disabled-ink);
+  cursor: not-allowed;
 }
 .st-shift.is-night {
-  background: #e8ecf4;
-  border: 1px solid #d3d9e6;
+  background: oklch(94.2% 0.012 264.5);
+  border: 1px solid var(--pm-line-strong);
   box-shadow: inset 3px 0 0 var(--pm-navy);
   color: var(--pm-navy);
 }
@@ -194,7 +196,7 @@
   line-height: 1.2;
 }
 .st-shift__time {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   opacity: 0.8;
 }
@@ -241,4 +243,25 @@
   .st-shift {
     min-height: var(--pm-touch);
   }
+}
+
+/* 출퇴근 방법 — 종류라 배지 없이 회색 글자 */
+.st-how {
+  margin-left: 6px;
+  color: var(--pm-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* 승인을 기다리는 출퇴근 요청 */
+.st-requests__reason {
+  max-width: 320px;
+  white-space: normal;
+  color: var(--pm-ink-2);
+}
+.st-requests__act {
+  white-space: nowrap;
+}
+.st-requests__act > * + * {
+  margin-left: 6px;
 }

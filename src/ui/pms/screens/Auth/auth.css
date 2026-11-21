@@ -11,7 +11,7 @@
   gap: var(--pm-s8);
   padding: 48px;
   background: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .au-brand__logo.logo {
   align-self: flex-start;
@@ -38,7 +38,7 @@
   background: var(--pm-surface);
   color: var(--pm-ink);
   overflow: hidden;
-  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 24px 48px -24px oklch(0% 0 0 / 0.45);
   transform: rotate(-1deg);
 }
 .au-peek__head {
@@ -67,7 +67,7 @@
   top: 10px;
   bottom: 10px;
   width: 3px;
-  background: #c9a033;
+  background: oklch(72.5% 0.131 87.2);
 }
 .au-peek ul li.is-bad::before {
   background: var(--pm-bad);
@@ -115,19 +115,22 @@
 }
 .au-inline {
   display: flex;
+  align-items: flex-start;
   gap: var(--pm-s2);
 }
-.au-inline .pm-btn {
+.au-inline > .ax-field {
+  flex: 1;
+}
+/* 입력칸 이름표 높이만큼 내려서 입력칸과 같은 줄에 (이름표 20 + 간격 4) */
+.au-inline > .ax-btn {
+  margin-top: 24px;
   height: 40px;
 }
 .au-code {
   position: relative;
 }
 .au-code__timer {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  padding-right: 6px;
   font-size: 13px;
   font-weight: 600;
   color: var(--pm-ink-2);
@@ -304,7 +307,7 @@
 .ob-steps li.is-on > span {
   background: var(--pm-navy);
   border-color: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .ob-steps li.is-done {
   color: var(--pm-ok);
@@ -433,6 +436,9 @@
   gap: var(--pm-s3);
 }
 .ob-plan {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -694,6 +700,9 @@
 
 /* 채널 연결 직후 첫 가치 — 가져온 리뷰 + 답글 초안 */
 .ob-value {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-top: var(--pm-s5);
   padding: var(--pm-s5);
   border: 1px solid var(--pm-line);
@@ -767,10 +776,6 @@
   padding-right: 64px;
 }
 .au-pw__toggle {
-  position: absolute;
-  top: 50%;
-  right: 6px;
-  transform: translateY(-50%);
   min-width: 48px;
   height: 32px;
   padding: 0 8px;

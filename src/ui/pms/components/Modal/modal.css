@@ -5,9 +5,12 @@
   display: grid;
   place-items: center;
   padding: var(--pm-s4);
-  background: rgba(20, 31, 51, 0.5);
+  background: oklch(24% 0.042 261.7 / 0.5);
 }
 .pm-modal__box {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s6);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   display: flex;
   flex-direction: column;
   width: min(520px, 100%);

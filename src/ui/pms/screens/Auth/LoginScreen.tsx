@@ -4,16 +4,19 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AuthActions } from "@/core";
+import { Logo } from "@/ui/brand";
 import { cx, formatPhoneInput } from "@/shared";
-import { Field, Modal, PmButton, Tabs } from "../../components";
-import { AuthBrand } from "./AuthBrand";
+import { Icon, Modal } from "../../components";
+import { AxButton, AxTextField } from "../../components/Astryx";
 import "./auth.css";
+import "./login.css";
 
+/**
+ * 로그인 · 가입 · 비밀번호 재설정 — 화면 하나에 질문 하나 (토스 방식), 가운데 한 줄.
+ * 가입: 휴대폰 번호 → 인증번호 → 이름·비밀번호·약관. 버튼 이름은 누르면 일어나는 일로 ("인증번호 받기", "가입하고 업장 등록하기").
+ */
 type Mode = "login" | "signup" | "reset";
-const MODES = [
-  { id: "login", label: "로그인" },
-  { id: "signup", label: "회원가입" },
-] as const;
+type Step = "phone" | "code" | "profile";
 
 type TermId = "service" | "privacy" | "marketing";
 const TERMS: readonly { id: TermId; label: string; required: boolean }[] = [
@@ -55,13 +58,12 @@ interface LoginScreenProps {
   actions?: AuthActions;
   /** 로그인·가입 뒤 돌아갈 곳 (초대 수락 등) */
   next?: string;
-  /** 카드 위에 보일 안내 (초대 받은 경우 등) */
+  /** 위에 보일 안내 (초대 받은 경우, 체험 모드 등) */
   notice?: ReactNode;
-  /** 처음 보여줄 탭 */
+  /** 처음 보여줄 화면 */
   initialMode?: "login" | "signup";
 }
 
-/** 가입·로그인 (F0-01) + 약관 동의 (F0-17) + 비밀번호 재설정. actions 가 없으면 화면만 동작하는 시안 */
 /** 주소의 ?next= — 앱 안 경로만 */
 const nextFromUrl = () => {
   const v = new URLSearchParams(window.location.search).get("next");
@@ -72,7 +74,7 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
   const router = useRouter();
   const target = () => nextProp ?? nextFromUrl();
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [codeSent, setCodeSent] = useState(false);
+  const [step, setStep] = useState<Step>("phone");
   const [left, setLeft] = useState(180);
   const [agreed, setAgreed] = useState<TermId[]>([]);
   const [viewTerm, setViewTerm] = useState<TermId | null>(null);
@@ -82,32 +84,38 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
   const [devCode, setDevCode] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [showPw, setShowPw] = useState(false);
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [k]: k === "phone" ? formatPhoneInput(e.target.value) : e.target.value }));
+  const set = (k: keyof typeof form) => (v: string) =>
+    setForm((f) => ({
+      ...f,
+      [k]: k === "phone" ? formatPhoneInput(v) : k === "code" ? v.replace(/\D/g, "").slice(0, 6) : v,
+    }));
 
-  /** 비밀번호 칸 + 보기 버튼 */
-  const passwordInput = (k: "password" | "newPassword", autoComplete: string, placeholder?: string) => (
-    <div className="au-pw">
-      <input
-        className="pm-input"
-        type={showPw ? "text" : "password"}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        value={form[k]}
-        onChange={set(k)}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? "au-error" : undefined}
-      />
-      <button
-        type="button"
-        className="au-pw__toggle"
-        onClick={() => setShowPw((v) => !v)}
-        aria-pressed={showPw}
-        aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}
-      >
-        {showPw ? "숨기기" : "보기"}
-      </button>
-    </div>
+  const passwordInput = (
+    k: "password" | "newPassword",
+    label: string,
+    autoComplete: "current-password" | "new-password",
+    hint?: string,
+  ) => (
+    <AxTextField
+      label={label}
+      hint={hint}
+      type={showPw ? "text" : "password"}
+      placeholder={k === "password" ? "비밀번호" : "영문·숫자 포함 8자 이상"}
+      autoComplete={autoComplete}
+      value={form[k]}
+      onChange={set(k)}
+      end={
+        <button
+          type="button"
+          className="au-pw__toggle"
+          onClick={() => setShowPw((v) => !v)}
+          aria-pressed={showPw}
+          aria-label={showPw ? "비밀번호 숨기기" : "비밀번호 보기"}
+        >
+          {showPw ? "숨기기" : "보기"}
+        </button>
+      }
+    />
   );
 
   const run = (fn: () => Promise<{ ok: true; data: { next: string } } | { ok: false; message: string }>) =>
@@ -119,15 +127,15 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
     });
 
   useEffect(() => {
-    if (!codeSent) return;
+    if (step !== "code") return;
     const t = window.setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
     return () => window.clearInterval(t);
-  }, [codeSent]);
+  }, [step]);
 
-  const switchMode = (m: Mode) => {
+  const go = (m: Mode) => {
     setMode(m);
+    setStep("phone");
     setError(null);
-    setCodeSent(false);
     setDevCode(null);
     setShowPw(false);
     setForm((f) => ({ ...f, code: "", newPassword: "" }));
@@ -136,6 +144,8 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
   const requiredOk = TERMS.filter((t) => t.required).every((t) => agreed.includes(t.id));
   const allOn = agreed.length === TERMS.length;
   const toggle = (id: TermId) => setAgreed((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]));
+
+  /** 인증번호 보내기 — 성공하면 인증번호 단계로 */
   const sendCode = () =>
     start(async () => {
       setError(null);
@@ -145,252 +155,298 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
         if (!r.ok) return setError(r.message);
         setDevCode(r.data.devCode ?? null);
       }
-      setCodeSent(true);
+      setForm((f) => ({ ...f, code: "" }));
       setLeft(180);
+      setStep("code");
     });
 
-  const phoneWithCode = (
-    <>
-      <Field
-        label="휴대폰 번호"
-        required
-        hint={mode === "signup" ? "휴대폰 번호가 아이디가 돼요. 한 번호로 한 계정만 만들 수 있어요." : undefined}
-      >
-        <div className="au-inline">
-          <input
-            className="pm-input"
-            inputMode="tel"
-            placeholder="010-0000-0000"
-            autoComplete="tel"
-            value={form.phone}
-            onChange={set("phone")}
-          />
-          <PmButton variant={codeSent ? "ghost" : "navy"} onClick={sendCode} disabled={pending}>
-            {codeSent ? "다시 받기" : "인증번호 받기"}
-          </PmButton>
-        </div>
-      </Field>
-      {codeSent && (
-        <Field
-          label="인증번호"
-          required
-          hint={left > 0 ? "문자로 받은 6자리 숫자를 입력해 주세요." : "시간이 지났어요. 다시 받아 주세요."}
-        >
-          <div className="au-code">
-            <input
-              className="pm-input num"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              placeholder="000000"
-              value={form.code}
-              onChange={set("code")}
-            />
-            <span className={cx("au-code__timer num", left === 0 && "is-over")} aria-label={`남은 시간 ${left}초`}>
-              {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
-            </span>
-          </div>
-          {devCode && <p className="pm-devhint">개발 서버 인증번호: {devCode}</p>}
-        </Field>
-      )}
-    </>
+  const timer = (
+    <span className={cx("au-code__timer num", left === 0 && "is-over")} aria-label={`남은 시간 ${left}초`}>
+      {Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}
+    </span>
   );
 
-  return (
-    <div className="au">
-      <AuthBrand />
+  const errorLine = error && (
+    <p className="pm-error" role="alert" id="au-error">
+      {error}
+    </p>
+  );
 
-      <main className="au-main">
-        <div className="au-card">
-          {notice && <div className="au-notice">{notice}</div>}
+  /** 단계 머리 — 뒤로 가기 + 큰 질문 + 한 줄 설명 */
+  const head = (title: string, desc?: string, back?: () => void) => (
+    <header className="lg4-head">
+      {back && (
+        <button type="button" className="lg4-back" onClick={back}>
+          <Icon name="chevronLeft" size={20} />
+          이전
+        </button>
+      )}
+      <h1 className="lg4-title">{title}</h1>
+      {desc && <p className="lg4-desc">{desc}</p>}
+    </header>
+  );
 
-          {mode === "reset" ? (
-            <form
-              className="au-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!codeSent) return setError("인증번호를 먼저 받아 주세요.");
-                if (form.newPassword.length < 8) return setError("새 비밀번호를 8자 이상으로 입력해 주세요.");
-                start(async () => {
-                  setError(null);
-                  if (actions) {
-                    const r = await actions.resetPassword(form.phone, form.code, form.newPassword);
-                    if (!r.ok) return setError(r.message);
-                  }
-                  switchMode("login");
-                  setDone("비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.");
-                });
-              }}
-            >
-              <header className="au-reset-head">
-                <h2>비밀번호 재설정</h2>
-                <p>가입한 휴대폰 번호로 인증하면 새 비밀번호를 정할 수 있어요.</p>
-              </header>
-              {phoneWithCode}
-              <Field label="새 비밀번호" required hint="영문·숫자 포함 8자 이상">
-                {passwordInput("newPassword", "new-password")}
-              </Field>
-              {error && (
-                <p className="pm-error" role="alert" id="au-error">
-                  {error}
-                </p>
-              )}
-              <PmButton variant="primary" type="submit" className="au-submit" disabled={pending || !codeSent}>
-                {pending ? "바꾸는 중…" : "비밀번호 바꾸기"}
-              </PmButton>
-              <p className="au-links">
-                <button type="button" onClick={() => switchMode("login")}>
-                  로그인으로 돌아가기
-                </button>
-              </p>
-            </form>
-          ) : (
-            <>
-              <Tabs items={MODES} value={mode} onChange={(m) => switchMode(m)} label="로그인 또는 가입" />
-
-              {mode === "login" ? (
-                <form
-                  className="au-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setDone(null);
-                    if (actions) run(() => actions.login(form.phone, form.password, target()));
-                    else router.push(target() ?? "/app/overview");
-                  }}
-                >
-                  {done && (
-                    <p className="au-done" role="status">
-                      {done}
-                    </p>
-                  )}
-                  <Field label="휴대폰 번호">
-                    <input
-                      className="pm-input"
-                      inputMode="tel"
-                      placeholder="010-0000-0000"
-                      autoComplete="tel"
-                      value={form.phone}
-                      onChange={set("phone")}
-                      aria-invalid={error ? true : undefined}
-                      aria-describedby={error ? "au-error" : undefined}
-                    />
-                  </Field>
-                  <Field label="비밀번호">{passwordInput("password", "current-password", "비밀번호")}</Field>
-                  {error && (
-                    <p className="pm-error" role="alert" id="au-error">
-                      {error}
-                    </p>
-                  )}
-                  <PmButton variant="primary" type="submit" className="au-submit" disabled={pending}>
-                    {pending ? "확인 중…" : "로그인"}
-                  </PmButton>
-                  <p className="au-links">
-                    <button type="button" onClick={() => switchMode("reset")}>
-                      비밀번호를 잊으셨나요?
-                    </button>
-                  </p>
-                </form>
-              ) : (
-                <form
-                  className="au-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!actions) return router.push(target() ?? "/app/onboarding");
-                    run(() =>
-                      actions.signup(
-                        {
-                          phone: form.phone,
-                          code: form.code,
-                          name: form.name,
-                          email: form.email,
-                          password: form.newPassword,
-                          marketing: agreed.includes("marketing"),
-                        },
-                        target(),
-                      ),
-                    );
-                  }}
-                >
-                  {phoneWithCode}
-                  <Field label="이름" required>
-                    <input
-                      className="pm-input"
-                      placeholder="이름"
-                      autoComplete="name"
-                      value={form.name}
-                      onChange={set("name")}
-                    />
-                  </Field>
-                  <Field label="이메일 (선택)">
-                    <input
-                      className="pm-input"
-                      type="email"
-                      placeholder="영수증·세금계산서 받을 주소"
-                      autoComplete="email"
-                      value={form.email}
-                      onChange={set("email")}
-                    />
-                  </Field>
-                  <Field label="비밀번호" required hint="영문·숫자 포함 8자 이상">
-                    {passwordInput("newPassword", "new-password")}
-                  </Field>
-
-                  <div className="au-terms" role="group" aria-label="약관 동의">
-                    <div className="au-terms__row">
-                      <label className="au-terms__all">
-                        <input
-                          type="checkbox"
-                          checked={allOn}
-                          onChange={() => setAgreed(allOn ? [] : TERMS.map((t) => t.id))}
-                        />
-                        전체 동의
-                      </label>
-                    </div>
-                    {TERMS.map((t) => (
-                      <div key={t.id} className="au-terms__row">
-                        <label>
-                          <input type="checkbox" checked={agreed.includes(t.id)} onChange={() => toggle(t.id)} />
-                          <span>
-                            <em className={t.required ? "is-req" : undefined}>{t.required ? "(필수)" : "(선택)"}</em>{" "}
-                            {t.label}
-                          </span>
-                        </label>
-                        <button
-                          type="button"
-                          className="au-terms__view"
-                          onClick={() => setViewTerm(t.id)}
-                          aria-label={`${t.label} 보기`}
-                        >
-                          보기
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {error && (
-                    <p className="pm-error" role="alert" id="au-error">
-                      {error}
-                    </p>
-                  )}
-                  <PmButton variant="primary" type="submit" disabled={!requiredOk || pending} className="au-submit">
-                    {pending ? "가입 중…" : nextProp ? "가입하고 계속하기" : "가입하고 업장 등록하기"}
-                  </PmButton>
-                  {!requiredOk && <p className="au-submit-hint">필수 약관에 동의해 주세요.</p>}
-                </form>
-              )}
-            </>
-          )}
+  /** 휴대폰 번호 → 인증번호 (가입 · 비밀번호 재설정 공통) */
+  const phoneSteps = (backToLogin: () => void, codeNext: () => void) =>
+    step === "phone" ? (
+      <form
+        className="lg4-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          sendCode();
+        }}
+      >
+        {head(
+          mode === "reset" ? "가입한 휴대폰 번호를 알려 주세요" : "휴대폰 번호를 알려 주세요",
+          mode === "reset"
+            ? "문자로 인증하면 새 비밀번호를 정할 수 있어요."
+            : "이 번호가 아이디가 돼요. 한 번호로 한 계정만 만들 수 있어요.",
+          backToLogin,
+        )}
+        <AxTextField
+          label="휴대폰 번호"
+          type="tel"
+          inputMode="tel"
+          placeholder="010-0000-0000"
+          autoComplete="tel"
+          autoFocus
+          value={form.phone}
+          onChange={set("phone")}
+        />
+        {errorLine}
+        <div className="lg4-cta">
+          <AxButton variant="navy" type="submit" className="lg4-submit" loading={pending}>
+            인증번호 받기
+          </AxButton>
         </div>
-        <p className="au-legal">
-          <Link href="/">우주스테이 소개</Link>
-          <button type="button" onClick={() => setViewTerm("service")}>
-            이용약관
+      </form>
+    ) : (
+      <form
+        className="lg4-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (form.code.length !== 6) return setError("문자로 받은 6자리를 모두 입력해 주세요.");
+          setError(null);
+          codeNext();
+        }}
+      >
+        {head("문자로 받은 6자리를 입력해 주세요", `${form.phone} 번호로 보냈어요.`, () => {
+          setStep("phone");
+          setError(null);
+        })}
+        <AxTextField
+          label="인증번호"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="000000"
+          autoFocus
+          value={form.code}
+          onChange={set("code")}
+          end={timer}
+        />
+        {left === 0 && <p className="lg4-note">시간이 지났어요. 다시 받아 주세요.</p>}
+        {devCode && <p className="pm-devhint">개발 서버 인증번호: {devCode}</p>}
+        {errorLine}
+        <div className="lg4-cta">
+          <AxButton variant="navy" type="submit" className="lg4-submit">
+            다음
+          </AxButton>
+          <AxButton variant="quiet" onClick={sendCode} disabled={pending}>
+            인증번호 다시 받기
+          </AxButton>
+        </div>
+      </form>
+    );
+
+  let screen: ReactNode;
+  if (mode === "login") {
+    screen = (
+      <form
+        className="lg4-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setDone(null);
+          if (actions) run(() => actions.login(form.phone, form.password, target()));
+          else router.push(target() ?? "/app/overview");
+        }}
+      >
+        {head("휴대폰 번호로 로그인해 주세요", "사장님, 매니저, 직원 모두 여기서 들어와요.")}
+        {done && (
+          <p className="au-done" role="status">
+            {done}
+          </p>
+        )}
+        <AxTextField
+          label="휴대폰 번호"
+          type="tel"
+          inputMode="tel"
+          placeholder="010-0000-0000"
+          autoComplete="tel"
+          value={form.phone}
+          onChange={set("phone")}
+        />
+        {passwordInput("password", "비밀번호", "current-password")}
+        {errorLine}
+        <div className="lg4-cta">
+          <AxButton variant="brand" type="submit" className="lg4-submit" loading={pending}>
+            로그인하기
+          </AxButton>
+        </div>
+        <nav className="lg4-links" aria-label="다른 방법">
+          <button type="button" onClick={() => go("reset")}>
+            비밀번호를 잊었어요
           </button>
-          <button type="button" onClick={() => setViewTerm("privacy")}>
-            개인정보 처리방침
+          <button type="button" onClick={() => go("signup")}>
+            처음이에요, 가입할게요
           </button>
-        </p>
+        </nav>
+      </form>
+    );
+  } else if (mode === "reset") {
+    screen =
+      step !== "profile" ? (
+        phoneSteps(
+          () => go("login"),
+          () => setStep("profile"),
+        )
+      ) : (
+        <form
+          className="lg4-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (form.newPassword.length < 8) return setError("새 비밀번호를 8자 이상으로 입력해 주세요.");
+            start(async () => {
+              setError(null);
+              if (actions) {
+                const r = await actions.resetPassword(form.phone, form.code, form.newPassword);
+                if (!r.ok) return setError(r.message);
+              }
+              go("login");
+              setDone("비밀번호를 바꿨어요. 새 비밀번호로 로그인해 주세요.");
+            });
+          }}
+        >
+          {head("새 비밀번호를 정해 주세요", "영문과 숫자를 섞어 8자 이상이면 돼요.", () => setStep("code"))}
+          {passwordInput("newPassword", "새 비밀번호", "new-password")}
+          {errorLine}
+          <div className="lg4-cta">
+            <AxButton variant="navy" type="submit" className="lg4-submit" loading={pending}>
+              비밀번호 바꾸기
+            </AxButton>
+          </div>
+        </form>
+      );
+  } else {
+    screen =
+      step !== "profile" ? (
+        phoneSteps(
+          () => go("login"),
+          () => setStep("profile"),
+        )
+      ) : (
+        <form
+          className="lg4-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!actions) return router.push(target() ?? "/app/onboarding");
+            run(() =>
+              actions.signup(
+                {
+                  phone: form.phone,
+                  code: form.code,
+                  name: form.name,
+                  email: form.email,
+                  password: form.newPassword,
+                  marketing: agreed.includes("marketing"),
+                },
+                target(),
+              ),
+            );
+          }}
+        >
+          {head("이름과 비밀번호를 정해 주세요", undefined, () => setStep("code"))}
+          <AxTextField
+            label="이름"
+            placeholder="이름"
+            autoComplete="name"
+            autoFocus
+            value={form.name}
+            onChange={set("name")}
+          />
+          {passwordInput("newPassword", "비밀번호", "new-password", "영문·숫자 포함 8자 이상")}
+          <AxTextField
+            label="이메일 (선택)"
+            type="email"
+            placeholder="영수증·세금계산서 받을 주소"
+            autoComplete="email"
+            value={form.email}
+            onChange={set("email")}
+          />
+
+          <div className="au-terms lg4-terms" role="group" aria-label="약관 동의">
+            <div className="au-terms__row">
+              <label className="au-terms__all">
+                <input
+                  type="checkbox"
+                  checked={allOn}
+                  onChange={() => setAgreed(allOn ? [] : TERMS.map((t) => t.id))}
+                />
+                전체 동의
+              </label>
+            </div>
+            {TERMS.map((t) => (
+              <div key={t.id} className="au-terms__row">
+                <label>
+                  <input type="checkbox" checked={agreed.includes(t.id)} onChange={() => toggle(t.id)} />
+                  <span>
+                    <em className={t.required ? "is-req" : undefined}>{t.required ? "(필수)" : "(선택)"}</em> {t.label}
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  className="au-terms__view"
+                  onClick={() => setViewTerm(t.id)}
+                  aria-label={`${t.label} 보기`}
+                >
+                  보기
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {errorLine}
+          <div className="lg4-cta">
+            <AxButton variant="brand" type="submit" disabled={!requiredOk} loading={pending} className="lg4-submit">
+              {nextProp ? "가입하고 계속하기" : "가입하고 업장 등록하기"}
+            </AxButton>
+            {!requiredOk && <p className="au-submit-hint">필수 약관에 동의하면 가입할 수 있어요.</p>}
+          </div>
+        </form>
+      );
+  }
+
+  return (
+    <div className="lg4">
+      <header className="lg4-top">
+        <Link href="/" aria-label="우주스테이 소개로">
+          <Logo className="lg4-logo" />
+        </Link>
+      </header>
+
+      <main className="lg4-main">
+        {notice && <div className="lg4-notice">{notice}</div>}
+        {screen}
       </main>
+
+      <footer className="lg4-legal">
+        <Link href="/">우주스테이 소개</Link>
+        <button type="button" onClick={() => setViewTerm("service")}>
+          이용약관
+        </button>
+        <button type="button" onClick={() => setViewTerm("privacy")}>
+          개인정보 처리방침
+        </button>
+      </footer>
 
       {viewTerm && (
         <Modal
@@ -398,9 +454,9 @@ export function LoginScreen({ actions, next: nextProp, notice, initialMode = "lo
           desc="정식 약관을 다듬는 중이라 요약본을 먼저 보여드려요."
           onClose={() => setViewTerm(null)}
           footer={
-            <PmButton variant="navy" onClick={() => setViewTerm(null)}>
+            <AxButton variant="navy" onClick={() => setViewTerm(null)}>
               확인
-            </PmButton>
+            </AxButton>
           }
         >
           <div className="au-terms-doc">

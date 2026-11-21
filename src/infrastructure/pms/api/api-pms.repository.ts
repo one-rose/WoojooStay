@@ -1,6 +1,7 @@
 import type {
   ChannelAccount,
   ChannelConnection,
+  ClockQrData,
   DashboardData,
   ExpenseData,
   GuestReview,
@@ -71,6 +72,11 @@ export class ApiPmsRepository extends StaticPmsRepository implements PmsReposito
 
   override async getStaff(date?: string, week?: string): Promise<StaffData> {
     return toStaff(await this.api.staff(this.propertyId, date, week));
+  }
+
+  override async getClockQr(): Promise<ClockQrData> {
+    const q = await this.api.clockQr(this.propertyId);
+    return { propertyName: q.propertyName, payload: q.payload, keyVersion: q.keyVersion };
   }
 
   override async getStaffMonth(staffId: string, month: string): Promise<StaffMonthAttendance> {

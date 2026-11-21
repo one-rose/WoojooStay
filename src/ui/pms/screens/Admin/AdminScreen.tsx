@@ -18,7 +18,6 @@ import {
   Card,
   ChannelChip,
   PageHead,
-  PmButton,
   Stat,
   StatRow,
   TableWrap,
@@ -26,6 +25,7 @@ import {
   Tag,
   type BadgeTone,
 } from "../../components";
+import { AxButton, AxTextField } from "../../components/Astryx";
 import { AdminAttentionTab } from "./AdminAttentionTab";
 import { AdminPilotTab } from "./AdminPilotTab";
 import { AdminPropertyPanel } from "./AdminPropertyPanel";
@@ -205,13 +205,14 @@ export function AdminScreen({
 
       {tab === "properties" && (
         <div className="ad-search">
-          <input
+          <AxTextField
+            label="업장 찾기"
+            labelHidden
             type="search"
-            className="pm-input"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={setQuery}
             placeholder="업장명, 사장님 이름, 휴대폰 번호로 찾기"
-            aria-label="업장 찾기"
+            className="ad-search__field"
           />
           {owners.length > 0 && (
             <select
@@ -391,12 +392,12 @@ export function AdminScreen({
                     <td>{s.reason}</td>
                     <td className="is-num">
                       <span className="ad-acts">
-                        <PmButton size="sm" variant="quiet" disabled={pending} onClick={() => retry(s.id)}>
+                        <AxButton size="sm" variant="quiet" disabled={pending} onClick={() => retry(s.id)}>
                           다시 수집
-                        </PmButton>
-                        <PmButton size="sm" disabled={pending} onClick={() => notify(s.id, s.property)}>
+                        </AxButton>
+                        <AxButton size="sm" disabled={pending} onClick={() => notify(s.id, s.property)}>
                           사장님께 다시 알림
-                        </PmButton>
+                        </AxButton>
                       </span>
                     </td>
                   </tr>
@@ -440,9 +441,9 @@ export function AdminScreen({
                     </td>
                     <td className="is-num">
                       {q.status !== "done" && (
-                        <PmButton size="sm" variant="ghost" disabled={pending} onClick={() => moveInquiry(q)}>
+                        <AxButton size="sm" variant="ghost" disabled={pending} onClick={() => moveInquiry(q)}>
                           {q.status === "new" ? "연락함으로" : "완료로"}
-                        </PmButton>
+                        </AxButton>
                       )}
                     </td>
                   </tr>

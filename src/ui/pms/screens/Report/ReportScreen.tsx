@@ -72,6 +72,7 @@ function CopySummary({ text }: { text: string }) {
   return (
     <PmButton
       icon={done ? "check" : "copy"}
+      iconSwap
       onClick={() =>
         void navigator.clipboard
           ?.writeText(text)

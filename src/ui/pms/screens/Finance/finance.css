@@ -18,7 +18,7 @@
 .fin-switch a.is-on {
   background: var(--pm-navy);
   border-color: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .fin-stage {
   margin-bottom: var(--pm-s4);
@@ -36,6 +36,9 @@
   font-weight: 600;
 }
 .fin-panel {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-top: var(--pm-s4);
   border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
@@ -53,6 +56,7 @@
 .fin-panel__head h2 {
   font-size: 15px;
   font-weight: 600;
+  color: var(--pm-section);
 }
 .fin-panel__head span {
   font-size: 13px;
@@ -101,12 +105,15 @@
 .fin-bars__fill {
   display: block;
   height: 100%;
-  background: #8792a8;
+  background: oklch(65.9% 0.035 264.3);
 }
 .fin-bars__fill.is-now {
   background: var(--pm-navy);
 }
 .fin-interest {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   display: flex;
   align-items: center;
   justify-content: space-between;

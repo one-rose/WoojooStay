@@ -1,5 +1,8 @@
 /* 요약 띠 — 카드 여러 장 대신 패널 하나를 세로선으로 나눈다 (PMS-DESIGN-V2 §2) */
 .pm-stats {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   display: grid;
   margin-bottom: var(--pm-s4);
   background: var(--pm-surface);
@@ -46,6 +49,7 @@
 .pm-stat__value {
   font-size: var(--pm-fs-kpi);
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   line-height: 1.25;
   white-space: nowrap;

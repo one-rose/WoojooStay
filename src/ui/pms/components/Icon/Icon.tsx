@@ -1,4 +1,8 @@
-/** 앱 아이콘 — 24 격자, 1.75 선 굵기. 색은 currentColor */
+/**
+ * 앱 아이콘 — 24 격자, 색은 currentColor.
+ * 선 굵기는 옆 글자 굵기를 따른다 (규칙 5): `.pm-icon` 이 --pm-stem(글자 크기 비율)을 화면 픽셀로 그린다.
+ * 굵은 글자(버튼 · 지금 메뉴) 안에서는 --pm-stem-bold. pms-base.css 참고.
+ */
 const PATHS = {
   home: "M3.5 10.5 12 4l8.5 6.5V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1z",
   review: "M4 5h16v11H9l-5 4zM8 9.5h8M8 12.5h5",
@@ -53,11 +57,14 @@ interface IconProps {
   size?: number;
   className?: string;
   title?: string;
+  /** 상태에 따라 아이콘이 바뀌는 자리 — 바뀔 때 4px 흐림에서 선명해진다 (규칙 7) */
+  swap?: boolean;
 }
 
-export function Icon({ name, size = 18, className, title }: IconProps) {
+export function Icon({ name, size = 18, className, title, swap }: IconProps) {
   return (
     <svg
+      key={swap ? name : undefined}
       viewBox="0 0 24 24"
       width={size}
       height={size}
@@ -66,12 +73,14 @@ export function Icon({ name, size = 18, className, title }: IconProps) {
       strokeWidth={1.75}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={className}
+      className={
+        className ? `pm-icon${swap ? " pm-icon--swap" : ""} ${className}` : `pm-icon${swap ? " pm-icon--swap" : ""}`
+      }
       role={title ? "img" : undefined}
       aria-hidden={title ? undefined : true}
       aria-label={title}
     >
-      <path d={PATHS[name]} />
+      <path d={PATHS[name]} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }

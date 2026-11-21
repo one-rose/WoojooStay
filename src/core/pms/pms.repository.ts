@@ -1,5 +1,6 @@
 import type {
   AdminData,
+  ClockQrData,
   ExpenseData,
   LedgerData,
   OpsData,
@@ -30,5 +31,7 @@ export interface PmsRepository {
   getExpenses(month?: string): Promise<ExpenseData>;
   getOps(): Promise<OpsData>;
   getSettings(): Promise<SettingsData>;
+  /** 출근 QR (인쇄용) — 사장님·매니저 */
+  getClockQr(): Promise<ClockQrData>;
   getAdmin(): Promise<AdminData>;
 }

@@ -9,6 +9,7 @@ export function clientIpFrom(get: (name: string) => string | null | undefined): 
 /** 내부 이동 경로만 허용 (열린 리다이렉트 방지) — "/app…" 이 아니면 fallback */
 export function safeAppPath(next: string | null | undefined, fallback = "/app"): string {
   if (!next || !next.startsWith("/app") || next.startsWith("//") || next.includes("\\")) return fallback;
-  if (next.startsWith("/app/session") || next.startsWith("/app/login")) return fallback;
+  if (next.startsWith("/app/session") || next.startsWith("/app/login") || next.startsWith("/app/handoff"))
+    return fallback;
   return next;
 }

@@ -9,3 +9,4 @@ export { josa, needsSpaceBetween, plainList } from "./lib/text";
 export { addDays, daysBetween, formatLongDate, formatShortDate, kstDay, weekday, weekdayKo } from "./lib/date";
 export { clientIpFrom, safeAppPath } from "./lib/http";
 export { csvCell } from "./lib/csv";
+export { qrMatrix, qrSvgPath } from "./lib/qr";

@@ -5,6 +5,7 @@ import { isLiveApi } from "@/infrastructure";
 import { StaffScreen, ScreenSkeleton } from "@/ui/pms";
 import {
   addEmployeeAction,
+  decideClockRequestAction,
   editAttendanceAction,
   payrollAction,
   sendContractAction,
@@ -24,6 +25,7 @@ const liveActions = {
   setShift: setShiftAction,
   payroll: payrollAction,
   updateEmployee: updateEmployeeAction,
+  decideClockRequest: decideClockRequestAction,
 };
 
 export default function StaffPage({ searchParams }: PageProps<"/app/staff">) {

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import type { AdminPilotActions, AdminPilotKpi, AdminPilotProperty, AdminPilotSurvey, AdminPilotWeek } from "@/core";
-import { Badge, Card, Field, Modal, PmButton, TableWrap } from "../../components";
+import { Badge, Card, Field, Modal, TableWrap } from "../../components";
+import { AxButton, AxTextField } from "../../components/Astryx";
 
 /** 비율 → "66.7%" (없으면 -) */
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? "-" : `${Math.round(v * 1000) / 10}%`);
@@ -165,7 +166,7 @@ export function AdminPilotTab({ kpi: initial, actions }: { kpi: AdminPilotKpi; a
                     </td>
                     <td className={`is-num ${(w?.ratingDelta ?? 0) > 0 ? "is-up" : ""}`}>{signed(w?.ratingDelta)}</td>
                     <td>
-                      <PmButton
+                      <AxButton
                         size="sm"
                         variant="quiet"
                         onClick={() => {
@@ -174,7 +175,7 @@ export function AdminPilotTab({ kpi: initial, actions }: { kpi: AdminPilotKpi; a
                         }}
                       >
                         {x.survey ? "고치기" : "입력"}
-                      </PmButton>
+                      </AxButton>
                     </td>
                   </tr>
                 );
@@ -309,6 +310,8 @@ function SurveyModal({
   const set = (k: keyof AdminPilotSurvey) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
   const val = (k: keyof AdminPilotSurvey) => form[k] ?? "";
+  /** 아스트릭스 입력창은 값만 넘긴다 */
+  const setV = (k: keyof AdminPilotSurvey) => (v: string) => set(k)({ target: { value: v } });
 
   const save = () =>
     start(async () => {
@@ -352,12 +355,12 @@ function SurveyModal({
       onClose={onClose}
       footer={
         <>
-          <PmButton variant="ghost" onClick={onClose}>
+          <AxButton variant="ghost" onClick={onClose}>
             닫기
-          </PmButton>
-          <PmButton variant="primary" onClick={save} disabled={pending}>
+          </AxButton>
+          <AxButton variant="primary" onClick={save} disabled={pending}>
             {pending ? "저장 중…" : "저장"}
-          </PmButton>
+          </AxButton>
         </>
       }
     >
@@ -366,16 +369,27 @@ function SurveyModal({
         <fieldset>
           <legend>기준선 (실증 전)</legend>
           {SURVEY_NUM.map((x) => (
-            <Field key={x.key} label={`${x.label} (${x.unit})`}>
-              <input className="pm-input num" inputMode="numeric" value={val(x.key)} onChange={set(x.key)} />
-            </Field>
+            <AxTextField
+              key={x.key}
+              label={`${x.label} (${x.unit})`}
+              inputMode="numeric"
+              value={val(x.key)}
+              onChange={setV(x.key)}
+            />
           ))}
-          <Field label="급여 계산 방식" hint="예: 엑셀, 수기 장부, 세무사 위탁">
-            <input className="pm-input" value={val("payrollMethod")} onChange={set("payrollMethod")} maxLength={100} />
-          </Field>
-          <Field label="지출·장부 기록 방식">
-            <input className="pm-input" value={val("recordMethod")} onChange={set("recordMethod")} maxLength={100} />
-          </Field>
+          <AxTextField
+            label="급여 계산 방식"
+            hint="예: 엑셀, 수기 장부, 세무사 위탁"
+            value={val("payrollMethod")}
+            onChange={setV("payrollMethod")}
+            maxLength={100}
+          />
+          <AxTextField
+            label="지출·장부 기록 방식"
+            value={val("recordMethod")}
+            onChange={setV("recordMethod")}
+            maxLength={100}
+          />
           <Field label="메모">
             <textarea
               className="pm-input"
@@ -388,22 +402,18 @@ function SurveyModal({
         </fieldset>
         <fieldset>
           <legend>만족도 (1~5)</legend>
-          <Field label="4주 차">
-            <input
-              className="pm-input num"
-              inputMode="numeric"
-              value={val("satisfaction4w")}
-              onChange={set("satisfaction4w")}
-            />
-          </Field>
-          <Field label="8주 차">
-            <input
-              className="pm-input num"
-              inputMode="numeric"
-              value={val("satisfaction8w")}
-              onChange={set("satisfaction8w")}
-            />
-          </Field>
+          <AxTextField
+            label="4주 차"
+            inputMode="numeric"
+            value={val("satisfaction4w")}
+            onChange={setV("satisfaction4w")}
+          />
+          <AxTextField
+            label="8주 차"
+            inputMode="numeric"
+            value={val("satisfaction8w")}
+            onChange={setV("satisfaction8w")}
+          />
           <Field label="메모">
             <textarea
               className="pm-input"
@@ -416,17 +426,19 @@ function SurveyModal({
         </fieldset>
         <fieldset>
           <legend>지불의사</legend>
-          <Field label="고른 요금제" hint="예: 스타터, 베이직, 프로">
-            <input className="pm-input" value={val("wtpPlan")} onChange={set("wtpPlan")} maxLength={50} />
-          </Field>
-          <Field label="쓰겠다는 업장 수">
-            <input
-              className="pm-input num"
-              inputMode="numeric"
-              value={val("wtpProperties")}
-              onChange={set("wtpProperties")}
-            />
-          </Field>
+          <AxTextField
+            label="고른 요금제"
+            hint="예: 스타터, 베이직, 프로"
+            value={val("wtpPlan")}
+            onChange={setV("wtpPlan")}
+            maxLength={50}
+          />
+          <AxTextField
+            label="쓰겠다는 업장 수"
+            inputMode="numeric"
+            value={val("wtpProperties")}
+            onChange={setV("wtpProperties")}
+          />
           <Field label="메모">
             <textarea className="pm-input" rows={2} value={val("wtpMemo")} onChange={set("wtpMemo")} maxLength={1000} />
           </Field>

@@ -81,7 +81,10 @@
   min-width: 0;
 }
 .ex-form:disabled {
-  opacity: 0.5;
+  /* 누를 수 없음: 면 · 글자 · 커서 세 가지로 (흐리게만 하지 않는다) */
+  background: var(--pm-disabled-bg);
+  color: var(--pm-disabled-ink);
+  cursor: not-allowed;
 }
 .ex-form__row {
   display: grid;
@@ -159,13 +162,12 @@
 .ex-drop.is-miss svg {
   color: var(--pm-warn);
 }
+/* 규칙 10 — 흰 종이 영수증 사진은 밝은 바탕 위에서 multiply 로 흰 상자를 없앤다 */
 .ex-drop__preview {
   max-width: 100%;
   max-height: 180px;
-  border-radius: var(--pm-r-sm);
-  border: 1px solid var(--pm-line);
   object-fit: contain;
-  background: var(--pm-surface);
+  mix-blend-mode: multiply;
 }
 /* 달 이동 (매출장부와 같은 모양) */
 .ex-month {
@@ -185,5 +187,8 @@
   background: var(--pm-surface);
 }
 .ex-month__nav:disabled {
-  opacity: 0.35;
+  /* 누를 수 없음: 면 · 글자 · 커서 세 가지로 (흐리게만 하지 않는다) */
+  background: var(--pm-disabled-bg);
+  color: var(--pm-disabled-ink);
+  cursor: not-allowed;
 }

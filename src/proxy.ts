@@ -58,7 +58,11 @@ export async function proxy(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.set(PATH_HEADER, pathname + search);
 
-  const skip = !isLiveApi || pathname.startsWith("/app/session") || pathname.startsWith("/app/contract");
+  const skip =
+    !isLiveApi ||
+    pathname.startsWith("/app/session") ||
+    pathname.startsWith("/app/handoff") ||
+    pathname.startsWith("/app/contract");
   const access = request.cookies.get(ACCESS)?.value;
   const refresh = request.cookies.get(REFRESH)?.value;
   if (skip || !refresh || (access && !expiresSoon(access))) {

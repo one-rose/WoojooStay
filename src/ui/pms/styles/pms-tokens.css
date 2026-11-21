@@ -1,68 +1,96 @@
 /*
  * 우주스테이 앱(PMS) 디자인 토큰
  * 랜딩 브랜드(남색 + 주황)를 물려받고, 업무 화면에 맞게 회색 단계·모서리·크기를 정했다.
- * 색을 새로 만들지 말고 아래 토큰만 쓴다. 규칙은 docs/PMS-DESIGN-SYSTEM.md · docs/PMS-DESIGN-V2.md
+ * 색을 새로 만들지 말고 아래 토큰만 쓴다. 규칙은 docs/PMS-DESIGN-SYSTEM.md · V2 · V3 (랜딩 브랜드 맛) · docs/PMS-UI-RULES.md (10가지 규칙)
+ * 색은 모두 oklch — 눈에 보이는 밝기(L)를 숫자로 맞출 수 있다. 상태 글자색은 L 50%, 상태 바탕은 L 95.5% 로 통일.
  */
 :root {
   /* 면 */
-  --pm-canvas: #f6f7f9; /* 본문 바탕 — 차가운 회색 (PMS-DESIGN-V2) */
-  --pm-surface: var(--surface);
-  --pm-surface-sunken: #fafafa;
-  --pm-line: #e4e7ec; /* 구역 나눔 — 그림자 대신 선 */
-  --pm-line-soft: #eef0f3;
+  --pm-canvas: oklch(97.1% 0.005 78.3); /* 본문 바탕 — 따뜻한 회색 (V3, 랜딩 느낌) */
+  --pm-surface: oklch(100% 0 0);
+  --pm-surface-sunken: oklch(98.3% 0.003 67.8);
+  --pm-line: oklch(0% 0 0 / 0.12); /* 구역 나눔 — 그림자 대신 선. 반투명이라 어떤 바탕에도 섞인다 (규칙 2) */
+  --pm-line-soft: oklch(0% 0 0 / 0.07);
+  --pm-line-strong: oklch(0% 0 0 / 0.2); /* 올렸을 때 · 강조 테두리 */
+  --pm-field-line: oklch(0% 0 0 / 0.45); /* 입력칸 테두리 — 반투명이지만 주변과 3:1 이상 (입력칸이 보여야 한다) */
+  --pm-mask: oklch(0% 0 0); /* mask-image 의 보이는 부분 */
 
   /* 글자 */
-  --pm-ink: var(--ink);
-  --pm-ink-2: #475467; /* 본문 */
-  --pm-muted: #667085; /* 보조 — 흰 바탕·캔버스 모두 4.5:1 이상 */
-  --pm-faint: #9aa1ad; /* 선·장식 전용 — 글자에는 --pm-muted */
+  --pm-ink: oklch(29% 0.054 261.5);
+  --pm-ink-2: oklch(44.2% 0.035 257.8); /* 본문 */
+  --pm-muted: oklch(52.6% 0.029 263.2); /* 보조 — 흰 바탕 5.4:1 · 캔버스 4.9:1 */
+  --pm-faint: oklch(72.2% 0.015 74.4); /* 선·장식 전용 — 글자에는 --pm-muted */
 
   /* 브랜드 */
-  --pm-navy: var(--deep);
-  --pm-navy-2: var(--road-card);
-  --pm-navy-line: var(--road-line);
-  --pm-orange: var(--accent);
-  --pm-orange-ink: #c24100; /* 흰 바탕 위 주황 글자 — 4.5:1 이상 (#ff5800 은 작은 글자 대비 부족) */
-  --pm-tint: var(--tint);
-  /* 주 동작 버튼은 남색 단색. 주황은 버튼 면에 쓰지 않는다 (현재 메뉴 · 고친 칸 · 알림 점 · 포커스) */
-  --pm-primary: var(--deep);
-  --pm-primary-hover: #2a3d60;
+  --pm-navy: oklch(29% 0.054 261.5);
+  --pm-navy-2: oklch(38.4% 0.07 261.6);
+  --pm-navy-line: oklch(43.6% 0.075 261.8);
+  --pm-orange: oklch(67.9% 0.215 39.5);
+  --pm-orange-ink: oklch(55.3% 0.175 39.6); /* 흰 바탕 위 주황 글자 — 4.5:1 이상 (--pm-orange 는 작은 글자 대비 부족) */
+  --pm-tint: oklch(95.8% 0.024 51.2);
+  /* 주 동작 버튼은 남색 단색. 주황 면은 대표 버튼(--pm-brand)에만 */
+  --pm-primary: oklch(29% 0.054 261.5);
+  --pm-on-primary: oklch(100% 0 0);
+  --pm-primary-hover: oklch(36.1% 0.066 261.9);
+  /* 대표 버튼 — 랜딩 CTA 그라데이션. 화면당 하나, 정해진 곳에만 (PMS-DESIGN-V3). 흰 글자 18px 굵게 이상 */
+  --pm-brand: linear-gradient(
+    135deg in oklch,
+    oklch(66% 0.197 42.8) 0%,
+    oklch(60% 0.2 38.9) 100%
+  ); /* 흰 글자 3.4~4.3:1 (큰 글자 3:1 이상) */
+  --pm-brand-hover: linear-gradient(135deg in oklch, oklch(62% 0.197 42.8) 0%, oklch(56% 0.2 38.9) 100%);
+  /* 구역 제목(패널·카드 제목) — 랜딩 섹션 제목 테라코타 */
+  --pm-section: oklch(51.8% 0.139 35.1);
 
   /* 사이드바 */
-  --pm-nav-bg: var(--deep);
-  --pm-nav-ink: #d9dee8;
-  --pm-nav-muted: #a3adbf;
-  --pm-nav-hover: rgba(255, 255, 255, 0.06);
-  --pm-nav-active: rgba(255, 255, 255, 0.07); /* 지금 메뉴 — 살짝 밝은 남색 + 왼쪽 주황 2px 막대 */
+  --pm-nav-bg: oklch(29% 0.054 261.5);
+  --pm-nav-ink: oklch(90% 0.015 264.5);
+  --pm-nav-muted: oklch(74.6% 0.028 262.3);
+  --pm-nav-hover: oklch(100% 0 0 / 0.06);
+  --pm-nav-scrollbar: oklch(100% 0 0 / 0.18);
+  --pm-nav-active: oklch(100% 0 0 / 0.07); /* 지금 메뉴 — 살짝 밝은 남색 + 왼쪽 주황 2px 막대 */
 
   /* 상태 — 글자색 / 바탕색 쌍으로만 쓴다 */
-  --pm-ok: #0e7350;
-  --pm-ok-bg: #e4f4ec;
-  /* 주의 — 갈색 계열 호박색. 브랜드 주황 글자(#c24100)와 헷갈리지 않게 노랑 쪽으로 (D-03) */
-  --pm-warn: #8a5a00;
-  --pm-warn-bg: #fff6db;
-  --pm-bad: #c23a1d;
-  --pm-bad-bg: #fde9e4;
-  --pm-info: var(--primary-2);
-  --pm-info-bg: #e9eef7;
-  --pm-neutral-bg: #eef0f3;
+  /* 네 가지 모두 글자 L 50% · 바탕 L 95.5% — 어느 것도 더 튀거나 흐리지 않게 (모든 쌍 5:1 이상) */
+  --pm-ok: oklch(50% 0.103 162.9);
+  --pm-ok-bg: oklch(95.5% 0.022 162.9);
+  /* 주의 — 갈색 계열 호박색. 브랜드 주황 글자와 헷갈리지 않게 노랑 쪽으로 (D-03) */
+  --pm-warn: oklch(50% 0.108 73.3);
+  --pm-warn-bg: oklch(95.5% 0.022 73.3);
+  --pm-bad: oklch(50% 0.17 33.5);
+  --pm-bad-bg: oklch(95.5% 0.022 33.5);
+  --pm-info: oklch(50% 0.11 263.1);
+  --pm-info-bg: oklch(95.5% 0.021 263.1);
+  --pm-neutral-bg: oklch(95.5% 0.008 73.7);
 
   /* 표 · 그리드 */
-  --pm-dirty: var(--tint); /* 저장 전 고친 칸 */
-  --pm-dirty-line: var(--accent);
-  --pm-closed: repeating-linear-gradient(-45deg, #f1f2f4 0 6px, #e8eaee 6px 12px); /* 판매 마감 칸 */
-  --pm-weekend-sat: #2d5bd7;
-  --pm-weekend-sun: #d23b2a;
+  --pm-dirty: oklch(95.8% 0.024 51.2); /* 저장 전 고친 칸 */
+  --pm-dirty-line: oklch(67.9% 0.215 39.5);
+  --pm-closed: repeating-linear-gradient(
+    -45deg in oklch,
+    oklch(96.1% 0.003 264.5) 0 6px,
+    oklch(93.7% 0.006 264.5) 6px 12px
+  ); /* 판매 마감 칸 */
+  --pm-weekend-sat: oklch(51.7% 0.197 264.8);
+  --pm-weekend-sun: oklch(57.6% 0.191 30.2);
 
   /* 모양 */
-  --pm-r-lg: 10px; /* 패널 · 표 · 모달 */
-  --pm-r-md: 6px; /* 입력칸 · 버튼 · 패널 안 상자 */
-  --pm-r-sm: 4px; /* 배지 · 태그 · 그리드 칸 */
-  --pm-r-pill: 999px; /* 필터 칩 · 세그먼트 토글 · 스위치에만 */
+  --pm-r-lg: 16px; /* 패널 · 표 · 모달 */
+  --pm-r-md: 10px; /* 입력칸 · 상자. 패널 안에서는 패널이 "바깥 − 여백"으로 다시 정한다 (규칙 1, 아래 .pm-nest) */
+  --pm-r-sm: 6px; /* 배지 · 태그 · 그리드 칸 */
+  --pm-r-pill: 999px; /* 필터 칩 · 세그먼트 토글 · 스위치 */
+  --pm-r-btn: 999px; /* 버튼은 모두 알약 (랜딩과 같은 모양, V3) */
   --pm-focus: 0 0 0 2px var(--pm-surface), 0 0 0 4px var(--pm-orange);
-  --pm-disabled-bg: #e6e8ec; /* 누를 수 없는 버튼 — 종류와 상관없이 같은 모양 */
-  --pm-disabled-ink: #6b7280;
-  --pm-shadow-pop: 0 18px 48px -12px rgba(28, 43, 70, 0.28); /* 떠 있는 것(모달·저장 바)에만 */
+  --pm-disabled-bg: oklch(93.3% 0.008 73.7); /* 누를 수 없는 버튼 — 종류와 상관없이 같은 모양 */
+  --pm-disabled-ink: oklch(50% 0.023 264.4); /* 비활성 바탕 위 4.9:1 */
+  /* 아이콘 선 굵기 — 옆 글자 굵기에 맞춘다 (규칙 5). 글자 크기(em) 비율이라 글자가 커지면 같이 굵어진다.
+     보통 글자 400 → 0.075em, 굵은 글자(600) 안에서는 --pm-stem-bold */
+  --pm-stem: 0.075em;
+  --pm-stem-bold: 0.1em;
+  --pm-shadow-pop: 0 18px 48px -12px oklch(29% 0.054 261.5 / 0.28); /* 떠 있는 것(모달·저장 바)에만 */
+
+  /* 글꼴 — 랜딩과 같은 Pretendard (랜딩 토큰 --font 를 그대로 쓴다) */
+  --pm-font: var(--font);
 
   /* 글자 크기 */
   --pm-fs-title: 20px;
@@ -89,4 +117,12 @@
   --pm-nav-w: 240px;
   --pm-top-h: 60px;
   --pm-content-max: 1440px;
+}
+
+/*
+ * 규칙 1 — 패널 안 둥근 칸: 안쪽 둥글기 = 바깥 둥글기 − 여백.
+ * 패널은 --pm-pad(안쪽 여백)만 정하면 그 안의 --pm-r-md 상자·입력칸이 자동으로 맞춰진다. 최소 4px.
+ */
+.pm-nest {
+  --pm-r-md: max(4px, calc(var(--pm-r-outer, var(--pm-r-lg)) - var(--pm-pad, var(--pm-s4))));
 }

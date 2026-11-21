@@ -21,6 +21,7 @@
   font-size: var(--pm-fs-h2);
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--pm-section);
 }
 .ov-row.is-pending,
 .ov-card.is-pending {
@@ -29,6 +30,9 @@
 
 /* ── 업장별 현황 ── */
 .ov-list {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   background: var(--pm-surface);
   border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
@@ -207,10 +211,13 @@
 .ov-period__btn.is-on {
   border-color: var(--pm-navy);
   background: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .ov-period__btn:disabled {
-  opacity: 0.7;
+  /* 누를 수 없음: 면 · 글자 · 커서 세 가지로 (흐리게만 하지 않는다) */
+  background: var(--pm-disabled-bg);
+  color: var(--pm-disabled-ink);
+  cursor: not-allowed;
 }
 .ov-period__note {
   margin-left: var(--pm-s2);
@@ -321,6 +328,9 @@
 
 /* ── 지금 처리할 일 (S1) — Linear 받은편지함처럼 한 줄에 업장 · 무엇 · 버튼 하나 ── */
 .ov-todo {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-bottom: var(--pm-s4);
   background: var(--pm-surface);
   border: 1px solid var(--pm-line);
@@ -338,6 +348,7 @@
   font-size: var(--pm-fs-h2);
   font-weight: 600;
   letter-spacing: -0.01em;
+  color: var(--pm-section);
 }
 .ov-todo__head h2 .num {
   margin-left: 4px;
@@ -393,7 +404,7 @@
   background: var(--pm-bad);
 }
 .ov-todo__row.is-warn::before {
-  background: #c9a033;
+  background: oklch(72.5% 0.131 87.2);
 }
 .ov-todo__kind {
   font-size: 12.5px;

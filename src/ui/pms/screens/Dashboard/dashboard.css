@@ -64,7 +64,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #8792a8; /* 남색 연하게 — 1위 채널만 진한 남색 */
+  background: oklch(65.9% 0.035 264.3); /* 남색 연하게 — 1위 채널만 진한 남색 */
 }
 .dash-bars__row:first-child .dash-bars__fill {
   background: var(--pm-navy);
@@ -217,6 +217,9 @@
 
 /* 채널 0곳 — 숫자 대신 큰 안내 */
 .dash-empty-home {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s6);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   padding: var(--pm-s8) var(--pm-s6);
   margin-bottom: var(--pm-s4);
   border: 1px solid var(--pm-line);
@@ -244,6 +247,9 @@
 
 /* 시작하기 체크리스트 */
 .dash-start {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s5);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-bottom: var(--pm-s4);
   border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
@@ -258,6 +264,7 @@
 .dash-start__head h2 {
   font-size: 15px;
   font-weight: 600;
+  color: var(--pm-section);
 }
 .dash-start__head span {
   font-size: 13px;
@@ -289,7 +296,7 @@
 .dash-start__list li.is-done .dash-start__mark {
   border-color: var(--pm-ok);
   background: var(--pm-ok);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .dash-start__list li.is-done .dash-start__label {
   color: var(--pm-muted);

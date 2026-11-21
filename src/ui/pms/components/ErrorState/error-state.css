@@ -1,4 +1,7 @@
 .pm-errstate {
+  /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
+  --pm-pad: var(--pm-s6);
+  --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   display: grid;
   justify-items: center;
   gap: var(--pm-s2);
@@ -14,13 +17,9 @@
   margin: 12dvh auto;
   width: calc(100% - 32px);
 }
+/* 아이콘은 글자 크기로, 동그라미 바탕 없이 */
 .pm-errstate__icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--pm-bad-bg);
+  display: inline-flex;
   color: var(--pm-bad);
 }
 .pm-errstate__title {

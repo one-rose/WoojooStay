@@ -368,7 +368,7 @@ export function ReviewsScreen({
       )}
 
       <div className="rv-toolbar">
-        <div className="rv-tabs" role="tablist" aria-label="리뷰 분류">
+        <div className="rv-tabs pm-hscroll" role="tablist" aria-label="리뷰 분류">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -441,7 +441,7 @@ export function ReviewsScreen({
             답했어요
           </p>
           <span className="rv-progress__bar" aria-hidden>
-            <span style={{ width: `${(doneCount / scopePending.length) * 100}%` }} />
+            <span style={{ transform: `scaleX(${doneCount / scopePending.length})` }} />
           </span>
           <p className="rv-progress__keys" aria-label="단축키: J 다음 리뷰, K 이전 리뷰, Enter 게시하고 다음">
             <kbd>J</kbd>
@@ -517,7 +517,7 @@ export function ReviewsScreen({
 
       {toast && (
         <div className={cx("rv-toast", toast.bad && "is-bad")} role={toast.bad ? "alert" : "status"}>
-          <Icon name={toast.bad ? "alert" : "check"} size={16} />
+          <Icon name={toast.bad ? "alert" : "check"} size={16} swap />
           {toast.text}
         </div>
       )}
@@ -642,7 +642,7 @@ function ReviewDetail({
       ) : (
         <section className="rv-reply">
           <div className="rv-reply__label">
-            <h3 className="rv-reply__title">답글 초안</h3>
+            <h2 className="rv-reply__title">답글 초안</h2>
             {review.draftGenerator === "template" && <span className="rv-reply__kind">기본 문장</span>}
             {edited && <Badge tone="info">수정함</Badge>}
           </div>

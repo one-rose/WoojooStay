@@ -49,6 +49,7 @@ import type {
   ApiMembers,
   ApiNoticeSetting,
   ApiProperty,
+  ApiClockMethod,
   ApiStaff,
   ApiStaffMe,
   ApiStaffMonth,
@@ -340,6 +341,9 @@ const JOB: Record<ApiStaff["members"][number]["jobRole"], StaffData["members"][n
   HOUSEKEEPING: "housekeeping",
 };
 
+/** 출퇴근 방법 — GPS 위치 · QR · REQUEST 요청 승인 · MANUAL 수기 */
+const toClockMethod = (m: ApiClockMethod | null | undefined) => (m ? lower(m) : null);
+
 export function toStaff(d: ApiStaff): StaffData {
   return {
     date: d.date,
@@ -360,6 +364,18 @@ export function toStaff(d: ApiStaff): StaffData {
       in: a.in ?? undefined,
       out: a.out ?? undefined,
       status: a.status,
+      method: toClockMethod(a.method),
+      outMethod: toClockMethod(a.outMethod),
+    })),
+    clockRequests: (d.clockRequests ?? []).map((r) => ({
+      id: r.id,
+      staffId: r.employeeId,
+      name: r.name ?? "",
+      type: r.type === "IN" ? ("in" as const) : ("out" as const),
+      date: r.date,
+      time: r.time,
+      reason: r.reason,
+      distanceM: r.distanceM,
     })),
     monthHours: d.monthHours,
     week: {
@@ -468,6 +484,9 @@ export function toSettings(
       bizNo: d.property.bizNo.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3"),
       owner: d.property.ownerName,
       phone: d.property.phone ?? "",
+      clock: d.property.clock
+        ? { latitude: d.property.clock.latitude, longitude: d.property.clock.longitude, radiusM: d.property.clock.radiusM }
+        : undefined,
     },
     accounts,
     // 결제 정보를 못 받으면(매니저 등) 예시 값으로 채우지 않고 비운다 — 화면은 안내만
@@ -537,6 +556,19 @@ export function toStaffMe(d: ApiStaffMe): StaffMeData {
         }
       : undefined,
     undoOutUntil: d.undoOutUntil ?? null,
+    clock: d.clock ? { locationSet: d.clock.locationSet, radiusM: d.clock.radiusM } : undefined,
+    requests: d.requests?.map((r) => {
+      const at = kstMinute(r.requestedAt);
+      return {
+        id: r.id,
+        type: r.type === "IN" ? ("in" as const) : ("out" as const),
+        status: lower(r.status),
+        date: at.slice(0, 10),
+        time: at.slice(11, 16),
+        reason: r.reason,
+        rejectReason: r.rejectReason,
+      };
+    }),
   };
 }
 

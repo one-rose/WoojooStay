@@ -8,6 +8,7 @@ import { StaffMeScreen } from "@/ui/pms";
 import {
   addNoteAction,
   clockAction,
+  clockRequestAction,
   readNoteAction,
   setRoomStatusAction,
   undoClockOutAction,
@@ -91,6 +92,7 @@ async function Me() {
       data={data}
       message={message}
       clock={clockAction}
+      requestClock={clockRequestAction}
       undoOut={undoClockOutAction}
       logoutPath="/app/session/logout"
       ops={ops}

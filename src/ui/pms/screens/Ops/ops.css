@@ -113,10 +113,10 @@
 .op-filter__btn.is-on {
   border-color: var(--pm-navy);
   background: var(--pm-navy);
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 .op-filter__btn.is-on .num {
-  color: #fff;
+  color: oklch(100% 0 0);
 }
 
 /* ── 층별 객실 ── */
@@ -455,7 +455,9 @@
   box-shadow: inset 0 0 0 1px var(--pm-ink-2);
 }
 .op-dlg__opt:disabled {
-  opacity: 0.45;
+  /* 누를 수 없음: 면 · 글자 · 커서 세 가지로 (흐리게만 하지 않는다) */
+  background: var(--pm-disabled-bg);
+  color: var(--pm-disabled-ink);
   cursor: not-allowed;
 }
 .op-dlg__logs {
@@ -642,7 +644,7 @@
   .op-room__status {
     margin-top: 3px;
     padding: 1px 5px;
-    font-size: 10.5px;
+    font-size: 11px;
   }
   .op-dlg__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
