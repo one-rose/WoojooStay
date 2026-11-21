@@ -3,13 +3,17 @@ import { josa } from '../utils/korean.js';
 
 /**
  * 화면에서 분기할 수 있도록 errorCode 를 함께 내려준다.
- * 응답: { statusCode, message, errorCode }
+ * 응답: { statusCode, message, errorCode, ...extra } — extra 는 앱이 쓸 값 (예: OUT_OF_RANGE 의 distanceM)
  */
 export class AppError extends HttpException {
-  constructor(status: HttpStatus, errorCode: string, message: string) {
-    super({ statusCode: status, message, errorCode }, status);
+  constructor(status: HttpStatus, errorCode: string, message: string, extra?: Record<string, unknown>) {
+    super({ ...extra, statusCode: status, message, errorCode }, status);
   }
 }
+
+/** "320m" · "1.2km" */
+const meters = (m: number) =>
+  m < 1000 ? `${Math.round(m)}m` : `${(Math.round(m / 100) / 10).toLocaleString('ko-KR')}km`;
 
 export const Errors = {
   phoneTaken: () => new AppError(HttpStatus.CONFLICT, 'PHONE_TAKEN', '이미 가입된 휴대폰 번호예요. 로그인해 주세요.'),
@@ -149,6 +153,59 @@ export const Errors = {
     new AppError(HttpStatus.BAD_REQUEST, 'DUPLICATE_PROPERTY', '같은 업장이 두 번 들어 있어요. 다시 확인해 주세요.'),
   validation: (message: string) => new AppError(HttpStatus.BAD_REQUEST, 'VALIDATION', message),
   badJson: () => new AppError(HttpStatus.BAD_REQUEST, 'BAD_JSON', '보낸 내용을 읽지 못했어요. 다시 시도해 주세요.'),
+  outOfRange: (distanceM: number, radiusM: number, accuracyM: number | null) =>
+    new AppError(
+      HttpStatus.BAD_REQUEST,
+      'OUT_OF_RANGE',
+      `업장에서 ${meters(distanceM)} 떨어져 있어요. 업장 ${meters(radiusM)} 안에서 다시 눌러 주세요.`,
+      { distanceM, radiusM, accuracyM },
+    ),
+  locationRequired: () =>
+    new AppError(
+      HttpStatus.BAD_REQUEST,
+      'LOCATION_REQUIRED',
+      '이 업장은 위치나 QR로 출퇴근을 확인해요. 위치 권한을 켜거나 프런트의 출근 QR을 찍어 주세요.',
+    ),
+  qrInvalid: () =>
+    new AppError(
+      HttpStatus.BAD_REQUEST,
+      'QR_INVALID',
+      '우주스테이 출근 QR이 아니에요. 프런트에 붙은 출근 QR을 찍어 주세요.',
+    ),
+  qrOtherProperty: () =>
+    new AppError(
+      HttpStatus.BAD_REQUEST,
+      'QR_OTHER_PROPERTY',
+      '다른 업장의 출근 QR이에요. 지금 고른 업장을 확인해 주세요.',
+    ),
+  qrExpired: () =>
+    new AppError(
+      HttpStatus.BAD_REQUEST,
+      'QR_EXPIRED',
+      '예전에 인쇄한 출근 QR이에요. 사장님께 새 QR을 붙여 달라고 해 주세요.',
+    ),
+  clockRequestPending: (type: 'IN' | 'OUT') =>
+    new AppError(
+      HttpStatus.CONFLICT,
+      'CLOCK_REQUEST_PENDING',
+      `이미 보낸 ${type === 'IN' ? '출근' : '퇴근'} 요청이 있어요. 사장님이나 매니저가 확인할 때까지 기다려 주세요.`,
+    ),
+  clockRequestDecided: () =>
+    new AppError(HttpStatus.CONFLICT, 'CLOCK_REQUEST_DECIDED', '이미 처리된 요청이에요. 새로고침해 주세요.'),
+  clockInPending: () =>
+    new AppError(HttpStatus.CONFLICT, 'CLOCK_IN_PENDING', '이 직원의 출근 요청을 먼저 승인해 주세요.'),
+  requestedAtInvalid: (hours: number) =>
+    new AppError(
+      HttpStatus.BAD_REQUEST,
+      'REQUESTED_AT_INVALID',
+      `요청 시각은 지금부터 ${hours}시간 전까지만 넣을 수 있어요.`,
+    ),
+  handoffInvalid: () =>
+    new AppError(
+      HttpStatus.UNAUTHORIZED,
+      'HANDOFF_INVALID',
+      '화면을 여는 시간이 지났거나 이미 쓴 링크예요. 앱에서 다시 눌러 주세요.',
+    ),
   roomLocked: () =>
     new AppError(HttpStatus.FORBIDDEN, 'ROOM_LOCKED', '판매 중지 객실은 사장님·매니저만 상태를 바꿀 수 있어요.'),
 };

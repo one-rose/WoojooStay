@@ -23,6 +23,7 @@ import type { Channel } from './generated/prisma/enums.js';
 import { NotificationsService } from './notifications/notifications.service.js';
 import { PrismaService } from './prisma/prisma.service.js';
 import { PropertiesService } from './properties/properties.service.js';
+import { seedMobile } from './seed-mobile.js';
 import { seedPilot } from './seed-pilot.js';
 import { ReviewsService } from './reviews/reviews.service.js';
 import { StaffService } from './staff/staff.service.js';
@@ -62,6 +63,8 @@ export async function seedExtra(app: INestApplicationContext, demo: { propertyId
     PORTFOLIO.slice(0, 5).map((h) => h.name),
   );
   await seedOrbitChain(app);
+  // 모바일 앱 — 업장 출근 위치 · 기다리는 출퇴근 요청 (근태 화면·앱 승인 목록이 비어 보이지 않게)
+  await seedMobile(prisma);
 }
 
 /**

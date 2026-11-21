@@ -6,6 +6,7 @@ import { Errors } from '../common/errors/app-error.js';
 import { safeEqual, sha256, sixDigitCode } from '../common/utils/crypto.js';
 import { dateOnly, kstDate } from '../common/utils/dates.js';
 import { pilotInfo } from '../common/utils/pilot.js';
+import { clockSettings } from '../staff/clock-presence.js';
 import { EventsService } from '../events/events.service.js';
 import { VerificationPurpose } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -182,6 +183,11 @@ export class AuthService {
     });
     await this.events.recordDaily('APP_OPEN', { userId });
     const today = kstDate();
+    // 이 계정과 연결된 재직 중 직원 기록 (출퇴근 버튼용 — 사장님·매니저도 직원 명단에 있으면 찍을 수 있다)
+    const employees = await this.prisma.employee.findMany({
+      where: { userId, OR: [{ resignedAt: null }, { resignedAt: { gte: dateOnly(today) } }] },
+      select: { id: true, propertyId: true },
+    });
     return {
       ...this.publicUser(user),
       trialDays: this.config.get('TRIAL_DAYS', { infer: true }) ?? 30,
@@ -196,6 +202,10 @@ export class AuthService {
           pilot,
           // 실증(1차 파일럿)에는 요금·재고가 없다 — 실증 기간 동안 메뉴를 숨긴다
           features: { rates: !pilot?.active },
+          /** 이 업장 직원 명단에서 나와 연결된 기록 — 있으면 출퇴근(/staff/me · attendance/clock)을 쓸 수 있다 */
+          employeeId: employees.find((e) => e.propertyId === m.property.id)?.id ?? null,
+          /** 출근 확인 설정 — locationSet false 면 앱이 사장님께 "업장 위치를 정해 주세요" 안내 */
+          clock: clockSettings(m.property),
         };
       }),
     };

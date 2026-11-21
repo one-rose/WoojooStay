@@ -3,6 +3,7 @@ import { BillingService } from '../billing/billing.service.js';
 import { Errors } from '../common/errors/app-error.js';
 import { Role } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { clockSettings } from '../staff/clock-presence.js';
 import { BizVerifier } from './biz-verifier.js';
 import type { CreatePropertyDto, UpdatePropertyDto } from './dto/property.dto.js';
 
@@ -59,17 +60,33 @@ export class PropertiesService {
     });
   }
 
-  /** 직원(STAFF)에게는 사업자번호·대표자 이름·담당 운영자를 내려주지 않는다 */
+  /**
+   * 직원(STAFF)에게는 사업자번호·대표자 이름·담당 운영자·출근 QR 키 번호를 내려주지 않는다.
+   * clock: 출근 확인 설정 (위치 있음 여부 · 위치 · 반경)
+   */
   async get(propertyId: string, viewerRole?: Role) {
     const p = await this.prisma.property.findUniqueOrThrow({ where: { id: propertyId } });
-    if (viewerRole !== Role.STAFF) return p;
-    const { bizNo: _bizNo, ownerName: _ownerName, managerId: _managerId, ...rest } = p;
-    return rest;
+    const clock = clockSettings(p);
+    if (viewerRole !== Role.STAFF) return { ...p, clock };
+    const {
+      bizNo: _bizNo,
+      ownerName: _ownerName,
+      managerId: _managerId,
+      clockQrKeyVersion: _clockQrKeyVersion,
+      ...rest
+    } = p;
+    return { ...rest, clock };
   }
 
   async update(propertyId: string, dto: UpdatePropertyDto) {
+    // 위도·경도는 함께 (둘 다 null 이면 지우기)
+    if (
+      (dto.latitude === undefined) !== (dto.longitude === undefined) ||
+      (dto.latitude === null) !== (dto.longitude === null)
+    )
+      throw Errors.validation('위도와 경도를 함께 넣어 주세요.');
     // 사업자번호는 바꿀 수 없다
-    return this.prisma.property.update({
+    const p = await this.prisma.property.update({
       where: { id: propertyId },
       data: {
         name: dto.name,
@@ -78,7 +95,11 @@ export class PropertiesService {
         rooms: dto.rooms,
         ownerName: dto.ownerName,
         phone: dto.phone,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        clockRadiusM: dto.clockRadiusM,
       },
     });
+    return { ...p, clock: clockSettings(p) };
   }
 }

@@ -27,6 +27,7 @@
     "db:seed": "node dist/seed.js",
     "db:seed:reset": "node dist/seed.js --reset",
     "db:seed:portfolio": "node dist/seed-portfolio.js",
+    "db:seed:mobile": "node dist/seed-mobile-cli.js",
     "admin:create": "node dist/admin-create.js",
     "check": "tsc --noEmit && oxlint --type-aware src/ test/ && prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
   },

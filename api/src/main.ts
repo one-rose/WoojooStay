@@ -16,6 +16,7 @@ async function bootstrap() {
     TOSS_SECRET_KEY: config.get('TOSS_SECRET_KEY', { infer: true }),
     NTS_SERVICE_KEY: config.get('NTS_SERVICE_KEY', { infer: true }),
     ANTHROPIC_API_KEY: config.get('ANTHROPIC_API_KEY', { infer: true }),
+    FCM_SERVICE_ACCOUNT_JSON: config.get('FCM_SERVICE_ACCOUNT_JSON', { infer: true }),
   } as Env);
   if (fakes.length) new Logger('Startup').warn(`가짜(개발용)로 동작하는 외부 연동: ${fakes.join(' · ')}`);
   const doc = new DocumentBuilder()

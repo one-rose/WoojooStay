@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Length, Matches, Max, Min, ValidateBy } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Length, Matches, Max, Min, ValidateBy } from 'class-validator';
 import { PropertyType, Role } from '../../generated/prisma/enums.js';
 import { KOREAN_MOBILE, normalizePhone } from '../../common/utils/phone.js';
 
@@ -58,8 +58,32 @@ export class CreatePropertyDto {
   phone?: string;
 }
 
-/** 사업자번호는 등록 후 바꿀 수 없다 (변경은 고객센터) */
-export class UpdatePropertyDto extends PartialType(CreatePropertyDto) {}
+/**
+ * 사업자번호는 등록 후 바꿀 수 없다 (변경은 고객센터).
+ * 출근 확인 위치: latitude·longitude 를 함께 보낸다 (둘 다 null 이면 위치 지우기 — 위치 확인 없이 출근 허용).
+ */
+export class UpdatePropertyDto extends PartialType(CreatePropertyDto) {
+  @ApiPropertyOptional({ example: 37.5663, nullable: true, description: '출근 확인 위치 위도 (null: 지우기)' })
+  @IsOptional()
+  @IsNumber({ allowNaN: false, allowInfinity: false }, { message: '위도가 올바르지 않아요.' })
+  @Min(-90, { message: '위도는 -90~90 사이예요.' })
+  @Max(90, { message: '위도는 -90~90 사이예요.' })
+  latitude?: number | null;
+
+  @ApiPropertyOptional({ example: 126.9918, nullable: true, description: '출근 확인 위치 경도 (null: 지우기)' })
+  @IsOptional()
+  @IsNumber({ allowNaN: false, allowInfinity: false }, { message: '경도가 올바르지 않아요.' })
+  @Min(-180, { message: '경도는 -180~180 사이예요.' })
+  @Max(180, { message: '경도는 -180~180 사이예요.' })
+  longitude?: number | null;
+
+  @ApiPropertyOptional({ example: 150, description: '출근 확인 반경 (m, 50~1000)' })
+  @IsOptional()
+  @IsInt({ message: '출근 반경은 숫자(m)로 넣어 주세요.' })
+  @Min(50, { message: '출근 반경은 50m~1,000m 사이로 정해 주세요.' })
+  @Max(1000, { message: '출근 반경은 50m~1,000m 사이로 정해 주세요.' })
+  clockRadiusM?: number;
+}
 
 export class InviteDto {
   @ApiProperty({ example: '010-2222-3333' })

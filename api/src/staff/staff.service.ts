@@ -5,11 +5,12 @@ import { addDaysIso, addMonths, dateOnly, isoDay, kstDate, kstHour, monthStart }
 import { randomToken, sha256 } from '../common/utils/crypto.js';
 import { exposeDevSecrets, webOrigin, type Env } from '../config/env.js';
 import { Prisma, type Employee, type Payroll } from '../generated/prisma/client.js';
-import type { ClockMethod, PayType, Role, ShiftType } from '../generated/prisma/enums.js';
+import type { PayType, Role, ShiftType } from '../generated/prisma/enums.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SmsSender } from '../sms/sms-sender.js';
 import { SmsQuota, smsSafeName } from '../sms/sms-quota.js';
+import { ClockService, type ClockEvidence, type PresenceCheck } from './clock.service.js';
 import {
   computeMonthlyPay,
   currentMinimumWage,
@@ -49,6 +50,7 @@ export class StaffService {
     private readonly quota: SmsQuota,
     private readonly config: ConfigService<Env, true>,
     private readonly notifications: NotificationsService,
+    private readonly clockCheck: ClockService,
   ) {}
 
   private async employee(propertyId: string, id: string) {
@@ -75,7 +77,7 @@ export class StaffService {
       include: { contracts: { orderBy: { sentAt: 'desc' }, take: 1 } },
     });
     const ids = members.map((m) => m.id);
-    const [dayRows, overnight, monthRows, shifts, todayShifts, saved, missing] = await Promise.all([
+    const [dayRows, overnight, monthRows, shifts, todayShifts, saved, missing, requests] = await Promise.all([
       this.prisma.attendance.findMany({ where: { employeeId: { in: ids }, workDate: dateOnly(date) } }),
       // 어젯밤 출근해 자정을 넘겨 아직 근무 중인 기록 (16시간 안)
       date === today
@@ -95,6 +97,12 @@ export class StaffService {
       this.prisma.workShift.findMany({ where: { employeeId: { in: ids }, workDate: dateOnly(date) } }),
       this.prisma.payroll.findMany({ where: { employeeId: { in: ids }, month: monthStart(month) } }),
       this.missingClockOuts(propertyId),
+      this.prisma.clockRequest.findMany({
+        where: { propertyId, status: 'PENDING' },
+        include: { employee: { select: { name: true } } },
+        orderBy: { requestedAt: 'asc' },
+        take: 100,
+      }),
     ]);
 
     const isToday = date === today;
@@ -138,6 +146,9 @@ export class StaffService {
           out: a?.clockOutAt ? hhmm(a.clockOutAt) : null,
           status,
           edited: Boolean(a?.editedAt),
+          /** 출근을 어떻게 찍었는지 GPS 위치 · QR · REQUEST 요청 승인 · MANUAL 수기 (기록 없으면 null) */
+          method: a?.method ?? null,
+          outMethod: a?.outMethod ?? null,
         };
       }),
       monthHours: Object.fromEntries(
@@ -181,6 +192,19 @@ export class StaffService {
         attendanceId: a.id,
         date: isoDay(a.workDate),
         in: hhmm(a.clockInAt),
+      })),
+      /** 기다리는 출퇴근 요청 (오래된 순) — 승인·거절은 /staff/clock-requests/:id/approve · reject */
+      clockRequests: requests.map((r) => ({
+        id: r.id,
+        employeeId: r.employeeId,
+        name: r.employee.name,
+        type: r.type,
+        requestedAt: r.requestedAt.toISOString(),
+        date: kstDate(r.requestedAt),
+        time: hhmm(r.requestedAt),
+        reason: r.reason,
+        distanceM: r.distanceM,
+        createdAt: r.createdAt.toISOString(),
       })),
     };
   }
@@ -249,7 +273,10 @@ export class StaffService {
   async mine(propertyId: string, userId: string, date = kstDate()) {
     const e = await this.prisma.employee.findFirst({
       where: { propertyId, userId, ...employedOn(kstDate()) },
-      include: { property: { select: { name: true } } },
+      include: {
+        property: { select: { name: true, latitude: true, longitude: true, clockRadiusM: true } },
+        clockRequests: { orderBy: { createdAt: 'desc' }, take: 5 },
+      },
     });
     if (!e) throw Errors.notLinkedEmployee();
     const month = date.slice(0, 7);
@@ -283,6 +310,7 @@ export class StaffService {
     const pay = this.payFor(e, month, allRows, saved ?? undefined);
     const shiftOn = (d: string) => shifts.find((s) => isoDay(s.workDate) === d)?.shiftType ?? null;
     const hourly = e.payType === 'HOURLY';
+    const current = open ?? today;
     return {
       date,
       property: e.property.name,
@@ -290,11 +318,29 @@ export class StaffService {
       /** 지금 누를 버튼: 출근 / 퇴근 / 오늘 끝 */
       state: open ? 'working' : today ? 'done' : 'ready',
       today: {
-        in: (open ?? today) ? hhmm((open ?? today)!.clockInAt) : null,
+        in: current ? hhmm(current.clockInAt) : null,
         out: today?.clockOutAt ? hhmm(today.clockOutAt) : null,
         /** null: 근무표 없음 (미정) */
         shift: shiftOn(date),
+        /** 출근·퇴근을 어떻게 찍었는지 (GPS · QR · REQUEST · MANUAL) */
+        method: current?.method ?? null,
+        outMethod: today?.outMethod ?? null,
       },
+      /**
+       * 출근 확인 설정 — locationSet false 면 위치 확인 없이 찍힌다 (앱은 "사장님께 업장 위치 설정을 요청" 안내).
+       * 위치(latitude·longitude·accuracy) 또는 QR 로 POST attendance/clock, 안 되면 POST clock-requests
+       */
+      clock: ClockService.settings(e.property),
+      /** 최근 출퇴근 요청 5건 (새 순) — PENDING 이 있으면 같은 종류는 다시 보낼 수 없다 */
+      requests: e.clockRequests.map((r) => ({
+        id: r.id,
+        type: r.type,
+        status: r.status,
+        requestedAt: r.requestedAt.toISOString(),
+        reason: r.reason,
+        rejectReason: r.rejectReason,
+        decidedAt: r.decidedAt?.toISOString() ?? null,
+      })),
       /** 방금 퇴근했으면 되돌릴 수 있는 마감 시각 (퇴근 후 5분, 급여 확정 전) — 없으면 null */
       undoOutUntil: lastOut ? new Date(lastOut.clockOutAt!.getTime() + UNDO_OUT_MS).toISOString() : null,
       week: { dates: weekDates, shifts: weekDates.map(shiftOn) },
@@ -344,6 +390,7 @@ export class StaffService {
           ? Math.round(((r.clockOutAt.getTime() - r.clockInAt.getTime()) / 3_600_000) * 10) / 10
           : null,
         edited: r.editedAt !== null,
+        method: r.method,
       })),
     };
   }
@@ -375,7 +422,7 @@ export class StaffService {
     if (await this.openShift(e.id)) throw Errors.alreadyClockedIn();
     const r = await this.prisma.attendance.updateMany({
       where: { id: last.id, clockOutAt: last.clockOutAt, editedAt: null },
-      data: { clockOutAt: null },
+      data: { clockOutAt: null, outMethod: null, outDistanceM: null },
     });
     if (r.count === 0) throw Errors.undoExpired();
     return this.prisma.attendance.findUniqueOrThrow({ where: { id: last.id } });
@@ -423,6 +470,7 @@ export class StaffService {
           ? Math.round(((r.clockOutAt.getTime() - r.clockInAt.getTime()) / 3_600_000) * 10) / 10
           : null,
         method: r?.method ?? null,
+        outMethod: r?.outMethod ?? null,
         /** 고친 사유 (사장님·매니저가 기록을 고칠 때 남긴 메모) */
         memo: r?.memo ?? null,
         edited: !!r?.editedAt,
@@ -444,12 +492,24 @@ export class StaffService {
     };
   }
 
-  /** 지금 근무 중인 기록 — 퇴근 전이고 출근한 지 16시간 안 (어제 밤 야간 근무 포함) */
-  private openShift(employeeId: string) {
+  /** 지금 근무 중인 기록 — 퇴근 전이고 출근한 지 16시간 안 (어제 밤 야간 근무 포함). at: 이 시각 기준 */
+  openShift(employeeId: string, at = new Date()) {
     return this.prisma.attendance.findFirst({
-      where: { employeeId, clockOutAt: null, clockInAt: { gt: openSince() } },
+      where: { employeeId, clockOutAt: null, clockInAt: { gt: openSince(at), lte: at } },
       orderBy: { clockInAt: 'desc' },
     });
+  }
+
+  /** 이 계정과 연결된 재직 중 직원 기록 (없으면 NOT_LINKED_EMPLOYEE) */
+  async selfEmployee(propertyId: string, userId: string) {
+    const e = await this.prisma.employee.findFirst({ where: { propertyId, userId, ...employedOn(kstDate()) } });
+    if (!e) throw Errors.notLinkedEmployee();
+    return e;
+  }
+
+  /** 이 업장 직원 (없으면 404) */
+  findEmployee(propertyId: string, id: string) {
+    return this.employee(propertyId, id);
   }
 
   // ─── F5-01 직원 ───────────────────────────────────────
@@ -612,27 +672,64 @@ export class StaffService {
   }
 
   // ─── F5-02 출퇴근 ─────────────────────────────────────
-  async clock(propertyId: string, actor: Actor, employeeId: string, action: 'in' | 'out', method: ClockMethod = 'GPS') {
+  /**
+   * 출근·퇴근. 직원 본인이 찍으면 위치(반경)나 출근 QR 로 확인한다 (ClockService.verify) —
+   * 업장 위치가 없으면 지금처럼 확인 없이 허용. 사장님·매니저가 다른 직원을 찍어 주면 수기(MANUAL).
+   * 응답: 출퇴근 기록 + check { method, distanceM, radiusM, locationSet }
+   */
+  async clock(
+    propertyId: string,
+    actor: Actor,
+    employeeId: string,
+    action: 'in' | 'out',
+    evidence: ClockEvidence = {},
+  ) {
     const e = await this.employee(propertyId, employeeId);
     // 직원 본인은 자기 기록만
     if (actor.role === 'STAFF' && e.userId !== actor.userId) throw Errors.forbidden();
+    const self = e.userId === actor.userId;
     const workDate = kstDate();
-    const now = new Date();
+    let open: Awaited<ReturnType<StaffService['openShift']>> = null;
+    // 상태를 먼저 본다 (이미 출근함 · 출근 기록 없음 · 급여 확정) — 그다음 위치·QR
     if (action === 'in') {
       await this.ensureNotLocked(propertyId, workDate.slice(0, 7));
       // 오늘 이미 출근했거나, 어젯밤 야간 근무가 아직 안 끝났으면 다시 출근할 수 없다
       // (16시간 넘게 열린 기록은 퇴근 누락이라 무시 — 오늘 새로 출근할 수 있다)
-      const [exists, open] = await Promise.all([
+      const [exists, openNow] = await Promise.all([
         this.prisma.attendance.findUnique({
           where: { employeeId_workDate: { employeeId, workDate: dateOnly(workDate) } },
         }),
         this.openShift(employeeId),
       ]);
-      if (exists || open) throw Errors.alreadyClockedIn();
+      if (exists || openNow) throw Errors.alreadyClockedIn();
+    } else {
+      // 퇴근: 16시간 안에 출근한 열린 기록만 (어제 퇴근을 깜빡한 기록에 30시간이 붙지 않게)
+      open = await this.openShift(employeeId);
+      if (!open) throw Errors.notClockedIn();
+      // 지난달 마지막 날 밤 야간 근무 — 그 달 급여가 이미 확정됐으면 고칠 수 없다
+      await this.ensureNotLocked(propertyId, isoDay(open.workDate).slice(0, 7));
+    }
+    const check: PresenceCheck | { method: 'MANUAL'; distanceM: null; radiusM: number; locationSet: boolean } = self
+      ? await this.clockCheck.verify(propertyId, evidence)
+      : await this.clockCheck.property(propertyId).then((p) => ({
+          method: 'MANUAL' as const,
+          distanceM: null,
+          radiusM: p.clockRadiusM,
+          locationSet: p.latitude !== null && p.longitude !== null,
+        }));
+    const now = new Date();
+    if (action === 'in') {
       try {
-        return await this.prisma.attendance.create({
-          data: { employeeId, workDate: dateOnly(workDate), clockInAt: now, method },
+        const a = await this.prisma.attendance.create({
+          data: {
+            employeeId,
+            workDate: dateOnly(workDate),
+            clockInAt: now,
+            method: check.method,
+            inDistanceM: check.distanceM,
+          },
         });
+        return { ...a, check };
       } catch (err) {
         // 동시에 두 번 눌렀을 때 (employeeId, workDate) 중복
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')
@@ -640,21 +737,16 @@ export class StaffService {
         throw err;
       }
     }
-    // 퇴근: 16시간 안에 출근한 열린 기록만 (어제 퇴근을 깜빡한 기록에 30시간이 붙지 않게)
-    const open = await this.openShift(employeeId);
-    if (!open) throw Errors.notClockedIn();
-    // 지난달 마지막 날 밤 야간 근무 — 그 달 급여가 이미 확정됐으면 고칠 수 없다
-    await this.ensureNotLocked(propertyId, isoDay(open.workDate).slice(0, 7));
     const closed = await this.prisma.attendance.updateMany({
-      where: { id: open.id, clockOutAt: null },
-      data: { clockOutAt: now },
+      where: { id: open!.id, clockOutAt: null },
+      data: { clockOutAt: now, outMethod: check.method, outDistanceM: check.distanceM },
     });
     if (closed.count === 0) throw Errors.notClockedIn();
-    return this.prisma.attendance.findUniqueOrThrow({ where: { id: open.id } });
+    return { ...(await this.prisma.attendance.findUniqueOrThrow({ where: { id: open!.id } })), check };
   }
 
   /** 그 달 급여가 확정(또는 발송)됐으면 출퇴근 기록을 더하거나 고칠 수 없다 — 확정을 먼저 풀어야 한다 */
-  private async ensureNotLocked(propertyId: string, month: string) {
+  async ensureNotLocked(propertyId: string, month: string) {
     const locked = await this.prisma.payroll.count({
       where: { month: monthStart(month), status: { in: ['CONFIRMED', 'SENT'] }, employee: { propertyId } },
     });
@@ -681,6 +773,7 @@ export class StaffService {
       clockInAt,
       clockOutAt,
       method: 'MANUAL' as const,
+      outMethod: clockOutAt ? ('MANUAL' as const) : null,
       editedById: actor.userId,
       editedAt: new Date(),
       memo: dto.memo,

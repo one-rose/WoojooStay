@@ -10,6 +10,9 @@ import { Role } from '../generated/prisma/enums.js';
 import {
   AttendanceMonthQuery,
   ClockDto,
+  ClockRequestDto,
+  ClockRequestQuery,
+  RejectClockRequestDto,
   EditAttendanceDto,
   EmployeeDto,
   ShiftDto,
@@ -19,6 +22,8 @@ import {
 } from './staff.dto.js';
 import { StaffService } from './staff.service.js';
 import { EventsService } from '../events/events.service.js';
+import { ClockRequestsService } from './clock-requests.service.js';
+import { ClockService } from './clock.service.js';
 
 const month = (m: string) => {
   if (!isMonth(m)) throw Errors.badMonth();
@@ -32,6 +37,7 @@ export class StaffController {
   constructor(
     private readonly staff: StaffService,
     private readonly events: EventsService,
+    private readonly requests: ClockRequestsService,
   ) {}
 
   @Get()
@@ -109,27 +115,90 @@ export class StaffController {
 
   @Post('attendance/clock')
   @HttpCode(200)
-  @ApiOperation({ summary: '출근·퇴근 (직원은 본인 것만)' })
+  @ApiOperation({
+    summary:
+      '출근·퇴근 (직원은 본인 것만) — 본인이 찍으면 위치(latitude·longitude·accuracy) 또는 qr 로 확인. ' +
+      '업장 위치가 없으면 확인 없이 허용(check.locationSet false). 사장님·매니저가 다른 직원을 찍으면 수기',
+  })
   async clock(
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @CurrentUser() user: AuthUser,
     @Req() req: Request & { role: Role },
     @Body() dto: ClockDto,
   ) {
-    const r = await this.staff.clock(
-      propertyId,
-      { userId: user.id, role: req.role },
-      dto.employeeId,
-      dto.action,
-      dto.method,
-    );
+    if (dto.method === 'QR' && !dto.qr) throw Errors.qrInvalid();
+    const r = await this.staff.clock(propertyId, { userId: user.id, role: req.role }, dto.employeeId, dto.action, {
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      accuracy: dto.accuracy,
+      qr: dto.qr,
+    });
     if (dto.action === 'in')
       await this.events.record('CLOCK_IN', {
         userId: user.id,
         propertyId,
-        meta: { employeeId: dto.employeeId, method: dto.method ?? 'GPS', self: req.role === 'STAFF' },
+        meta: { employeeId: dto.employeeId, method: r.check.method, self: req.role === 'STAFF' },
       });
     return r;
+  }
+
+  @Post('clock-requests')
+  @ApiOperation({
+    summary: '출퇴근 요청 보내기 (직원 본인) — 위치·QR 로 안 될 때 사유와 함께. 사장님·매니저에게 알림 + 앱 푸시',
+  })
+  createRequest(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ClockRequestDto,
+  ) {
+    return this.requests.create(propertyId, user.id, dto);
+  }
+
+  @Get('clock-requests/mine')
+  @ApiOperation({ summary: '내 출퇴근 요청 (최근 30일, 새 순)' })
+  myRequests(@Param('propertyId', ParseUUIDPipe) propertyId: string, @CurrentUser() user: AuthUser) {
+    return this.requests.mine(propertyId, user.id);
+  }
+
+  @Get('clock-requests')
+  @PropertyRoles([Role.OWNER, Role.MANAGER])
+  @ApiOperation({ summary: '출퇴근 요청 목록 (?status=PENDING 기본 · APPROVED · REJECTED · ALL)' })
+  listRequests(@Param('propertyId', ParseUUIDPipe) propertyId: string, @Query() q: ClockRequestQuery) {
+    return this.requests.list(propertyId, q.status);
+  }
+
+  @Post('clock-requests/:id/approve')
+  @HttpCode(200)
+  @PropertyRoles([Role.OWNER, Role.MANAGER])
+  @ApiOperation({ summary: '출퇴근 요청 승인 — 요청 시각으로 기록 (매니저는 자기 요청을 처리할 수 없음)' })
+  async approveRequest(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request & { role: Role },
+  ) {
+    const r = await this.requests.approve(propertyId, { userId: user.id, role: req.role }, id);
+    if (r.type === 'IN')
+      await this.events.record('CLOCK_IN', {
+        userId: user.id,
+        propertyId,
+        meta: { employeeId: r.employeeId, method: 'REQUEST', self: false },
+      });
+    return r;
+  }
+
+  @Post('clock-requests/:id/reject')
+  @HttpCode(200)
+  @PropertyRoles([Role.OWNER, Role.MANAGER])
+  @ApiOperation({ summary: '출퇴근 요청 거절 (사유 필수)' })
+  rejectRequest(
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request & { role: Role },
+    @Body() dto: RejectClockRequestDto,
+  ) {
+    return this.requests.reject(propertyId, { userId: user.id, role: req.role }, id, dto.reason);
   }
 
   @Post('clock/undo-out')
@@ -194,6 +263,29 @@ export class StaffController {
   @ApiOperation({ summary: '급여명세 문자 발송' })
   send(@Param('propertyId', ParseUUIDPipe) propertyId: string, @Param('month') m: string) {
     return this.staff.sendPayroll(propertyId, month(m));
+  }
+}
+
+/** 출근 QR — 인쇄용 내용 (사장님·매니저), 새로 만들기 (사장님) */
+@ApiTags('출근 QR')
+@ApiBearerAuth()
+@Controller('properties/:propertyId/clock-qr')
+export class ClockQrController {
+  constructor(private readonly clock: ClockService) {}
+
+  @Get()
+  @PropertyRoles([Role.OWNER, Role.MANAGER])
+  @ApiOperation({ summary: '출근 QR 내용 (인쇄용 — 고정, 회전하지 않음)' })
+  get(@Param('propertyId', ParseUUIDPipe) propertyId: string) {
+    return this.clock.qr(propertyId);
+  }
+
+  @Post('rotate')
+  @HttpCode(200)
+  @PropertyRoles([Role.OWNER])
+  @ApiOperation({ summary: 'QR 새로 만들기 — 예전에 인쇄한 QR 은 더 이상 안 된다' })
+  rotate(@Param('propertyId', ParseUUIDPipe) propertyId: string) {
+    return this.clock.rotateQr(propertyId);
   }
 }
 

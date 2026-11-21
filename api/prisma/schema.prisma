@@ -43,6 +43,8 @@ model User {
   opsNotes      OpsNote[]
   opsNoteReads  OpsNoteRead[]
   roomChanges   RoomStatusLog[]
+  devices       Device[]
+  webHandoffs   WebHandoff[]
 
   @@map("wj_user")
 }
@@ -180,22 +182,29 @@ enum Role {
 }
 
 model Property {
-  id             String       @id @default(uuid()) @db.Uuid
-  name           String       @map("property_name")
-  type           PropertyType @map("property_type")
-  address        String
-  rooms          Int          @map("room_count")
-  bizNo          String       @map("biz_reg_no") // 사업자등록번호 숫자 10자리
-  bizVerified    Boolean      @default(false) @map("is_biz_verified")
-  ownerName      String       @map("owner_name")
-  phone          String?      @map("phone_no")
-  managerId      String?      @map("manager_admin_id") @db.Uuid // 담당 운영 매니저
+  id                String       @id @default(uuid()) @db.Uuid
+  name              String       @map("property_name")
+  type              PropertyType @map("property_type")
+  address           String
+  rooms             Int          @map("room_count")
+  bizNo             String       @map("biz_reg_no") // 사업자등록번호 숫자 10자리
+  bizVerified       Boolean      @default(false) @map("is_biz_verified")
+  ownerName         String       @map("owner_name")
+  phone             String?      @map("phone_no")
+  managerId         String?      @map("manager_admin_id") @db.Uuid // 담당 운영 매니저
   /// 실증(파일럿) 묶음 이름 — 예 "대전 1차". null 이면 실증 업장 아님
-  pilotGroup     String?      @map("pilot_group")
+  pilotGroup        String?      @map("pilot_group")
   /// 실증 시작일 — 1~8주 KPI 와 결제 유예(시작일 + 8주 전까지)의 기준
-  pilotStartedAt DateTime?    @map("pilot_start_date") @db.Date
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  pilotStartedAt    DateTime?    @map("pilot_start_date") @db.Date
+  /// 출근 확인 위치 (WGS84) — 둘 다 있어야 위치 확인을 한다. 없으면 위치 확인 없이 출근 허용
+  latitude          Float?       @map("latitude")
+  longitude         Float?       @map("longitude")
+  /// 출근 확인 반경(m) — 50~1000
+  clockRadiusM      Int          @default(150) @map("clock_radius_m")
+  /// 출근 QR 키 번호 — "QR 새로 만들기"로 올리면 예전에 인쇄한 QR 은 더 이상 안 된다
+  clockQrKeyVersion Int          @default(1) @map("clock_qr_key_ver")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   manager        AdminUser?            @relation(fields: [managerId], references: [id], onDelete: SetNull)
   memberships    Membership[]
@@ -222,6 +231,7 @@ model Property {
   ratings        RatingSnapshot[]
   supportNotes   SupportNote[]
   pilotSurvey    PilotSurvey?
+  clockRequests  ClockRequest[]
 
   @@index([pilotGroup])
   @@map("wj_property")
@@ -562,6 +572,8 @@ model Notification {
   text       String           @map("message")
   link       String?          @map("link_url")
   readAt     DateTime?        @map("read_at") @db.Timestamptz
+  /// 이 사람에게만 보낸 알림 (notifyUser — 직원도 본다). false 면 사장님·매니저용 업장 알림
+  personal   Boolean          @default(false) @map("is_personal")
   createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz
 
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
@@ -716,12 +728,13 @@ model Employee {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  property    Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  contracts   LaborContract[]
-  attendances Attendance[]
-  shifts      WorkShift[]
-  payrolls    Payroll[]
+  property      Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contracts     LaborContract[]
+  attendances   Attendance[]
+  shifts        WorkShift[]
+  payrolls      Payroll[]
+  clockRequests ClockRequest[]
 
   @@index([propertyId])
   @@map("wj_employee")
@@ -754,26 +767,76 @@ model LaborContract {
 enum ClockMethod {
   GPS
   QR
+  /// 위치·QR 이 안 돼 사유를 쓰고 요청 → 사장님·매니저가 승인
+  REQUEST
   MANUAL
 
   @@map("wj_clock_method")
 }
 
 model Attendance {
-  id         String      @id @default(uuid()) @db.Uuid
-  employeeId String      @map("employee_id") @db.Uuid
-  workDate   DateTime    @map("work_date") @db.Date
-  clockInAt  DateTime    @map("clock_in_at") @db.Timestamptz
-  clockOutAt DateTime?   @map("clock_out_at") @db.Timestamptz
-  method     ClockMethod @default(GPS) @map("clock_method")
-  editedById String?     @map("edited_by") @db.Uuid
-  editedAt   DateTime?   @map("edited_at") @db.Timestamptz
-  memo       String?
+  id           String       @id @default(uuid()) @db.Uuid
+  employeeId   String       @map("employee_id") @db.Uuid
+  workDate     DateTime     @map("work_date") @db.Date
+  clockInAt    DateTime     @map("clock_in_at") @db.Timestamptz
+  clockOutAt   DateTime?    @map("clock_out_at") @db.Timestamptz
+  method       ClockMethod  @default(GPS) @map("clock_method")
+  /// 퇴근을 어떻게 찍었는지 (퇴근 전이면 null)
+  outMethod    ClockMethod? @map("clock_out_method")
+  /// 위치로 찍었을 때 업장까지 거리(m)
+  inDistanceM  Int?         @map("clock_in_distance_m")
+  outDistanceM Int?         @map("clock_out_distance_m")
+  editedById   String?      @map("edited_by") @db.Uuid
+  editedAt     DateTime?    @map("edited_at") @db.Timestamptz
+  memo         String?
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, workDate])
   @@map("wj_attendance")
+}
+
+enum ClockRequestType {
+  IN
+  OUT
+
+  @@map("wj_clock_request_type")
+}
+
+enum ClockRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("wj_clock_request_status")
+}
+
+/// 출퇴근 요청 — 위치·QR 로 확인이 안 될 때 직원이 사유를 쓰고 보낸다. 승인하면 요청 시각으로 기록
+model ClockRequest {
+  id           String             @id @default(uuid()) @db.Uuid
+  propertyId   String             @map("property_id") @db.Uuid
+  employeeId   String             @map("employee_id") @db.Uuid
+  type         ClockRequestType   @map("request_type")
+  requestedAt  DateTime           @map("requested_at") @db.Timestamptz
+  reason       String
+  latitude     Float?
+  longitude    Float?
+  accuracyM    Int?               @map("accuracy_m")
+  /// 요청할 때 업장까지 거리(m) — 업장 위치와 요청 위치가 모두 있을 때만
+  distanceM    Int?               @map("distance_m")
+  status       ClockRequestStatus @default(PENDING)
+  decidedById  String?            @map("decided_by") @db.Uuid
+  decidedAt    DateTime?          @map("decided_at") @db.Timestamptz
+  rejectReason String?            @map("reject_reason")
+  attendanceId String?            @map("attendance_id") @db.Uuid
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, status, createdAt])
+  @@index([employeeId, createdAt])
+  @@map("wj_clock_request")
 }
 
 enum ShiftType {
@@ -1105,4 +1168,52 @@ model PilotSurvey {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@map("wj_pilot_survey")
+}
+
+// ═══ 앱 푸시 ═════════════════════════════════════════════════
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+
+  @@map("wj_device_platform")
+}
+
+/// 앱 푸시 받을 기기 (FCM 등록 토큰) — 로그인하면 등록, 로그아웃하면 지운다. FCM 이 무효라고 하면 지운다
+model Device {
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
+  platform   DevicePlatform
+  token      String         @unique @map("push_token")
+  appVersion String?        @map("app_version")
+  lastSeenAt DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("wj_device")
+}
+
+/// 앱 → 웹 화면 넘기기 (앱 안 웹뷰에서 무거운 화면 열기) — 1회용 60초 코드. 원문은 저장하지 않는다 (sha256).
+/// 쓰면 usedAt 이 찍히고 다시 못 쓴다. 기록으로 남겨 둔다 (누가 언제 어느 화면으로)
+model WebHandoff {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  codeHash   String    @unique @map("code_hash")
+  /// 넘어간 뒤 열 화면 (/app… 만)
+  path       String
+  /// 웹에서 고를 업장 (내 업장일 때만)
+  propertyId String?   @map("property_id") @db.Uuid
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  usedAt     DateTime? @map("used_at") @db.Timestamptz
+  /// 코드를 만든 앱 쪽 IP · 바꾼 웹 쪽 IP
+  createdIp  String?   @map("created_ip")
+  usedIp     String?   @map("used_ip")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("wj_web_handoff")
 }

@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   Max,
   Min,
   MinLength,
@@ -110,6 +111,66 @@ export class Env {
   @IsOptional()
   @IsString()
   TOSS_SECRET_KEY?: string;
+
+  /**
+   * 앱 푸시 (FCM HTTP v1) — Firebase 서비스 계정 JSON 원문 또는 그 파일 경로.
+   * 비워 두면 푸시를 보내지 않고 로그에만 남긴다.
+   */
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  FCM_SERVICE_ACCOUNT_JSON?: string;
+
+  /**
+   * 출근 QR 서명 키 (32자 이상). 비워 두면 JWT_ACCESS_SECRET 에서 만든 키를 쓴다 —
+   * 그 경우 JWT_ACCESS_SECRET 을 바꾸면 인쇄한 출근 QR 을 모두 새로 뽑아야 한다.
+   */
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  CLOCK_QR_SECRET?: string;
+
+  /** 앱 강제 업데이트 — 이 버전보다 낮으면 앱이 "업데이트해 주세요" 화면을 띄운다 (x.y.z) */
+  @Matches(/^\d+\.\d+\.\d+$/)
+  APP_MIN_VERSION_ANDROID: string = '1.0.0';
+
+  @Matches(/^\d+\.\d+\.\d+$/)
+  APP_MIN_VERSION_IOS: string = '1.0.0';
+
+  /** 최신 버전 (있으면 앱이 "새 버전이 있어요" 를 한 번 알림) */
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @Matches(/^\d+\.\d+\.\d+$/)
+  APP_LATEST_VERSION_ANDROID?: string;
+
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @Matches(/^\d+\.\d+\.\d+$/)
+  APP_LATEST_VERSION_IOS?: string;
+
+  /** 스토어 주소 (업데이트 버튼) */
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  APP_STORE_URL_ANDROID?: string;
+
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  APP_STORE_URL_IOS?: string;
+
+  /** 앱이 여는 웹 주소 (웹뷰·화면 넘기기). 비워 두면 WEB_ORIGIN 의 첫 번째 주소 */
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @IsUrl({ require_tld: false, require_protocol: true })
+  APP_WEB_BASE_URL?: string;
+
+  /** 고객센터 전화 (앱 업데이트·오류 화면) — 비워 두면 앱은 번호를 보이지 않는다 */
+  @Transform(({ value }: { value: unknown }) => (value === '' ? undefined : value))
+  @IsOptional()
+  @Matches(/^[\d-]{8,14}$/)
+  SUPPORT_PHONE?: string;
 }
 
 /** 키가 없어 개발용 가짜로 동작하는 외부 연동 목록 */
@@ -120,6 +181,7 @@ export function fakeIntegrations(env: Env): string[] {
   if (!env.TOSS_SECRET_KEY) fakes.push('정기결제(TOSS_SECRET_KEY)');
   if (!env.NTS_SERVICE_KEY) fakes.push('사업자 상태조회(NTS_SERVICE_KEY)');
   if (!env.ANTHROPIC_API_KEY) fakes.push('AI 답글(ANTHROPIC_API_KEY)');
+  if (!env.FCM_SERVICE_ACCOUNT_JSON) fakes.push('앱 푸시(FCM_SERVICE_ACCOUNT_JSON)');
   return fakes;
 }
 

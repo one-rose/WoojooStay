@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { kstDate } from '../common/utils/dates.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PortfolioService } from './portfolio.service.js';
 
@@ -19,6 +20,7 @@ export class DailySummaryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly portfolio: PortfolioService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   @Cron('0 8 * * *', { timeZone: 'Asia/Seoul' })
@@ -70,15 +72,14 @@ export class DailySummaryService {
       list.length > 1
         ? `아침 요약 ${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일, 업장 ${list.length}곳`
         : `아침 요약 ${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
-    await this.prisma.notification.create({
-      data: {
-        propertyId: list[0].id,
-        userId,
-        kind: 'SUMMARY',
-        text: [head, ...lines].join('\n'),
-        link: list.length > 1 ? '/app/overview' : '/app',
-      },
+    const text = [head, ...lines].join('\n');
+    const link = list.length > 1 ? '/app/overview' : '/app';
+    const n = await this.prisma.notification.create({
+      data: { propertyId: list[0].id, userId, kind: 'SUMMARY', text, link },
+      select: { id: true, userId: true },
     });
+    // 앱 푸시 — 첫 업장의 '아침 요약' 푸시 설정을 따른다 (끈 업장은 위에서 이미 뺐다)
+    await this.notifications.push(list[0].id, 'SUMMARY', text, link, [n]);
     return true;
   }
 }
