@@ -222,7 +222,6 @@
   --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   padding: var(--pm-s8) var(--pm-s6);
   margin-bottom: var(--pm-s4);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
 }
@@ -251,7 +250,6 @@
   --pm-pad: var(--pm-s5);
   --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-bottom: var(--pm-s4);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
 }

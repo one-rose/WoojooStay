@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cx } from "@/shared";
+import { Icon3D } from "../Icon3D/Icon3D";
 import "./stat.css";
 
 interface StatDelta {
@@ -27,6 +28,10 @@ interface StatProps {
   href?: string;
   /** 숫자 대신 글자 값 ("연결 안 됨") — 큰 숫자 크기 대신 15px/600 (D-23) */
   text?: boolean;
+  /** 칸 전체를 버튼으로 (같은 화면 안에서 정렬 · 이동) */
+  onClick?: () => void;
+  /** 오른쪽 위 3D 아이콘 (public/pm-icons/<name>.png, 앱과 같은 Fluent Emoji 3D) */
+  icon?: string;
 }
 
 function formatRate(rate: number) {
@@ -35,12 +40,13 @@ function formatRate(rate: number) {
 }
 
 /** 요약 띠의 한 칸 — 작은 라벨 · 큰 숫자 · 보조 한 줄 */
-export function Stat({ label, value, prefix, suffix, delta, foot, href, text }: StatProps) {
+export function Stat({ label, value, prefix, suffix, delta, foot, href, text, icon, onClick }: StatProps) {
   const showDelta = delta && delta.rate !== null;
   const good = showDelta && (delta.good === "down" ? delta.rate! < 0 : delta.rate! > 0);
   const bad = showDelta && (delta.good === "down" ? delta.rate! > 0 : delta.rate! < 0);
   const body = (
     <>
+      {icon && <Icon3D name={icon} className="pm-stat__icon" />}
       <span className="pm-stat__label">{label}</span>
       <span className={cx("pm-stat__value", text ? "pm-stat__value--text" : "num")}>
         {prefix && <span className="pm-stat__unit">{prefix}</span>}
@@ -64,12 +70,23 @@ export function Stat({ label, value, prefix, suffix, delta, foot, href, text }: 
   );
   if (href) {
     return (
-      <Link href={href} className="pm-stat pm-stat--link">
+      <Link href={href} className={cx("pm-stat pm-stat--link", icon && "pm-stat--icon")}>
         {body}
       </Link>
     );
   }
-  return <div className="pm-stat">{body}</div>;
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={cx("pm-stat pm-stat--link pm-stat--button", icon && "pm-stat--icon")}
+      >
+        {body}
+      </button>
+    );
+  }
+  return <div className={cx("pm-stat", icon && "pm-stat--icon")}>{body}</div>;
 }
 
 /** 요약 띠 — 테두리 있는 패널 하나를 세로선으로 나눈다 */

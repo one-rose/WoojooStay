@@ -32,7 +32,7 @@
 .pm-picker__now strong {
   font-size: 13.5px;
   font-weight: 600;
-  color: oklch(100% 0 0);
+  color: var(--pm-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

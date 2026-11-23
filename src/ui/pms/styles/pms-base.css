@@ -311,7 +311,6 @@ body.pm {
 .pm-skel__strip {
   display: grid;
   grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
 }
@@ -325,7 +324,6 @@ body.pm {
   border-left: 0;
 }
 .pm-skel__panel {
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
 }

@@ -201,12 +201,14 @@ export function ExpensesScreen({
           )}
           <StatRow cols={3}>
             <Stat
+              icon="credit_card"
               label={`${Number(data.month.slice(5))}월 지출`}
               prefix="₩"
               value={formatNumber(total)}
               delta={{ rate, label: isThisMonth && navigable ? "지난달 같은 날보다" : "전월보다", good: "down" }}
             />
             <Stat
+              icon="chart_increasing"
               label="매출 대비 지출"
               value={data.sales ? `${((total / data.sales) * 100).toFixed(1)}%` : "-"}
               foot={

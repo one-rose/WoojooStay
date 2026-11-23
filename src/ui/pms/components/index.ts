@@ -15,3 +15,4 @@ export { ErrorState } from "./ErrorState/ErrorState";
 export { ApplyToDialog } from "./ApplyTo/ApplyToDialog";
 export { ScreenSkeleton } from "./Skeleton/ScreenSkeleton";
 export { NextPayout, wonWords } from "./NextPayout/NextPayout";
+export { Icon3D } from "./Icon3D/Icon3D";

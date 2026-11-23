@@ -17,7 +17,7 @@ import {
   type SwitchPropertyAction,
 } from "@/core";
 import { cx, formatLongDate, formatNumber, formatWon } from "@/shared";
-import { Badge, Icon, NextPayout, PageHead, PmButton, Stat, StatRow, type BadgeTone } from "../../components";
+import { Badge, Icon, Icon3D, NextPayout, PageHead, PmButton, Stat, StatRow, type BadgeTone } from "../../components";
 import "./overview.css";
 
 interface OverviewScreenProps {
@@ -36,15 +36,15 @@ const TYPE_LABEL: Record<PropertyType, string> = {
 };
 
 /** 확인할 일 — 상태 글자 · 색 · 해결 버튼 */
-const ALERT_VIEW: Record<PortfolioAlertKind, { label: string; tone: BadgeTone; action: string }> = {
-  "channel-auth": { label: "연동 끊김", tone: "bad", action: "다시 연결" },
-  "channel-error": { label: "연동 끊김", tone: "bad", action: "연동 확인" },
-  "payment-failed": { label: "결제 실패", tone: "bad", action: "카드 확인" },
-  "low-rated": { label: "낮은 별점", tone: "warn", action: "리뷰 보기" },
-  "no-staff": { label: "근무자 없음", tone: "warn", action: "근무 확인" },
-  "stale-dirty": { label: "청소 지연", tone: "warn", action: "현장 업무" },
-  "missing-clock-out": { label: "퇴근 누락", tone: "warn", action: "근무 기록" },
-  "no-channel": { label: "채널 없음", tone: "neutral", action: "채널 연결" },
+const ALERT_VIEW: Record<PortfolioAlertKind, { label: string; tone: BadgeTone; action: string; icon: string }> = {
+  "channel-auth": { label: "연동 끊김", tone: "bad", action: "다시 연결", icon: "link" },
+  "channel-error": { label: "연동 끊김", tone: "bad", action: "연동 확인", icon: "link" },
+  "payment-failed": { label: "결제 실패", tone: "bad", action: "카드 확인", icon: "credit_card" },
+  "low-rated": { label: "낮은 별점", tone: "warn", action: "리뷰 보기", icon: "star" },
+  "no-staff": { label: "근무자 없음", tone: "warn", action: "근무 확인", icon: "person" },
+  "stale-dirty": { label: "청소 지연", tone: "warn", action: "현장 업무", icon: "broom" },
+  "missing-clock-out": { label: "퇴근 누락", tone: "warn", action: "근무 기록", icon: "hourglass_not_done" },
+  "no-channel": { label: "채널 없음", tone: "neutral", action: "채널 연결", icon: "link" },
 };
 
 /** 할 일은 처음에 이만큼만 (나머지는 펼쳐서) */
@@ -261,7 +261,23 @@ export function OverviewScreen({ data, switchProperty, period = "today" }: Overv
     </button>
   );
 
-  const monthRate = changeRate(totals.month.sales, totals.month.prevToDate);
+  /** 업장 전부 객실 · 근무 합 (요약 칸) */
+  const rooms = data.properties.reduce(
+    (a, p) => ({
+      dirty: a.dirty + p.roomStatus.dirty,
+      cleaning: a.cleaning + p.roomStatus.cleaning,
+      ready: a.ready + p.roomStatus.ready,
+      staleDirty: a.staleDirty + p.roomStatus.staleDirty,
+    }),
+    { dirty: 0, cleaning: 0, ready: 0, staleDirty: 0 },
+  );
+  const onDuty = data.properties.reduce((n, p) => n + p.staff.onDuty, 0);
+  const missingOut = data.properties.reduce((n, p) => n + p.staff.missingClockOut, 0);
+  /** 요약 칸을 누르면 업장별 표를 그 기준으로 정렬하고 표로 내려간다 */
+  const focusList = (key: SortKey) => {
+    setSort({ key, desc: true });
+    document.getElementById("ov-list-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   const total = totals.period ?? {
     sales: period === "yesterday" ? totals.today.yesterdaySales : totals.today.sales,
     bookings: period === "yesterday" ? 0 : totals.today.bookings,
@@ -292,6 +308,55 @@ export function OverviewScreen({ data, switchProperty, period = "today" }: Overv
         </p>
       )}
 
+      {/* V5 요약 — 한눈에: 매출 · 청소할 방 · 지금 근무 · 답글 기다림 (앱 홈과 같은 칸). 누르면 아래 표를 그 순서로 */}
+      <StatRow cols={4} label="전체 업장 요약">
+        <Stat
+          icon="money_bag"
+          label={salesLabel}
+          prefix="₩"
+          value={formatNumber(total.sales)}
+          delta={{ rate: totalRate, label: periodView.prev }}
+          foot={`이번 달 ₩${formatNumber(totals.month.sales)}`}
+          onClick={() => focusList("today")}
+        />
+        <Stat
+          icon="broom"
+          label="청소할 방"
+          value={formatNumber(rooms.dirty + rooms.cleaning)}
+          suffix="실"
+          foot={
+            rooms.staleDirty > 0 ? (
+              <span className="ov-warn">2시간 넘은 방 {rooms.staleDirty}</span>
+            ) : (
+              `바로 입실 가능 ${formatNumber(rooms.ready)}실`
+            )
+          }
+          onClick={() => focusList("rooms")}
+        />
+        <Stat
+          icon="person"
+          label="지금 근무"
+          value={formatNumber(onDuty)}
+          suffix="명"
+          foot={missingOut > 0 ? <span className="ov-warn">퇴근 안 찍음 {missingOut}</span> : "퇴근 누락 없음"}
+          onClick={() => focusList("staff")}
+        />
+        <Stat
+          icon="speech_balloon"
+          label="답글 기다리는 리뷰"
+          value={formatNumber(totals.reviews.unanswered)}
+          suffix="건"
+          foot={
+            totals.reviews.lowRated > 0 ? (
+              <span className="ov-warn">낮은 별점 {totals.reviews.lowRated}</span>
+            ) : (
+              "낮은 별점 없음"
+            )
+          }
+          href="/app/overview/reviews"
+        />
+      </StatRow>
+
       {/* 지금 처리할 일 (S1) — 업장 · 무엇 · 버튼 하나. 해결되면 다음 수집 때 목록에서 빠진다 */}
       <section className="ov-todo" aria-labelledby="ov-todo-title">
         <header className="ov-todo__head">
@@ -316,6 +381,7 @@ export function OverviewScreen({ data, switchProperty, period = "today" }: Overv
               const key = todoKey(p, a);
               return (
                 <li key={key} className={cx("ov-todo__row", `is-${view.tone}`, pendingId === p.id && "is-pending")}>
+                  <Icon3D name={view.icon} size={32} className="ov-todo__icon" />
                   <span className="ov-todo__kind">{view.label}</span>
                   <button type="button" className="ov-todo__name" onClick={() => open(p)}>
                     {p.name}
@@ -371,28 +437,6 @@ export function OverviewScreen({ data, switchProperty, period = "today" }: Overv
         note={`업장 ${data.properties.filter((p) => p.settle7 > 0).length}곳 합계`}
         href={null}
       />
-
-      <StatRow cols={3} label="전체 업장 요약" slim>
-        <Stat
-          label={salesLabel}
-          prefix="₩"
-          value={formatNumber(total.sales)}
-          delta={{ rate: totalRate, label: periodView.prev }}
-          foot={total.bookings > 0 ? `예약 ${formatNumber(total.bookings)}건` : undefined}
-        />
-        <Stat
-          label="이번 달 매출"
-          prefix="₩"
-          value={formatNumber(totals.month.sales)}
-          delta={{ rate: monthRate, label: "지난달 같은 날보다" }}
-        />
-        <Stat
-          label="답글 기다리는 리뷰"
-          value={formatNumber(totals.reviews.unanswered)}
-          suffix="건"
-          foot={totals.reviews.lowRated > 0 ? `별점 3점 이하 ${totals.reviews.lowRated}건` : "낮은 별점 없음"}
-        />
-      </StatRow>
 
       <section className="ov-list" aria-labelledby="ov-list-title">
         <header className="ov-list__head">

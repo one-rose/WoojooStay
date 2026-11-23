@@ -22,7 +22,6 @@
   --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-top: var(--pm-s4);
   background: var(--pm-surface);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   overflow: hidden;
 }

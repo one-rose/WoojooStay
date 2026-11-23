@@ -184,6 +184,7 @@ function MonthView({
 
       <StatRow cols={4}>
         <Stat
+          icon="money_bag"
           label={partial ? "확정 매출" : "총 예약매출"}
           prefix="₩"
           value={formatNumber(data.sales)}
@@ -197,18 +198,21 @@ function MonthView({
           }
         />
         <Stat
+          icon="chart_increasing"
           label="광고비"
           prefix="₩"
           value={formatNumber(data.adSpend)}
           foot={`매출 대비 ${pctOr(ratio(data.adSpend, data.sales))}`}
         />
         <Stat
+          icon="credit_card"
           label="플랫폼 수수료"
           prefix="₩"
           value={formatNumber(data.fees)}
           foot={`평균 수수료율 ${pctOr(ratio(data.fees, data.sales))}`}
         />
         <Stat
+          icon="bank"
           label="14일 안 정산 예정"
           prefix="₩"
           value={formatNumber(data.settleSoon)}

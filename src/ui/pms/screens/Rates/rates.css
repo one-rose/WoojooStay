@@ -102,7 +102,6 @@
   max-height: calc(100dvh - 250px);
   min-height: 360px;
   background: var(--pm-surface);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
 }
 .rt-grid {

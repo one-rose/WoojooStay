@@ -117,7 +117,6 @@
   padding: 18px 16px;
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
-  border: 1px solid var(--pm-line);
 }
 .sm-card h2 {
   margin-bottom: 12px;

@@ -387,6 +387,7 @@ export function StaffScreen({
         <>
           <StatRow cols={3}>
             <Stat
+              icon="person"
               label="지금 근무 중"
               // 출근해서 아직 퇴근 전인 사람만 (어젯밤부터 이어진 야간 포함) — 지각·퇴근 누락은 빼고 센다
               value={data.today.filter((a) => a.status === "working").length}
@@ -394,6 +395,7 @@ export function StaffScreen({
               foot={`오늘 ${data.date.slice(5).replace("-", ".")}`}
             />
             <Stat
+              icon="alarm_clock"
               label="확인 필요"
               value={
                 data.today.filter((a) => a.status === "late").length +
@@ -404,6 +406,7 @@ export function StaffScreen({
               foot={requests.length ? `출퇴근 요청 ${requests.length}건 포함` : "지각, 퇴근 누락"}
             />
             <Stat
+              icon="hourglass_not_done"
               label="이번 달 총 근무"
               value={Object.values(data.monthHours).reduce((s, h) => s + h, 0)}
               suffix="시간"
@@ -770,12 +773,14 @@ export function StaffScreen({
           )}
           <StatRow cols={3}>
             <Stat
+              icon="money_bag"
               label={`${Number(pay.month.slice(5))}월 급여 합계`}
               prefix="₩"
               value={formatNumber(payTotal)}
               foot={`${payRows.length}명`}
             />
             <Stat
+              icon="check_mark_button"
               label="확정"
               value={allConfirmed ? "확정됨" : monthEnded ? "확정 전" : "진행 중"}
               text
@@ -788,6 +793,7 @@ export function StaffScreen({
               }
             />
             <Stat
+              icon="spiral_calendar"
               label="명세서"
               value={`${sentCount} / ${payRows.length}`}
               foot={sentCount ? "문자로 보냄" : allConfirmed ? "아직 보내지 않음" : "확정 전"}

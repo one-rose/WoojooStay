@@ -40,7 +40,6 @@
   --pm-pad: var(--pm-s5);
   --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-top: var(--pm-s4);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
   overflow: hidden;
@@ -121,7 +120,6 @@
   gap: var(--pm-s4);
   margin-top: var(--pm-s4);
   padding: var(--pm-s5);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
 }

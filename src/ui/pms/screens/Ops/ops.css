@@ -149,24 +149,17 @@
   gap: 2px;
   width: 100%;
   min-height: 92px;
-  padding: 10px 8px 9px 12px;
-  border: 1px solid var(--pm-line);
+  padding: 10px 10px 9px 12px;
   border-radius: var(--pm-r-md);
-  background: var(--pm-surface);
+  background: var(--c-bg); /* V5: 칸 전체를 상태 색으로 (앱 객실 현황판과 같다) */
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-}
-/* 왼쪽 상태 막대 — 색 + 아래 글자로 같이 구분 */
-.op-room::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--c);
+  transition: transform 0.12s;
 }
 .op-room:hover {
-  border-color: var(--pm-ink-2);
+  transform: translateY(-1px);
+  box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--c) 35%, transparent);
 }
 .op-room:focus-visible {
   outline: none;
@@ -175,12 +168,12 @@
 .op-room__no {
   font-size: 18px;
   font-weight: 700;
-  color: var(--pm-ink);
+  color: var(--c);
   letter-spacing: -0.01em;
 }
 .op-room__type {
   font-size: 11px;
-  color: var(--pm-muted);
+  color: var(--pm-ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -191,7 +184,7 @@
   margin-top: 6px;
   padding: 2px 7px;
   border-radius: var(--pm-r-sm);
-  background: var(--c-bg);
+  background: var(--pm-surface);
   color: var(--c);
   font-size: 11.5px;
   font-weight: 700;
@@ -221,18 +214,11 @@
   flex: none;
   color: var(--pm-muted);
 }
-/* 손이 가야 하는 객실은 바탕을 살짝 칠해 먼저 눈에 띄게 */
-.op-room.is-dirty {
-  background: color-mix(in srgb, var(--pm-bad-bg) 45%, var(--pm-surface));
-}
 .op-room.is-occupied .op-room__no {
   color: var(--pm-ink-2);
 }
 .op-room.is-outOfOrder {
   background: var(--pm-closed);
-}
-.op-room.is-outOfOrder::before {
-  background: var(--pm-faint);
 }
 .op-room.is-outOfOrder .op-room__status {
   background: var(--pm-surface);

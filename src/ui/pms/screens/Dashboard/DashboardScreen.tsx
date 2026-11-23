@@ -161,6 +161,7 @@ export function DashboardScreen({ data, pendingReviews, hasReplied = true }: Das
 
       <StatRow cols={3} label="오늘 요약">
         <Stat
+          icon="money_bag"
           label="오늘 입실 매출"
           prefix="₩"
           value={formatNumber(data.todaySales.amount)}
@@ -168,6 +169,7 @@ export function DashboardScreen({ data, pendingReviews, hasReplied = true }: Das
           foot={`예약 ${data.todaySales.bookings}건`}
         />
         <Stat
+          icon="speech_balloon"
           label="답글 기다리는 리뷰"
           value={data.unanswered.total}
           suffix="건"
@@ -175,6 +177,7 @@ export function DashboardScreen({ data, pendingReviews, hasReplied = true }: Das
           foot={data.unanswered.lowRating > 0 ? `별점 3점 이하 ${data.unanswered.lowRating}건` : "낮은 별점 없음"}
         />
         <Stat
+          icon="bank"
           label="7일 안 정산 예정"
           prefix="₩"
           value={formatNumber(data.settlementWeek.amount)}

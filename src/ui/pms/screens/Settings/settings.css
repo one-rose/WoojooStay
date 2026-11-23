@@ -56,7 +56,6 @@
   gap: var(--pm-s4);
   flex-wrap: wrap;
   padding: var(--pm-s4) var(--pm-s5);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
   font-size: 14px;

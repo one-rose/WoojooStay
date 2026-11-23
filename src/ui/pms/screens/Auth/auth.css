@@ -445,7 +445,6 @@
   gap: 6px;
   height: 100%;
   padding: var(--pm-s5);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
   cursor: pointer;
@@ -705,7 +704,6 @@
   --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   margin-top: var(--pm-s5);
   padding: var(--pm-s5);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
 }

@@ -268,7 +268,7 @@ export function AppShell({
       >
         <div className="pm-nav__brand">
           <Link href={homeHref} aria-label="우주스테이 홈">
-            <Logo tone="footer" className="pm-nav__logo" />
+            <Logo className="pm-nav__logo" />
           </Link>
           <button type="button" className="pm-nav__close" onClick={() => setOpen(false)} aria-label="메뉴 닫기">
             <Icon name="close" />

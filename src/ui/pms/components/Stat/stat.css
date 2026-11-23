@@ -1,14 +1,11 @@
-/* 요약 띠 — 카드 여러 장 대신 패널 하나를 세로선으로 나눈다 (PMS-DESIGN-V2 §2) */
+/* 요약 칸 — V5: 회색 바탕 위 흰 칸을 나란히 (앱 요약 화면과 같은 모양). 누르면 상세인 칸은 오른쪽 위 꺾쇠 */
 .pm-stats {
   /* 규칙 1: 안쪽 둥근 칸 = 바깥 둥글기 − 여백 */
   --pm-pad: var(--pm-s5);
   --pm-r-md: max(4px, calc(var(--pm-r-lg) - var(--pm-pad)));
   display: grid;
+  gap: 10px;
   margin-bottom: var(--pm-s4);
-  background: var(--pm-surface);
-  border: 1px solid var(--pm-line);
-  border-radius: var(--pm-r-lg);
-  overflow: hidden;
 }
 .pm-stats--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -20,29 +17,55 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .pm-stat {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
-  padding: var(--pm-s4) var(--pm-s5) 18px;
-  /* 칸 사이 선 — 왼쪽·위에 1px 선을 그리고, 패널 가장자리에 닿는 선은 overflow 로 잘린다 */
-  box-shadow:
-    -1px 0 0 var(--pm-line),
-    0 -1px 0 var(--pm-line);
+  padding: 20px 22px 18px;
+  background: var(--pm-surface);
+  border-radius: var(--pm-r-lg);
+}
+.pm-stat--icon {
+  padding-right: 76px;
+}
+.pm-stat__icon {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 48px;
+  height: 48px;
 }
 .pm-stat--link {
   transition: background-color 0.15s;
 }
+.pm-stat--button {
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
 .pm-stat--link:hover {
   background: var(--pm-surface-sunken);
 }
-.pm-stat--link:hover .pm-stat__label {
-  color: var(--pm-ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+/* 누르면 상세 — 오른쪽 위 회색 꺾쇠 (아이콘이 있으면 아이콘 아래) */
+.pm-stat--link::after {
+  content: "";
+  position: absolute;
+  top: 24px;
+  right: 18px;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid var(--pm-faint);
+  border-right: 2px solid var(--pm-faint);
+  transform: rotate(45deg);
+}
+.pm-stat--link.pm-stat--icon::after {
+  top: auto;
+  bottom: 22px;
 }
 .pm-stat__label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--pm-muted);
 }
@@ -76,7 +99,7 @@
   display: flex;
   flex-wrap: wrap;
   column-gap: 10px;
-  font-size: 12.5px;
+  font-size: 14px;
   color: var(--pm-muted);
 }
 .pm-stat__delta {
@@ -95,14 +118,29 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-/* 휴대폰: 2칸씩, 줄 사이 가로선 */
+/* 휴대폰: 2칸씩 */
 @media (max-width: 720px) {
   .pm-stats--3,
   .pm-stats--4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .pm-stats {
+    gap: 8px;
+  }
   .pm-stat {
-    padding: var(--pm-s3) 14px 14px;
+    padding: 14px 14px 14px;
+  }
+  .pm-stat--icon {
+    padding-right: 14px;
+  }
+  .pm-stat__icon {
+    position: static;
+    width: 36px;
+    height: 36px;
+    margin-bottom: 4px;
+  }
+  .pm-stat__label {
+    font-size: 13px;
   }
   .pm-stats--3 .pm-stat:first-child {
     grid-column: 1 / -1;
@@ -121,7 +159,7 @@
   gap: 1px;
 }
 .pm-stats--slim .pm-stat__label {
-  font-size: 12px;
+  font-size: 13px;
 }
 .pm-stats--slim .pm-stat__value {
   font-size: 18px;

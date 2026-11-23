@@ -1,25 +1,26 @@
 /*
- * 우주스테이 앱(PMS) 디자인 토큰
+ * 우주스테이 앱(PMS) 디자인 토큰 — V5: 네이티브 앱과 같은 토스 회색 바탕 · 흰 카드 · 진한 글자 단계 (docs/PMS-DESIGN-V5.md)
  * 랜딩 브랜드(남색 + 주황)를 물려받고, 업무 화면에 맞게 회색 단계·모서리·크기를 정했다.
  * 색을 새로 만들지 말고 아래 토큰만 쓴다. 규칙은 docs/PMS-DESIGN-SYSTEM.md · V2 · V3 (랜딩 브랜드 맛) · docs/PMS-UI-RULES.md (10가지 규칙)
  * 색은 모두 oklch — 눈에 보이는 밝기(L)를 숫자로 맞출 수 있다. 상태 글자색은 L 50%, 상태 바탕은 L 95.5% 로 통일.
  */
 :root {
   /* 면 */
-  --pm-canvas: oklch(97.1% 0.005 78.3); /* 본문 바탕 — 따뜻한 회색 (V3, 랜딩 느낌) */
+  --pm-canvas: oklch(96.6% 0.0034 247.9); /* 본문 바탕 — 토스 회색 (V5, 앱과 같은 값) */
   --pm-surface: oklch(100% 0 0);
-  --pm-surface-sunken: oklch(98.3% 0.003 67.8);
+  --pm-surface-sunken: oklch(98.5% 0.0017 247.8);
   --pm-line: oklch(0% 0 0 / 0.12); /* 구역 나눔 — 그림자 대신 선. 반투명이라 어떤 바탕에도 섞인다 (규칙 2) */
-  --pm-line-soft: oklch(0% 0 0 / 0.07);
+  --pm-line-soft: oklch(0% 0 0 / 0.05);
   --pm-line-strong: oklch(0% 0 0 / 0.2); /* 올렸을 때 · 강조 테두리 */
   --pm-field-line: oklch(0% 0 0 / 0.45); /* 입력칸 테두리 — 반투명이지만 주변과 3:1 이상 (입력칸이 보여야 한다) */
   --pm-mask: oklch(0% 0 0); /* mask-image 의 보이는 부분 */
 
   /* 글자 */
-  --pm-ink: oklch(29% 0.054 261.5);
-  --pm-ink-2: oklch(44.2% 0.035 257.8); /* 본문 */
-  --pm-muted: oklch(52.6% 0.029 263.2); /* 보조 — 흰 바탕 5.4:1 · 캔버스 4.9:1 */
-  --pm-faint: oklch(72.2% 0.015 74.4); /* 선·장식 전용 — 글자에는 --pm-muted */
+  --pm-ink: oklch(23.7% 0.0195 258.4); /* 앱과 같은 글자 단계 (V5) */
+  --pm-ink-2: oklch(35.7% 0.0278 256.8); /* 본문 */
+  --pm-muted: oklch(56.2% 0.0254 254.5); /* 보조 — 흰 바탕 4.7:1 */
+  --pm-subtle: oklch(66.6% 0.0212 252.9); /* 큰 숫자 옆 작은 설명 · 칸 이름 (14px 이상에만) */
+  --pm-faint: oklch(77.9% 0.0156 251.2); /* 선·장식 · 꺾쇠 전용 — 글자에는 --pm-muted */
 
   /* 브랜드 */
   --pm-navy: oklch(29% 0.054 261.5);
@@ -29,9 +30,9 @@
   --pm-orange-ink: oklch(55.3% 0.175 39.6); /* 흰 바탕 위 주황 글자 — 4.5:1 이상 (--pm-orange 는 작은 글자 대비 부족) */
   --pm-tint: oklch(95.8% 0.024 51.2);
   /* 주 동작 버튼은 남색 단색. 주황 면은 대표 버튼(--pm-brand)에만 */
-  --pm-primary: oklch(29% 0.054 261.5);
+  --pm-primary: oklch(23.7% 0.0195 258.4); /* 주 버튼 — 거의 검정 (토스) */
   --pm-on-primary: oklch(100% 0 0);
-  --pm-primary-hover: oklch(36.1% 0.066 261.9);
+  --pm-primary-hover: oklch(35.7% 0.0278 256.8);
   /* 대표 버튼 — 랜딩 CTA 그라데이션. 화면당 하나, 정해진 곳에만 (PMS-DESIGN-V3). 흰 글자 18px 굵게 이상 */
   --pm-brand: linear-gradient(
     135deg in oklch,
@@ -40,15 +41,15 @@
   ); /* 흰 글자 3.4~4.3:1 (큰 글자 3:1 이상) */
   --pm-brand-hover: linear-gradient(135deg in oklch, oklch(62% 0.197 42.8) 0%, oklch(56% 0.2 38.9) 100%);
   /* 구역 제목(패널·카드 제목) — 랜딩 섹션 제목 테라코타 */
-  --pm-section: oklch(51.8% 0.139 35.1);
+  --pm-section: oklch(23.7% 0.0195 258.4); /* V5: 구역 제목도 글자색 그대로 (색 대신 굵기 · 크기) */
 
   /* 사이드바 */
-  --pm-nav-bg: oklch(29% 0.054 261.5);
-  --pm-nav-ink: oklch(90% 0.015 264.5);
-  --pm-nav-muted: oklch(74.6% 0.028 262.3);
-  --pm-nav-hover: oklch(100% 0 0 / 0.06);
-  --pm-nav-scrollbar: oklch(100% 0 0 / 0.18);
-  --pm-nav-active: oklch(100% 0 0 / 0.07); /* 지금 메뉴 — 살짝 밝은 남색 + 왼쪽 주황 2px 막대 */
+  --pm-nav-bg: oklch(100% 0 0); /* V5: 흰 사이드바 (앱 탭바처럼 밝게) */
+  --pm-nav-ink: oklch(35.7% 0.0278 256.8);
+  --pm-nav-muted: oklch(56.2% 0.0254 254.5);
+  --pm-nav-hover: oklch(0% 0 0 / 0.04);
+  --pm-nav-scrollbar: oklch(0% 0 0 / 0.15);
+  --pm-nav-active: oklch(96.6% 0.0034 247.9); /* 지금 메뉴 — 회색 면 + 진한 글자 */
 
   /* 상태 — 글자색 / 바탕색 쌍으로만 쓴다 */
   /* 네 가지 모두 글자 L 50% · 바탕 L 95.5% — 어느 것도 더 튀거나 흐리지 않게 (모든 쌍 5:1 이상) */
@@ -61,7 +62,7 @@
   --pm-bad-bg: oklch(95.5% 0.022 33.5);
   --pm-info: oklch(50% 0.11 263.1);
   --pm-info-bg: oklch(95.5% 0.021 263.1);
-  --pm-neutral-bg: oklch(95.5% 0.008 73.7);
+  --pm-neutral-bg: oklch(96.6% 0.0034 247.9);
 
   /* 표 · 그리드 */
   --pm-dirty: oklch(95.8% 0.024 51.2); /* 저장 전 고친 칸 */
@@ -75,13 +76,13 @@
   --pm-weekend-sun: oklch(57.6% 0.191 30.2);
 
   /* 모양 */
-  --pm-r-lg: 16px; /* 패널 · 표 · 모달 */
-  --pm-r-md: 10px; /* 입력칸 · 상자. 패널 안에서는 패널이 "바깥 − 여백"으로 다시 정한다 (규칙 1, 아래 .pm-nest) */
-  --pm-r-sm: 6px; /* 배지 · 태그 · 그리드 칸 */
+  --pm-r-lg: 20px; /* 카드 · 표 · 모달 (V5 — 앱 18 보다 조금 크게, 넓은 화면) */
+  --pm-r-md: 12px; /* 입력칸 · 상자. 패널 안에서는 패널이 "바깥 − 여백"으로 다시 정한다 (규칙 1, 아래 .pm-nest) */
+  --pm-r-sm: 8px; /* 배지 · 태그 · 그리드 칸 */
   --pm-r-pill: 999px; /* 필터 칩 · 세그먼트 토글 · 스위치 */
-  --pm-r-btn: 999px; /* 버튼은 모두 알약 (랜딩과 같은 모양, V3) */
+  --pm-r-btn: 12px; /* V5: 앱과 같은 둥근 네모 버튼 (작은 버튼 8, .pm-btn--sm) */
   --pm-focus: 0 0 0 2px var(--pm-surface), 0 0 0 4px var(--pm-orange);
-  --pm-disabled-bg: oklch(93.3% 0.008 73.7); /* 누를 수 없는 버튼 — 종류와 상관없이 같은 모양 */
+  --pm-disabled-bg: oklch(93% 0.0052 247.9); /* 누를 수 없는 버튼 — 종류와 상관없이 같은 모양 */
   --pm-disabled-ink: oklch(50% 0.023 264.4); /* 비활성 바탕 위 4.9:1 */
   /* 아이콘 선 굵기 — 옆 글자 굵기에 맞춘다 (규칙 5). 글자 크기(em) 비율이라 글자가 커지면 같이 굵어진다.
      보통 글자 400 → 0.075em, 굵은 글자(600) 안에서는 --pm-stem-bold */
@@ -93,12 +94,12 @@
   --pm-font: var(--font);
 
   /* 글자 크기 */
-  --pm-fs-title: 20px;
-  --pm-fs-h2: 15px;
+  --pm-fs-title: 22px;
+  --pm-fs-h2: 17px;
   --pm-fs-body: 14px;
   --pm-fs-table: 13px;
   --pm-fs-cap: 12px;
-  --pm-fs-kpi: 26px; /* 요약 띠 숫자 */
+  --pm-fs-kpi: 26px; /* 요약 칸 숫자 */
   --pm-fs-kpi-text: 15px; /* 요약 칸에 숫자 대신 글자가 들어갈 때 ("연결 안 됨" 등) */
 
   /* 손가락으로 누르는 것의 최소 크기 (pointer: coarse) */

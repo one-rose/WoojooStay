@@ -369,6 +369,7 @@ export function ReportScreen({ report, thisMonth, switchProperty, period = "mont
         {periodSwitch}
         <StatRow cols={3} label={`${view.label} 합계`}>
           <Stat
+            icon="money_bag"
             label={`${view.label} 입실 매출`}
             prefix="₩"
             value={formatNumber(total)}
@@ -376,6 +377,7 @@ export function ReportScreen({ report, thisMonth, switchProperty, period = "mont
           />
           <Stat label="예약" value={formatNumber(list.reduce((s, r) => s + r.ps.bookings, 0))} suffix="건" />
           <Stat
+            icon="speech_balloon"
             label="답글 기다리는 리뷰"
             value={formatNumber(snapshot.totals.reviews.unanswered)}
             suffix="건"

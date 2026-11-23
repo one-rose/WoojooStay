@@ -10,7 +10,6 @@
   padding: var(--pm-s8) var(--pm-s6);
   text-align: center;
   background: var(--pm-surface);
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
 }
 .pm-errstate--full {

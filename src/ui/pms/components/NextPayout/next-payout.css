@@ -10,7 +10,6 @@
   row-gap: 2px;
   margin-bottom: var(--pm-s4);
   padding: 10px 16px;
-  border: 1px solid var(--pm-line);
   border-radius: var(--pm-r-lg);
   background: var(--pm-surface);
   font-size: 13.5px;
